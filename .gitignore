@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+server/certs/*.key
+server/certs/*.crt
+server/certs/*.pem
+!server/certs/README.md

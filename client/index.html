@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Concept Shop Control</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+
+  <div id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <h1>Concept Shop Control</h1>
+      <p>Sign in with your employee login to continue.</p>
+      <div class="login-error" id="loginError"></div>
+      <label>Username <input id="loginUsername" autocomplete="username" required /></label>
+      <label>Password <input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+      <button type="submit" id="loginSubmitBtn">Log In</button>
+      <button type="button" class="link-button" id="showForgotPasswordBtn">Forgot password?</button>
+    </form>
+
+    <form class="login-card secondary-login-card" id="forgotPasswordForm" style="display:none;">
+      <h1>Reset Password</h1>
+      <p>Enter your username or email. If the account exists, a reset link will be emailed.</p>
+      <div class="login-error" id="forgotPasswordMessage"></div>
+      <label>Username or Email <input id="forgotIdentifier" autocomplete="username" /></label>
+      <button type="submit" id="forgotPasswordSubmitBtn">Send Reset Link</button>
+      <button type="button" class="link-button" id="backToLoginBtn">Back to login</button>
+    </form>
+
+    <form class="login-card secondary-login-card" id="resetPasswordForm" style="display:none;">
+      <h1>Create New Password</h1>
+      <p>Enter a new password for your account.</p>
+      <div class="login-error" id="resetPasswordMessage"></div>
+      <label>New Password <input id="newResetPassword" type="password" autocomplete="new-password" minlength="8" /></label>
+      <label>Confirm Password <input id="confirmResetPassword" type="password" autocomplete="new-password" minlength="8" /></label>
+      <button type="submit" id="resetPasswordSubmitBtn">Reset Password</button>
+      <button type="button" class="link-button" id="cancelResetPasswordBtn">Back to login</button>
+    </form>
+  </div>
+
+  <div id="appRoot">
+  <header class="app-header">
+    <div>
+      <h1>Concept Shop Control</h1>
+      <p>Daily GO List • Parts • QC • Booth Filters • Facility • Employees</p>
+    </div>
+    <div class="header-actions">
+      <span class="session-info" id="sessionInfo"></span>
+      <button id="refreshBtn">Refresh Data</button>
+      <button id="exportAllBtn">Export Backup</button>
+      <button id="logoutBtn" class="danger">Log Out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="daily">Daily GO List</button>
+    <button class="tab" data-tab="tasks">Tasks</button>
+    <button class="tab" data-tab="parts">Parts</button>
+    <button class="tab" data-tab="qc">Vehicle QC</button>
+    <button class="tab" data-tab="booth">Booth Filters</button>
+    <button class="tab" data-tab="facility">Facility Checklist</button>
+    <button class="tab" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
+    <button class="tab" data-tab="photos">Photos</button>
+    <button class="tab" data-tab="activity">Activity Log</button>
+    <button class="tab" data-tab="cccImport">CCC Import</button>
+  </nav>
+
+  <main>
+    <section id="daily" class="tab-panel">
+      <div class="section-head">
+        <h2>Daily GO List</h2>
+        <p>Every vehicle needs a stage, a goal, and a person.</p>
+      </div>
+
+      <form id="dailyForm" class="card form-grid">
+        <input type="hidden" id="dailyId" />
+        <input type="hidden" id="createdAt" />
+        <input type="hidden" id="updatedAt" />
+        <input type="hidden" id="deliveredAt" />
+        <div class="wide timestamp-box" id="dailyTimestampBox">System timestamps will appear here after saving.</div>
+        <label>RO Number <input id="roNumber" required /></label>
+        <label>Customer Name <input id="customerName" required /></label>
+        <label>Vehicle <input id="vehicle" required placeholder="2022 Honda Accord" /></label>
+        <label>Location
+          <select id="location">
+            <option>Ceres</option><option>Modesto</option><option>Commercial</option><option>Off-Site</option><option>Sublet</option>
+          </select>
+        </label>
+        <label>Current Stage
+          <select id="currentStage">
+            <option>Check-In</option><option>Tear Down</option><option>Waiting on Supplement</option><option>Waiting on Parts</option>
+            <option>Body</option><option>Prep</option><option>Paint</option><option>Assembly</option><option>Detail</option>
+            <option>QC</option><option>Ready for Delivery</option><option>Delivered</option><option>Total Loss</option><option>On Hold</option>
+          </select>
+        </label>
+        <label>Priority
+          <select id="priority">
+            <option>Must Move Today</option><option>Delivery Today</option><option>High</option><option>Normal</option><option>Waiting</option><option>On Hold</option>
+          </select>
+        </label>
+        <label>Assigned To <input id="assignedTo" placeholder="Name" /></label>
+        <label>Department Responsible
+          <select id="departmentResponsible">
+            <option>Office</option><option>Estimator</option><option>Parts</option><option>Body</option><option>Prep</option><option>Paint</option>
+            <option>Assembly</option><option>Detail</option><option>QC</option><option>Management</option><option>Sublet</option>
+          </select>
+        </label>
+        <label>Hold-Up Reason
+          <select id="holdUpReason">
+            <option>None</option><option>Parts</option><option>Insurance</option><option>Supplement</option><option>Customer</option>
+            <option>Sublet</option><option>Authorization</option><option>Payment</option><option>Management Decision</option>
+            <option>Quality Issue</option><option>Other</option>
+          </select>
+        </label>
+        <label>Target Delivery Date <input id="targetDeliveryDate" type="date" /></label>
+        <label>Actual Delivered Date <input id="actualDeliveredDate" type="date" /></label>
+        <label>Customer Updated Today
+          <select id="customerUpdatedToday"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Estimate Needed
+          <select id="estimateNeeded"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Estimate Completed
+          <select id="estimateCompleted"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Supplement Needed
+          <select id="supplementNeeded"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Supplement Submitted
+          <select id="supplementSubmitted"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Supplement Approved
+          <select id="supplementApproved"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Supplement Completed
+          <select id="supplementCompleted"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Needs Management Help
+          <select id="needsManagementHelp"><option>No</option><option>Yes</option></select>
+        </label>
+        <label class="wide">Today’s Goal <textarea id="todaysGoal" required placeholder="What needs to happen today?"></textarea></label>
+        <label class="wide">Management Issue <textarea id="managementIssue" placeholder="What decision/help is needed?"></textarea></label>
+        <label>End of Day Status
+          <select id="endOfDayStatus">
+            <option></option><option>Completed Today’s Goal</option><option>Partially Completed</option><option>Not Completed</option>
+            <option>Still Waiting</option><option>Moved to Tomorrow</option>
+          </select>
+        </label>
+        <label class="wide">End of Day Notes <textarea id="endOfDayNotes"></textarea></label>
+        <div class="wide form-actions">
+          <button type="submit">Save Vehicle</button>
+          <button type="button" id="resetDailyBtn">New / Clear</button>
+        </div>
+      </form>
+
+      <div class="toolbar">
+        <input id="dailySearch" placeholder="Search RO, customer, vehicle..." />
+        <select id="dailyView">
+          <option value="all">All Active</option>
+          <option value="must">Must Move Today</option>
+          <option value="delivery">Delivery Today</option>
+          <option value="parts">Waiting on Parts</option>
+          <option value="insurance">Waiting on Insurance/Supplement</option>
+          <option value="paint">Paint Queue</option>
+          <option value="estimates">Estimates Needed</option>
+          <option value="supplements">Supplements Needed</option>
+          <option value="management">Needs Management Help</option>
+          <option value="customerUpdate">Customer Updates Needed</option>
+          <option value="stale">Cars Sitting Too Long</option>
+          <option value="deliveryNotReady">Deliveries Today Not Ready</option>
+          <option value="supplementNotApproved">Supplements Not Approved</option>
+          <option value="deliveredToday">Delivered Today</option>
+          <option value="delivered">Delivered / Closed</option>
+        </select>
+        <button id="exportDailyBtn">Export Daily CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="dailyTable">
+          <thead>
+            <tr>
+              <th>RO</th><th>Customer</th><th>Vehicle</th><th>Stage</th><th>Priority</th><th>Goal</th><th>Assigned</th><th>Hold-Up</th><th>Estimate/Supp</th><th>Delivery</th><th>Updated</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tasks" class="tab-panel">
+      <div class="section-head">
+        <h2>Task Accountability</h2>
+        <p>If it cannot be done today, management needs to know before the end of the day.</p>
+      </div>
+
+      <form id="taskForm" class="card form-grid">
+        <input type="hidden" id="taskId" />
+        <label class="wide">Task <input id="taskName" required placeholder="Change booth filters, call customer, order parts..." /></label>
+        <label>Assigned To <input id="taskAssignedTo" required /></label>
+        <label>Assigned By <input id="taskAssignedBy" placeholder="Josh / Manager" /></label>
+        <label>Due Date <input id="taskDueDate" type="date" /></label>
+        <label>Priority <select id="taskPriority"><option>High</option><option>Normal</option><option>Low</option></select></label>
+        <label>Status <select id="taskStatus"><option>Not Started</option><option>In Progress</option><option>Waiting</option><option>Completed</option></select></label>
+        <label>Waiting On <select id="taskWaitingOn"><option>None</option><option>Parts</option><option>Customer</option><option>Vendor</option><option>Management</option><option>Other</option></select></label>
+        <label>Management Notified if Delayed <select id="taskManagementNotified"><option>No</option><option>Yes</option></select></label>
+        <label class="wide">Notes <textarea id="taskNotes"></textarea></label>
+        <div class="wide form-actions">
+          <button type="submit">Save Task</button>
+          <button type="button" id="resetTaskBtn">New / Clear</button>
+        </div>
+      </form>
+
+      <div class="toolbar">
+        <input id="taskSearch" placeholder="Search tasks..." />
+        <select id="taskView">
+          <option value="all">All Open</option>
+          <option value="today">Due Today</option>
+          <option value="overdue">Overdue</option>
+          <option value="waiting">Waiting</option>
+          <option value="completed">Completed</option>
+        </select>
+        <button id="exportTasksBtn">Export Tasks CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="taskTable">
+          <thead><tr><th>Task</th><th>Assigned To</th><th>Due</th><th>Priority</th><th>Status</th><th>Waiting On</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <section id="parts" class="tab-panel">
+      <div class="section-head">
+        <h2>Parts Department</h2>
+        <p>Parts need to be ordered, received, mirror matched, returned, credited, and followed up on with urgency.</p>
+      </div>
+
+      <form id="partsForm" class="card form-grid">
+        <input type="hidden" id="partsId" />
+        <label>RO Number <input id="partsRoNumber" required /></label>
+        <label>Customer Name <input id="partsCustomerName" /></label>
+        <label>Vehicle <input id="partsVehicle" placeholder="2022 Honda Accord" /></label>
+        <label>Part Description <input id="partDescription" required placeholder="LH headlamp, rear bumper, tail lamp..." /></label>
+        <label>Part Type
+          <select id="partType">
+            <option>OEM</option><option>Aftermarket</option><option>Used</option><option>Reconditioned</option><option>Sublet</option><option>Material</option><option>Other</option>
+          </select>
+        </label>
+        <label>Vendor <input id="partVendor" placeholder="Dealer, LKQ, Keystone, etc." /></label>
+        <label>Part Status
+          <select id="partStatus">
+            <option>Need to Order</option><option>Ordered</option><option>Backordered</option><option>Received</option><option>Mirror Matched</option><option>Wrong Part</option><option>Return Needed</option><option>Returned</option><option>Credit Pending</option><option>Complete</option>
+          </select>
+        </label>
+        <label>Priority
+          <select id="partPriority">
+            <option>High</option><option>Normal</option><option>Low</option>
+          </select>
+        </label>
+        <label>Ordered Date <input id="partOrderedDate" type="date" /></label>
+        <label>ETA <input id="partEta" type="date" /></label>
+        <label>Received Date <input id="partReceivedDate" type="date" /></label>
+        <label>Mirror Matched?
+          <select id="partMirrorMatched"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Return Needed?
+          <select id="partReturnNeeded"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Credit Needed?
+          <select id="partCreditNeeded"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Assigned To <input id="partAssignedTo" placeholder="Parts person" /></label>
+        <label>Last Follow-Up Date <input id="partLastFollowUp" type="date" /></label>
+        <label class="wide">Notes <textarea id="partNotes" placeholder="ETA notes, vendor notes, wrong part info, return/credit notes..."></textarea></label>
+        <div class="wide form-actions">
+          <button type="submit">Save Part</button>
+          <button type="button" id="resetPartsBtn">New / Clear</button>
+        </div>
+      </form>
+
+      <div class="toolbar">
+        <input id="partsSearch" placeholder="Search RO, customer, vehicle, part..." />
+        <select id="partsView">
+          <option value="all">All Open Parts</option>
+          <option value="needOrder">Need to Order</option>
+          <option value="ordered">Ordered / Waiting</option>
+          <option value="backordered">Backordered</option>
+          <option value="received">Received</option>
+          <option value="mirror">Need Mirror Match</option>
+          <option value="returns">Returns / Credits</option>
+          <option value="problems">Parts Problems</option>
+          <option value="complete">Complete</option>
+        </select>
+        <button id="exportPartsBtn">Export Parts CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="partsTable">
+          <thead>
+            <tr>
+              <th>RO</th><th>Customer</th><th>Vehicle</th><th>Total Parts</th><th>Open</th><th>Need Order</th><th>Waiting</th><th>Mirror Match</th><th>Returns/Credits</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+
+
+    <section id="qc" class="tab-panel">
+      <div class="section-head">
+        <h2>Vehicle QC</h2>
+        <p>No vehicle should be delivered until final QC is complete, documented, and approved.</p>
+      </div>
+
+      <form id="qcForm" class="card form-grid">
+        <input type="hidden" id="qcId" />
+        <label>RO Number <input id="qcRoNumber" required /></label>
+        <label>Customer Name <input id="qcCustomerName" /></label>
+        <label>Vehicle <input id="qcVehicle" placeholder="2022 Honda Accord" /></label>
+        <label>QC Date <input id="qcDate" type="date" required /></label>
+        <label>QC Performed By <input id="qcPerformedBy" required /></label>
+        <label>Final Status
+          <select id="qcFinalStatus">
+            <option>Open</option><option>Passed</option><option>Failed</option><option>Needs Rework</option><option>Ready for Delivery</option>
+          </select>
+        </label>
+
+        <label>Body Work Checked
+          <select id="qcBodyWork"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Paint Quality Checked
+          <select id="qcPaintQuality"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Color Match Checked
+          <select id="qcColorMatch"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Panel Alignment Checked
+          <select id="qcPanelAlignment"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Lights / Electrical Checked
+          <select id="qcElectrical"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>ADAS / Calibration Checked
+          <select id="qcCalibration"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Interior Clean / Protected
+          <select id="qcInterior"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Exterior Detail Complete
+          <select id="qcExterior"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Warning Lights Checked
+          <select id="qcWarningLights"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Test Drive Needed
+          <select id="qcTestDriveNeeded"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Test Drive Completed
+          <select id="qcTestDriveCompleted"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+        <label>Customer Items / Old Parts Checked
+          <select id="qcCustomerItems"><option>No</option><option>Yes</option><option>N/A</option></select>
+        </label>
+
+        <label>Rework Needed?
+          <select id="qcReworkNeeded"><option>No</option><option>Yes</option></select>
+        </label>
+        <label>Rework Assigned To <input id="qcReworkAssignedTo" /></label>
+        <label>Rework Due Date <input id="qcReworkDueDate" type="date" /></label>
+        <label>Customer Called?
+          <select id="qcCustomerCalled"><option>No</option><option>Yes</option></select>
+        </label>
+
+        <label class="wide">QC Issues / Rework Notes <textarea id="qcIssues" placeholder="List anything that failed QC or needs to be fixed before delivery."></textarea></label>
+        <label class="wide">Delivery Notes <textarea id="qcDeliveryNotes" placeholder="Final notes before customer pickup."></textarea></label>
+
+        <div class="wide form-actions">
+          <button type="submit">Save QC</button>
+          <button type="button" id="resetQcBtn">New / Clear</button>
+        </div>
+      </form>
+
+      <div class="toolbar">
+        <input id="qcSearch" placeholder="Search RO, customer, vehicle..." />
+        <select id="qcView">
+          <option value="all">All QC Records</option>
+          <option value="open">QC Open</option>
+          <option value="failed">Failed / Needs Rework</option>
+          <option value="ready">Ready for Delivery</option>
+          <option value="passed">Passed</option>
+        </select>
+        <button id="exportQcBtn">Export QC CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="qcTable">
+          <thead>
+            <tr>
+              <th>RO</th><th>Customer</th><th>Vehicle</th><th>QC Date</th><th>Performed By</th><th>Status</th><th>Rework</th><th>Assigned</th><th>Customer Called</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <section id="booth" class="tab-panel">
+      <div class="section-head">
+        <h2>Paint Booth Filter Log</h2>
+        <p><strong>Painter owns the booth. Cleanup helper assists. Management verifies.</strong></p>
+      </div>
+      <form id="boothForm" class="card form-grid">
+        <input type="hidden" id="boothId" />
+        <label>Inspection Date <input id="boothDate" type="date" required /></label>
+        <label>Painter / Paint Lead <input id="boothPainter" required /></label>
+        <label>Intake Filters <select id="intakeFilters"><option>Good</option><option>Needs Changed</option></select></label>
+        <label>Exhaust Filters <select id="exhaustFilters"><option>Good</option><option>Needs Changed</option></select></label>
+        <label>Rear Equipment Filters <select id="rearFilters"><option>Good</option><option>Needs Changed</option></select></label>
+        <label>Filters Changed Today <select id="filtersChanged"><option>No</option><option>Yes</option></select></label>
+        <label>Picture Taken/Sent <select id="pictureSent"><option>No</option><option>Yes</option></select></label>
+        <label>Cleanup Helper Assisted <select id="helperAssisted"><option>No</option><option>Yes</option></select></label>
+        <label>Management Verified <select id="managementVerified"><option>No</option><option>Yes</option></select></label>
+        <label class="wide">Notes <textarea id="boothNotes"></textarea></label>
+        <div class="wide form-actions">
+          <button type="submit">Save Booth Inspection</button>
+          <button type="button" id="resetBoothBtn">New / Clear</button>
+        </div>
+      </form>
+      <div class="toolbar"><button id="exportBoothBtn">Export Booth CSV</button></div>
+      <div class="table-wrap">
+        <table id="boothTable">
+          <thead><tr><th>Date</th><th>Painter</th><th>Intake</th><th>Exhaust</th><th>Rear</th><th>Changed</th><th>Picture</th><th>Verified</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="facility" class="tab-panel">
+      <div class="section-head">
+        <h2>Weekly Facility Checklist</h2>
+        <p>Mark any issue as Needs Attention and create a task if needed.</p>
+      </div>
+      <form id="facilityForm" class="card form-grid">
+        <input type="hidden" id="facilityId" />
+        <label>Week Of <input id="facilityWeek" type="date" required /></label>
+        <label>Area
+          <select id="facilityArea"><option>Paint Booth</option><option>Compressor and Air System</option><option>Shop Equipment</option><option>Shop Appearance</option><option>Safety</option></select>
+        </label>
+        <label class="wide">Item Checked <input id="facilityItem" required placeholder="Fire extinguishers accessible, filters inspected, floors swept..." /></label>
+        <label>Status <select id="facilityStatus"><option>Good</option><option>Needs Attention</option></select></label>
+        <label>Completed By <input id="facilityCompletedBy" /></label>
+        <label>Management Verified <select id="facilityVerified"><option>No</option><option>Yes</option></select></label>
+        <label class="wide">Notes <textarea id="facilityNotes"></textarea></label>
+        <div class="wide form-actions">
+          <button type="submit">Save Checklist Item</button>
+          <button type="button" id="resetFacilityBtn">New / Clear</button>
+        </div>
+      </form>
+      <div class="toolbar"><button id="loadDefaultChecklistBtn">Load Default Weekly Checklist</button><button id="exportFacilityBtn">Export Facility CSV</button></div>
+      <div class="table-wrap">
+        <table id="facilityTable">
+          <thead><tr><th>Week</th><th>Area</th><th>Item</th><th>Status</th><th>Completed By</th><th>Verified</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="dashboard" class="tab-panel active">
+      <div class="section-head">
+        <h2>Dashboard</h2>
+        <p>Quick view of what needs attention. Click any number card to jump to that section.</p>
+      </div>
+      <div class="booth-countdown-card" id="boothCountdownCard">
+        <div>
+          <h3>Booth Filter Countdown</h3>
+          <p id="boothCountdownSubtext">No filter change has been recorded yet.</p>
+        </div>
+        <div class="booth-countdown-number">
+          <span id="boothCountdownDays">--</span>
+          <label id="boothCountdownLabel">Days left</label>
+        </div>
+        <div class="booth-countdown-actions">
+          <button type="button" id="resetBoothCountdownBtn">Reset Filter Countdown</button>
+          <button type="button" id="openBoothLogBtn">Open Booth Log</button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="metric clickable" data-open-tab="daily" data-set-view="dailyView:all"><span id="metricActiveJobs">0</span><label>Active Jobs</label></div>
+        <div class="metric clickable" data-open-tab="daily" data-set-view="dailyView:must"><span id="metricMustMove">0</span><label>Must Move Today</label></div>
+        <div class="metric clickable" data-open-tab="daily" data-set-view="dailyView:delivery"><span id="metricDelivery">0</span><label>Delivery Today</label></div>
+        <div class="metric good clickable" data-open-tab="daily" data-set-view="dailyView:deliveredToday"><span id="metricDeliveredToday">0</span><label>Delivered Today</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:estimates"><span id="metricEstimatesNeeded">0</span><label>Estimates Needed</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:supplements"><span id="metricSupplementsNeeded">0</span><label>Supplements Needed</label></div>
+        <div class="metric important clickable" data-open-tab="daily" data-set-view="dailyView:management"><span id="metricManagement">0</span><label>Needs Management Help</label></div>
+        <div class="metric warning clickable" data-open-tab="parts" data-set-view="partsView:problems"><span id="metricPartsProblems">0</span><label>Parts Problems</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="parts" data-set-view="partsView:returns"><span id="metricPartsReturns">0</span><label>Parts Need Returned</label></div>
+        <div class="metric clickable" data-open-tab="tasks" data-set-view="taskView:all"><span id="metricOpenTasks">0</span><label>Open Tasks</label></div>
+        <div class="metric important clickable" data-open-tab="qc" data-set-view="qcView:open"><span id="metricQcOpen">0</span><label>QC Open</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="qc" data-set-view="qcView:failed"><span id="metricQcFailed">0</span><label>QC Failed</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="tasks" data-set-view="taskView:overdue"><span id="metricOverdueTasks">0</span><label>Overdue Tasks</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="booth"><span id="metricBoothIssues">0</span><label>Booth Filter Issues</label></div>
+        <div class="metric warning clickable" data-open-tab="facility"><span id="metricFacilityIssues">0</span><label>Facility Issues</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:customerUpdate"><span id="metricCustomerUpdates">0</span><label>Customer Updates Needed</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:stale"><span id="metricStaleCars">0</span><label>Cars Sitting Too Long</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:deliveryNotReady"><span id="metricDeliveryNotReady">0</span><label>Deliveries Not Ready</label></div>
+        <div class="metric warning clickable" data-open-tab="daily" data-set-view="dailyView:supplementNotApproved"><span id="metricSuppNotApproved">0</span><label>Supplements Not Approved</label></div>
+        <div class="metric warning clickable" data-open-tab="parts" data-set-view="partsView:mirror"><span id="metricPartsNeedMirror">0</span><label>Parts Need Mirror Match</label></div>
+      </div>
+
+      <div class="card">
+        <h3>Shop Standard</h3>
+        <p class="standard">If I ask for something to be done, I should not have to ask twice. If it cannot be done, I need to know before the day is over.</p>
+      </div>
+    </section>
+
+    <section id="employees" class="tab-panel">
+      <div class="section-head">
+        <h2>Manage Employees</h2>
+        <p>Only admins can see this tab. Create logins, assign roles, and control who can delete records.</p>
+      </div>
+
+      <form id="employeeForm" class="card form-grid">
+        <label>Full Name <input id="empFullName" required /></label>
+        <label>Username <input id="empUsername" required autocomplete="off" /></label>
+        <label>Email <input id="empEmail" type="email" placeholder="Used for self password reset" /></label>
+        <label>Temporary Password <input id="empPassword" type="text" required minlength="8" placeholder="At least 8 characters" /></label>
+        <label>Role
+          <select id="empRole">
+            <option value="employee" selected>Employee</option>
+            <option value="admin">Admin / Owner</option>
+            <option value="owner">Owner</option>
+            <option value="manager">Manager</option>
+            <option value="office">Office</option>
+            <option value="estimator">Estimator</option>
+            <option value="parts">Parts</option>
+            <option value="paint">Paint</option>
+            <option value="body">Body</option>
+            <option value="qc">QC / Detail</option>
+            <option value="cleanup">Cleanup Helper</option>
+          </select>
+        </label>
+        <label class="checkbox-label"><input type="checkbox" id="empCanDelete" checked /> Can delete records</label>
+        <div class="wide form-actions">
+          <button type="submit">Add Employee</button>
+        </div>
+      </form>
+
+      <div class="table-wrap">
+        <table id="employeesTable">
+          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Can Delete</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="photos" class="tab-panel">
+      <div class="section-head">
+        <h2>Photos / Attachments</h2>
+        <p>Upload QC photos, booth filter pictures, parts return photos, PDFs, or other proof tied to a record.</p>
+      </div>
+
+      <form id="uploadForm" class="card form-grid">
+        <label>Section
+          <select id="uploadResource">
+            <option value="daily">Daily GO List</option>
+            <option value="tasks">Tasks</option>
+            <option value="parts">Parts</option>
+            <option value="qc">Vehicle QC</option>
+            <option value="booth">Booth Filters</option>
+            <option value="facility">Facility Checklist</option>
+          </select>
+        </label>
+        <label class="wide">Record
+          <select id="uploadRecordId"></select>
+        </label>
+        <label class="wide">Photo / File
+          <input id="uploadFile" type="file" accept="image/*,.pdf" />
+        </label>
+        <label class="wide">Note
+          <textarea id="uploadNote" placeholder="Example: booth filter photo after replacement, QC issue photo, returned bumper photo"></textarea>
+        </label>
+        <div class="wide form-actions">
+          <button type="submit">Upload File</button>
+          <button type="button" id="refreshUploadsBtn">Refresh Uploads</button>
+        </div>
+      </form>
+
+      <div class="table-wrap">
+        <table id="uploadsTable">
+          <thead>
+            <tr><th>Date</th><th>Section</th><th>Record</th><th>File</th><th>Note</th><th>Uploaded By</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="activity" class="tab-panel">
+      <div class="section-head">
+        <h2>Activity Log</h2>
+        <p>See who added, changed, deleted, or uploaded items.</p>
+      </div>
+      <div class="toolbar">
+        <button id="refreshActivityBtn">Refresh Activity</button>
+      </div>
+      <div class="table-wrap">
+        <table id="activityTable">
+          <thead>
+            <tr><th>Date / Time</th><th>User</th><th>Section</th><th>Action</th><th>Summary</th><th>Changes</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <section id="cccImport" class="tab-panel">
+      <div class="section-head">
+        <h2>CCC EMS Import</h2>
+        <p>Upload the full CCC EMS output set when possible. The importer will create or update the Daily GO List and can also create Parts records from CCC line items.</p>
+      </div>
+
+      <form id="cccImportForm" class="card form-grid">
+        <label class="wide">CCC EMS File
+          <input id="cccImportFile" type="file" accept=".ad1,.ad2,.ad3,.dbf,.txt,.ems,.env,.veh,.lin,.ttl,.stl,.ven,.pfh,.pfl,.pfm,.pfo,.pfp,.pft,.dbt" multiple />
+        </label>
+        <div class="wide form-actions">
+          <button type="submit">Import CCC EMS File</button>
+        </div>
+        <div class="wide import-help">
+          Best results: select the full CCC EMS output set together, including ENV, AD1, AD2, VEH, TTL, STL, LIN, and any profile/vendor files.
+        </div>
+      </form>
+
+      <div class="card">
+        <h3>Last Import Result</h3>
+        <div id="cccImportResult">No import has been run yet.</div>
+      </div>
+    </section>
+
+  </main>
+  </div>
+
+  <div class="modal-backdrop" id="partsModal" style="display:none;">
+    <div class="modal-card parts-modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="partsModalTitle">Vehicle Parts</h2>
+          <p id="partsModalSub"></p>
+        </div>
+        <button type="button" id="closePartsModalBtn">Close</button>
+      </div>
+      <div class="table-wrap">
+        <table id="partsDetailTable">
+          <thead>
+            <tr><th>Part</th><th>Type</th><th>Vendor</th><th>Status</th><th>ETA</th><th>Mirror</th><th>Return/Credit</th><th>Assigned</th><th>Actions</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-banner" id="statusBanner"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
