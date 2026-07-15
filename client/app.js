@@ -647,18 +647,24 @@ function renderParts() {
   `).join("");
 }
 
-function openPartsGroup(encodedKey) {
-  const key = decodeURIComponent(encodedKey);
-  const rows = store.get("parts").filter(r => partGroupKey(r) === key);
-  if (!rows.length) return;
-  const first = rows[0];
+let currentPartsGroupKey = null;
+let selectedPartIds = new Set();
 
-  $("partsModalTitle").textContent = `${first.partsRoNumber || ""} • ${first.partsCustomerName || ""}`;
-  $("partsModalSub").textContent = first.partsVehicle || "";
+function currentPartsGroupRows() {
+  if (!currentPartsGroupKey) return [];
+  return store.get("parts").filter(r => partGroupKey(r) === currentPartsGroupKey);
+}
+
+function onPartCheckboxChange(id, checked) {
+  if (checked) selectedPartIds.add(id); else selectedPartIds.delete(id);
+}
+
+function renderPartsDetailRows(rows) {
   $("partsDetailTable").querySelector("tbody").innerHTML = rows.map(r => {
     const returnCredit = (r.partReturnNeeded === "Yes" ? "Return " : "") + (r.partCreditNeeded === "Yes" ? "Credit" : "");
     const etaLate = r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus);
     return `<tr>
+      <td><input type="checkbox" ${selectedPartIds.has(r.id) ? "checked" : ""} onchange="onPartCheckboxChange('${r.id}', this.checked)"></td>
       <td>${r.partDescription || ""}</td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
@@ -670,12 +676,66 @@ function openPartsGroup(encodedKey) {
       <td><div class="actions"><button onclick="editParts('${r.id}')">Edit</button>${deleteBtn('parts', r.id)}</div></td>
     </tr>`;
   }).join("");
+}
+
+function openPartsGroup(encodedKey) {
+  const key = decodeURIComponent(encodedKey);
+  const rows = store.get("parts").filter(r => partGroupKey(r) === key);
+  if (!rows.length) return;
+  const first = rows[0];
+
+  currentPartsGroupKey = key;
+  selectedPartIds = new Set();
+
+  $("partsModalTitle").textContent = `${first.partsRoNumber || ""} • ${first.partsCustomerName || ""}`;
+  $("partsModalSub").textContent = first.partsVehicle || "";
+  renderPartsDetailRows(rows);
 
   $("partsModal").style.display = "flex";
 }
 
 function closePartsModal() {
   $("partsModal").style.display = "none";
+  currentPartsGroupKey = null;
+  selectedPartIds = new Set();
+}
+
+function selectOrderedParts() {
+  const rows = currentPartsGroupRows();
+  selectedPartIds = new Set(rows.filter(r => ["Ordered", "Backordered"].includes(r.partStatus)).map(r => r.id));
+  renderPartsDetailRows(rows);
+}
+
+function selectMirrorMatchedParts() {
+  const rows = currentPartsGroupRows();
+  selectedPartIds = new Set(rows.filter(r => r.partMirrorMatched === "Yes").map(r => r.id));
+  renderPartsDetailRows(rows);
+}
+
+async function bulkUpdatePartsAndRefresh(ids, patch) {
+  if (!ids.length) { showStatus("No parts selected.", true); return; }
+  try {
+    const results = await Promise.all(ids.map(id => api.update("parts", id, patch)));
+    results.forEach(saved => {
+      const s = objToCamel(saved);
+      const idx = cache.parts.findIndex(r => r.id === s.id);
+      if (idx >= 0) cache.parts[idx] = s;
+    });
+    showStatus(`Updated ${ids.length} part${ids.length === 1 ? "" : "s"}.`);
+    const key = currentPartsGroupKey;
+    renderParts();
+    if (key) openPartsGroup(encodeURIComponent(key));
+  } catch (err) {
+    showStatus(`Bulk update failed: ${err.message}`, true);
+  }
+}
+
+async function markSelectedOrdered() {
+  await bulkUpdatePartsAndRefresh([...selectedPartIds], { partStatus: "Ordered", partOrderedDate: today() });
+}
+
+async function markSelectedMirrorMatched() {
+  await bulkUpdatePartsAndRefresh([...selectedPartIds], { partMirrorMatched: "Yes" });
 }
 
 function editParts(id){

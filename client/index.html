@@ -659,10 +659,16 @@
         </div>
         <button type="button" id="closePartsModalBtn">Close</button>
       </div>
+      <div class="toolbar">
+        <button type="button" onclick="selectOrderedParts()">Select Already Ordered</button>
+        <button type="button" onclick="markSelectedOrdered()">Order Selected</button>
+        <button type="button" onclick="selectMirrorMatchedParts()">Select Already Mirror Matched</button>
+        <button type="button" onclick="markSelectedMirrorMatched()">Mirror Match Selected</button>
+      </div>
       <div class="table-wrap">
         <table id="partsDetailTable">
           <thead>
-            <tr><th>Part</th><th>Type</th><th>Vendor</th><th>Status</th><th>ETA</th><th>Mirror</th><th>Return/Credit</th><th>Assigned</th><th>Actions</th></tr>
+            <tr><th></th><th>Part</th><th>Type</th><th>Vendor</th><th>Status</th><th>ETA</th><th>Mirror</th><th>Return/Credit</th><th>Assigned</th><th>Actions</th></tr>
           </thead>
           <tbody></tbody>
         </table>
