@@ -62,12 +62,16 @@ CREATE TABLE IF NOT EXISTS daily_go_list (
   end_of_day_status        TEXT,
   end_of_day_notes         TEXT,
   delivered_at             TIMESTAMPTZ,
+  ro_amount                 NUMERIC(10,2),
+  cycle_24h_reminder_sent_at TIMESTAMPTZ,
+  cycle_past_due_sent_at     TIMESTAMPTZ,
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by               TEXT,
   updated_by               TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_daily_stage ON daily_go_list (current_stage);
+CREATE INDEX IF NOT EXISTS idx_daily_ro_amount ON daily_go_list (ro_amount);
 CREATE INDEX IF NOT EXISTS idx_daily_priority ON daily_go_list (priority);
 
 -- ============================================================
@@ -85,6 +89,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   task_management_notified  TEXT,
   task_notes                TEXT,
   completed_date            DATE,
+  task_assigned_at            TIMESTAMPTZ,
   task_assigned_email_sent_at TIMESTAMPTZ,
   task_reminder_1h_sent_at    TIMESTAMPTZ,
   task_reminder_3h_sent_at    TIMESTAMPTZ,
@@ -154,6 +159,8 @@ CREATE TABLE IF NOT EXISTS qc_records (
   qc_customer_called       TEXT,
   qc_issues                TEXT,
   qc_delivery_notes        TEXT,
+  qc_signature_data        TEXT,
+  qc_signed_at             TIMESTAMPTZ,
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by               TEXT,
@@ -200,6 +207,35 @@ CREATE TABLE IF NOT EXISTS facility_checklist (
   updated_by             TEXT
 );
 
+
+-- ============================================================
+-- AR BALANCES DUE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ar_balances (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ar_ro_number       TEXT,
+  ar_customer_name   TEXT,
+  ar_vehicle         TEXT,
+  ar_amount          NUMERIC(10,2),
+  ar_terms           TEXT,
+  ar_entry_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+  ar_due_date        DATE GENERATED ALWAYS AS (
+                        ar_entry_date + CASE ar_terms
+                          WHEN 'Net 10' THEN 10
+                          WHEN 'Net 30' THEN 30
+                          ELSE 0
+                        END
+                      ) STORED,
+  ar_status          TEXT NOT NULL DEFAULT 'Open',
+  ar_paid_date       DATE,
+  ar_notes           TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by         TEXT,
+  updated_by         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ar_status ON ar_balances (ar_status);
+CREATE INDEX IF NOT EXISTS idx_ar_due ON ar_balances (ar_due_date);
 
 -- ============================================================
 -- ACTIVITY LOG (who changed what)

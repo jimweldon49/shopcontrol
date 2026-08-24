@@ -14,6 +14,7 @@ const { router: importRoutes } = require("./routes/import");
 const { mountRecordRoutes } = require("./routes/records");
 const { startEmsWatcher } = require("./emsWatcher");
 const { startTaskReminderScheduler } = require("./taskEmails");
+const { startCycleAlertScheduler } = require("./cycleTimeAlerts");
 
 const app = express();
 
@@ -33,6 +34,7 @@ mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc
 
 startEmsWatcher();
 startTaskReminderScheduler();
+startCycleAlertScheduler();
 
 // Fallback error handler for anything that slips through
 app.use((err, req, res, next) => {

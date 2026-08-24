@@ -8,6 +8,15 @@ const today = () => {
   return `${y}-${m}-${day}`;
 };
 const nowIso = () => new Date().toISOString();
+const formatCurrency = (n) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const AR_TERMS_DAYS = { "Due on Pickup": 0, "Net 10": 10, "Net 30": 30 };
+function computeArDueDate(entryDate, terms) {
+  if (!entryDate) return "";
+  const d = new Date(`${entryDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + (AR_TERMS_DAYS[terms] ?? 0));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 const dateFromIsoLocal = (iso) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -182,24 +191,33 @@ async function handleCccImport(e) {
 // The `store` interface below is kept so the rest of the app's
 // render/filter logic can stay exactly like the original.
 // ============================================================
-const RESOURCE_KEYS = ["daily", "tasks", "parts", "qc", "booth", "facility"];
-const cache = { daily: [], tasks: [], parts: [], qc: [], booth: [], facility: [], activity: [], uploads: [] };
+const RESOURCE_KEYS = ["daily", "tasks", "parts", "qc", "booth", "facility", "ar"];
+const cache = { daily: [], tasks: [], parts: [], qc: [], booth: [], facility: [], ar: [], activity: [], uploads: [] };
 
 const store = {
   get(key) { return cache[key] || []; },
 };
 
 async function loadAll(silent) {
-  try {
-    const results = await Promise.all(RESOURCE_KEYS.map((k) => api.list(k)));
-    RESOURCE_KEYS.forEach((k, i) => { cache[k] = results[i].map(objToCamel); });
-    try { cache.uploads = (await api.uploads()).map(objToCamel); } catch (_) {}
-    try { cache.activity = (await api.activity()).map(objToCamel); } catch (_) {}
-    renderAll();
-    if (!silent) showStatus("Data refreshed.");
-  } catch (err) {
-    if (err.message !== "Unauthorized") showStatus(`Could not load data: ${err.message}`, true);
-  }
+  const results = await Promise.allSettled(RESOURCE_KEYS.map((k) => api.list(k)));
+  let sessionExpired = false;
+  let firstError = null;
+  results.forEach((r, i) => {
+    const k = RESOURCE_KEYS[i];
+    if (r.status === "fulfilled") {
+      cache[k] = r.value.map(objToCamel);
+    } else if (r.reason.message === "Unauthorized") {
+      sessionExpired = true;
+    } else if (!firstError) {
+      firstError = r.reason;
+    }
+  });
+  try { cache.uploads = (await api.uploads()).map(objToCamel); } catch (_) {}
+  try { cache.activity = (await api.activity()).map(objToCamel); } catch (_) {}
+  renderAll();
+  if (sessionExpired) return;
+  if (firstError) showStatus(`Could not load data: ${firstError.message}`, true);
+  else if (!silent) showStatus("Data refreshed.");
 }
 
 async function upsert(key, obj) {
@@ -313,6 +331,7 @@ function dailyObj() {
     roNumber: $("roNumber").value,
     customerName: $("customerName").value,
     vehicle: $("vehicle").value,
+    roAmount: $("roAmount").value,
     location: $("location").value,
     currentStage: $("currentStage").value,
     priority: $("priority").value,
@@ -432,6 +451,128 @@ function editTask(id) {
   Object.keys(r).forEach(k => { const el = $(k); if (el) el.value = r[k] ?? ""; });
   $("taskId").value = r.id; document.querySelector('[data-tab="tasks"]').click(); window.scrollTo({top:0,behavior:"smooth"});
 }
+
+function arObj() {
+  return {
+    id: $("arId").value || undefined,
+    arRoNumber: $("arRoNumber").value,
+    arCustomerName: $("arCustomerName").value,
+    arVehicle: $("arVehicle").value,
+    arAmount: $("arAmount").value,
+    arTerms: $("arTerms").value,
+    arEntryDate: $("arEntryDate").value,
+    arStatus: $("arStatus").value,
+    arPaidDate: $("arStatus").value === "Paid" ? ($("arPaidDate").value || today()) : $("arPaidDate").value,
+    arNotes: $("arNotes").value,
+  };
+}
+function updateArDuePreview() {
+  const preview = computeArDueDate($("arEntryDate").value, $("arTerms").value);
+  if (preview) $("arDueDate").value = preview;
+}
+function resetAr() {
+  $("arForm").reset();
+  $("arId").value = "";
+  $("arEntryDate").value = today();
+  updateArDuePreview();
+}
+function renderAr() {
+  const table = $("arTable");
+  if (!table) return;
+  let rows = store.get("ar");
+  const view = $("arView")?.value || "all";
+  const search = ($("arSearch")?.value || "").toLowerCase();
+  rows = rows.filter(r => {
+    if (view === "all" && r.arStatus === "Paid") return false;
+    if (view === "overdue" && !(r.arDueDate && r.arDueDate < today() && r.arStatus !== "Paid")) return false;
+    if (view === "paid" && r.arStatus !== "Paid") return false;
+    return [r.arRoNumber, r.arCustomerName, r.arVehicle, r.arNotes].join(" ").toLowerCase().includes(search);
+  });
+  table.querySelector("tbody").innerHTML = rows.map(r => {
+    const overdue = r.arDueDate && r.arDueDate < today() && r.arStatus !== "Paid";
+    return `<tr>
+      <td>${r.arRoNumber || ""}</td><td>${r.arCustomerName || ""}</td><td>${r.arVehicle || ""}</td>
+      <td>${formatCurrency(r.arAmount)}</td><td>${r.arTerms || ""}</td>
+      <td class="${overdue ? 'status-bad' : ''}">${r.arDueDate || ""}</td>
+      <td class="${r.arStatus === 'Paid' ? 'status-good' : ''}">${r.arStatus || ""}</td>
+      <td><div class="actions"><button onclick="editAr('${r.id}')">Edit</button>${deleteBtn('ar', r.id)}</div></td>
+    </tr>`;
+  }).join("");
+}
+function editAr(id) {
+  const r = store.get("ar").find(x => x.id === id); if (!r) return;
+  Object.keys(r).forEach(k => { const el = $(k); if (el) el.value = r[k] ?? ""; });
+  $("arId").value = r.id;
+  document.querySelector('[data-tab="ar"]').click();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+// ============================================================
+// Cycle Time tabs: derived views of Daily GO List, bucketed by $
+// ============================================================
+function addDaysStr(dateStr, days) {
+  if (!dateStr) return "";
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+const CYCLE_TIERS = [
+  { key: "cycle1", min: 0, max: 2000, days: 2 },
+  { key: "cycle2", min: 2000, max: 4000, days: 4 },
+  { key: "cycle3", min: 4000, max: 10000, days: 8 },
+  { key: "cycle4", min: 10000, max: Infinity, days: 15 },
+];
+function cycleTierFor(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return null;
+  return CYCLE_TIERS.find(t => n >= t.min && n < t.max) || CYCLE_TIERS[CYCLE_TIERS.length - 1];
+}
+function cycleTargetDateFor(r) {
+  const tier = cycleTierFor(r.roAmount);
+  const intake = dateFromIsoLocal(r.createdAt);
+  if (!tier || !intake) return "";
+  return addDaysStr(intake, tier.days);
+}
+function cycleStatusFor(targetDate) {
+  if (!targetDate) return { label: "", cls: "" };
+  const t = today();
+  if (t > targetDate) return { label: "Past Due", cls: "status-bad" };
+  if (t === targetDate || t === addDaysStr(targetDate, -1)) return { label: t === targetDate ? "Due Today" : "Due Tomorrow", cls: "status-bad" };
+  return { label: "On Track", cls: "status-good" };
+}
+function activeDailyForCycle() {
+  return store.get("daily").filter(r => !["Delivered", "Total Loss"].includes(r.currentStage) && r.roAmount !== null && r.roAmount !== undefined && r.roAmount !== "");
+}
+function renderCycleTab(tier) {
+  const table = $(`${tier.key}Table`);
+  if (!table) return;
+  let rows = activeDailyForCycle()
+    .filter(r => { const n = Number(r.roAmount); return n >= tier.min && n < tier.max; })
+    .map(r => ({ ...r, _target: cycleTargetDateFor(r) }));
+
+  const search = ($(`${tier.key}Search`)?.value || "").toLowerCase();
+  const view = $(`${tier.key}View`)?.value || "all";
+  rows = rows.filter(r => {
+    const status = cycleStatusFor(r._target);
+    if (view === "dueSoon" && status.label !== "Due Tomorrow" && status.label !== "Due Today") return false;
+    if (view === "pastDue" && status.label !== "Past Due") return false;
+    return [r.roNumber, r.customerName, r.vehicle].join(" ").toLowerCase().includes(search);
+  });
+  rows.sort((a, b) => (a._target || "").localeCompare(b._target || ""));
+
+  table.querySelector("tbody").innerHTML = rows.map(r => {
+    const status = cycleStatusFor(r._target);
+    return `<tr>
+      <td>${r.roNumber || ""}</td><td>${r.customerName || ""}</td><td>${r.vehicle || ""}</td>
+      <td>${formatCurrency(r.roAmount)}</td><td>${dateFromIsoLocal(r.createdAt) || ""}</td>
+      <td class="${status.cls}">${r._target || ""}</td><td>${r.currentStage || ""}</td>
+      <td class="${status.cls}">${status.label}</td>
+      <td><div class="actions"><button onclick="editDaily('${r.id}')">Edit</button></div></td>
+    </tr>`;
+  }).join("");
+}
+function renderAllCycleTabs() { CYCLE_TIERS.forEach(renderCycleTab); }
 
 
 function qcObj() {
@@ -657,6 +798,20 @@ function currentPartsGroupRows() {
 
 function onPartCheckboxChange(id, checked) {
   if (checked) selectedPartIds.add(id); else selectedPartIds.delete(id);
+  syncSelectAllPartsCheckbox();
+}
+
+function toggleSelectAllParts(checked) {
+  const rows = currentPartsGroupRows();
+  selectedPartIds = checked ? new Set(rows.map(r => r.id)) : new Set();
+  renderPartsDetailRows(rows);
+}
+
+function syncSelectAllPartsCheckbox() {
+  const selectAll = $("partsSelectAll");
+  if (!selectAll) return;
+  const rows = currentPartsGroupRows();
+  selectAll.checked = rows.length > 0 && rows.every(r => selectedPartIds.has(r.id));
 }
 
 function renderPartsDetailRows(rows) {
@@ -676,6 +831,7 @@ function renderPartsDetailRows(rows) {
       <td><div class="actions"><button onclick="editParts('${r.id}')">Edit</button>${deleteBtn('parts', r.id)}</div></td>
     </tr>`;
   }).join("");
+  syncSelectAllPartsCheckbox();
 }
 
 function openPartsGroup(encodedKey) {
@@ -841,6 +997,7 @@ function recordLabel(resource, r) {
   if (resource === "qc") return `${r.qcRoNumber || ""} - ${r.qcCustomerName || ""} - ${r.qcVehicle || ""}`.trim();
   if (resource === "booth") return `${r.boothDate || ""} - ${r.boothPainter || ""}`.trim();
   if (resource === "facility") return `${r.facilityWeek || ""} - ${r.facilityArea || ""} - ${r.facilityItem || ""}`.trim();
+  if (resource === "ar") return `${r.arRoNumber || ""} - ${r.arCustomerName || ""} - ${formatCurrency(r.arAmount)}`.trim();
   return r.id || "";
 }
 
@@ -1051,8 +1208,21 @@ function renderDashboard() {
   $("metricDeliveryNotReady").textContent = d.filter(r=>r.priority==="Delivery Today" && !["Ready for Delivery","Delivered"].includes(r.currentStage)).length;
   $("metricSuppNotApproved").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementApproved!=="Yes").length;
   $("metricPartsNeedMirror").textContent = p.filter(r=>r.partStatus==="Received" && r.partMirrorMatched!=="Yes").length;
+  const ar = store.get("ar");
+  const openAr = ar.filter(r=>r.arStatus!=="Paid");
+  $("metricArOutstanding").textContent = formatCurrency(openAr.reduce((sum,r)=>sum+(parseFloat(r.arAmount)||0),0));
+  $("metricArOverdue").textContent = openAr.filter(r=>r.arDueDate && r.arDueDate < today()).length;
+  const cycleActive = activeDailyForCycle();
+  let cycleDueTomorrow = 0, cyclePastDue = 0;
+  cycleActive.forEach(r => {
+    const status = cycleStatusFor(cycleTargetDateFor(r));
+    if (status.label === "Due Tomorrow" || status.label === "Due Today") cycleDueTomorrow++;
+    if (status.label === "Past Due") cyclePastDue++;
+  });
+  $("metricCycleDueTomorrow").textContent = cycleDueTomorrow;
+  $("metricCyclePastDue").textContent = cyclePastDue;
 }
-function renderAll(){ renderDaily(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
+function renderAll(){ renderDaily(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
 
 function loadDefaultChecklist() {
   const items = [
@@ -1236,6 +1406,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("boothDate").value = today();
   $("facilityWeek").value = today();
   $("qcDate").value = today();
+  $("arEntryDate").value = today();
+  updateArDuePreview();
 
   $("loginForm").addEventListener("submit", handleLoginSubmit);
   $("forgotPasswordForm").addEventListener("submit", handleForgotPasswordSubmit);
@@ -1252,6 +1424,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("qcForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("qc", qcObj()); resetQc(); } catch(_) {} });
   $("boothForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("booth", boothObj()); resetBooth(); } catch(_) {} });
   $("facilityForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("facility", facilityObj()); resetFacility(); } catch(_) {} });
+  $("arForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("ar", arObj()); resetAr(); } catch(_) {} });
   if ($("uploadForm")) $("uploadForm").addEventListener("submit", handleUpload);
   if ($("cccImportForm")) $("cccImportForm").addEventListener("submit", handleCccImport);
   $("employeeForm").addEventListener("submit", handleCreateEmployee);
@@ -1262,8 +1435,13 @@ document.addEventListener("DOMContentLoaded", () => {
   $("resetQcBtn").onclick = resetQc;
   $("resetBoothBtn").onclick = resetBooth;
   $("resetFacilityBtn").onclick = resetFacility;
+  $("resetArBtn").onclick = resetAr;
+  $("arEntryDate").addEventListener("input", updateArDuePreview);
+  $("arTerms").addEventListener("change", updateArDuePreview);
 
-  ["dailySearch","dailyView","taskSearch","taskView","partsSearch","partsView","qcSearch","qcView"].forEach(id => $(id).addEventListener("input", renderAll));
+  ["dailySearch","dailyView","taskSearch","taskView","partsSearch","partsView","qcSearch","qcView","arSearch","arView",
+   "cycle1Search","cycle1View","cycle2Search","cycle2View","cycle3Search","cycle3View","cycle4Search","cycle4View",
+  ].forEach(id => $(id).addEventListener("input", renderAll));
   $("loadDefaultChecklistBtn").onclick = loadDefaultChecklist;
   if ($("refreshUploadsBtn")) $("refreshUploadsBtn").onclick = loadUploads;
   if ($("refreshActivityBtn")) $("refreshActivityBtn").onclick = loadActivity;
@@ -1279,9 +1457,10 @@ document.addEventListener("DOMContentLoaded", () => {
   $("exportQcBtn").onclick = () => csvExport("concept_vehicle_qc.csv", store.get("qc"));
   $("exportBoothBtn").onclick = () => csvExport("concept_booth_filters.csv", store.get("booth"));
   $("exportFacilityBtn").onclick = () => csvExport("concept_facility_checklist.csv", store.get("facility"));
+  $("exportArBtn").onclick = () => csvExport("concept_ar_balances.csv", store.get("ar"));
   $("exportAllBtn").onclick = () => {
     const backup = {
-      daily: store.get("daily"), tasks: store.get("tasks"), parts: store.get("parts"), qc: store.get("qc"), booth: store.get("booth"), facility: store.get("facility"),
+      daily: store.get("daily"), tasks: store.get("tasks"), parts: store.get("parts"), qc: store.get("qc"), booth: store.get("booth"), facility: store.get("facility"), ar: store.get("ar"),
       exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(backup,null,2)], {type:"application/json"});

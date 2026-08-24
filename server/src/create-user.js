@@ -17,7 +17,7 @@ function normalizeRole(role) {
 }
 
 async function main() {
-  const [username, password, fullName, role, canDeleteArg] = process.argv.slice(2);
+  const [username, password, fullName, role, canDeleteArg, email] = process.argv.slice(2);
 
   if (!username || !password || !fullName) {
     console.error('Usage: node src/create-user.js <username> <password> "<Full Name>" [role] [canDelete] [email]');

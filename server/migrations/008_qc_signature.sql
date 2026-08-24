@@ -1,0 +1,2 @@
+ALTER TABLE qc_records ADD COLUMN IF NOT EXISTS qc_signature_data TEXT;
+ALTER TABLE qc_records ADD COLUMN IF NOT EXISTS qc_signed_at TIMESTAMPTZ;

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Shop QC" />
+<meta name="theme-color" content="#0f172a" />
+<link rel="manifest" href="manifest.json" />
+<title>Shop QC</title>
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --ink: #111827;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2563eb;
+    --accent-ink: #ffffff;
+    --danger: #dc2626;
+    --good: #16a34a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .screen { display: none; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+  header.topbar {
+    background: #0f172a; color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 5;
+  }
+  header.topbar h1 { font-size: 18px; margin: 0; }
+  header.topbar .sub { font-size: 12px; color: #93c5fd; }
+  header.topbar button { background: none; border: 1px solid #334155; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+  .mobile-main { flex: 1; padding: 16px; max-width: 520px; width: 100%; margin: 0 auto; }
+  .card { background: var(--card); border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
+  h2 { font-size: 17px; margin: 0 0 4px; }
+  p.hint { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; }
+  label { display: block; font-weight: 600; font-size: 13.5px; margin: 14px 0 6px; color: #374151; }
+  label:first-child { margin-top: 0; }
+  input[type=text], input[type=password], input[type=date], select, textarea {
+    width: 100%; font-size: 16px; padding: 13px 12px; border: 1.5px solid var(--line); border-radius: 10px;
+    background: #fff; color: var(--ink); appearance: none;
+  }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'><path d='M5.5 7.5l4.5 4.5 4.5-4.5' stroke='%236b7280' stroke-width='1.5' fill='none'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
+  textarea { min-height: 80px; resize: vertical; font-family: inherit; }
+  .btn { display: block; width: 100%; text-align: center; padding: 15px; border-radius: 12px; border: none; font-size: 16px; font-weight: 700; margin-top: 14px; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-secondary { background: #e5e7eb; color: #111827; }
+  .btn-danger { background: #fee2e2; color: var(--danger); }
+  .btn:disabled { opacity: 0.55; }
+  .error-box { background: #fee2e2; color: #991b1b; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 12px; display: none; }
+  .error-box.visible { display: block; }
+  .status-box { background: #dcfce7; color: #166534; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 12px; display: none; }
+  .status-box.visible { display: block; }
+  .job-option { border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .job-option .ro { font-weight: 700; font-size: 15px; }
+  .job-option .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .job-option button { margin-top: 10px; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row > div { flex: 1; }
+  .sig-wrap { border: 1.5px dashed var(--line); border-radius: 12px; overflow: hidden; background: #fff; touch-action: none; }
+  canvas#sigPad { display: block; width: 100%; height: 180px; touch-action: none; }
+  .sig-actions { display: flex; gap: 10px; margin-top: 10px; }
+  .sig-actions .btn { margin-top: 0; }
+  .tag { display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-bottom: 8px; }
+  .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .k { color: var(--muted); }
+  footer.progress { display: flex; gap: 6px; padding: 10px 16px 4px; }
+  footer.progress span { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
+  footer.progress span.done { background: var(--accent); }
+  .center-note { text-align: center; color: var(--muted); font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section class="screen active" id="screen-login">
+  <header class="topbar"><div><h1>Shop QC</h1><div class="sub">Concept Auto Body</div></div></header>
+  <div class="mobile-main">
+    <div class="card">
+      <h2>Tech Login</h2>
+      <p class="hint">Log in with your Shop Control employee account.</p>
+      <div class="error-box" id="loginError"></div>
+      <label>Username</label>
+      <input type="text" id="loginUsername" autocomplete="username" autocapitalize="off" />
+      <label>Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" />
+      <button class="btn btn-primary" id="loginBtn">Log In</button>
+    </div>
+  </div>
+</section>
+
+<!-- RO LOOKUP -->
+<section class="screen" id="screen-lookup">
+  <header class="topbar">
+    <div><h1>Find Vehicle</h1><div class="sub" id="lookupUserSub"></div></div>
+    <button id="logoutBtn1">Log Out</button>
+  </header>
+  <div class="mobile-main">
+    <div class="card">
+      <h2>Enter RO Number</h2>
+      <p class="hint">Type the RO number for the vehicle you're checking.</p>
+      <div class="error-box" id="lookupError"></div>
+      <input type="text" id="roInput" inputmode="text" autocapitalize="characters" placeholder="e.g. 17902" />
+      <button class="btn btn-primary" id="lookupBtn">Find Vehicle</button>
+    </div>
+    <div id="lookupResults"></div>
+  </div>
+</section>
+
+<!-- QC FORM -->
+<section class="screen" id="screen-form">
+  <header class="topbar">
+    <div><h1>QC Checklist</h1><div class="sub" id="formRoSub"></div></div>
+    <button id="logoutBtn2">Log Out</button>
+  </header>
+  <footer class="progress"><span class="done"></span><span></span><span></span></footer>
+  <div class="mobile-main">
+    <div class="card">
+      <span class="tag" id="formExistingTag" style="display:none;">Continuing existing QC</span>
+      <h2 id="formVehicleTitle">Vehicle</h2>
+      <p class="hint" id="formVehicleSub"></p>
+
+      <label>QC Date</label>
+      <input type="date" id="qcDate" />
+      <label>QC Performed By (you)</label>
+      <input type="text" id="qcPerformedBy" />
+      <label>Final Status</label>
+      <select id="qcFinalStatus">
+        <option>Open</option><option>Passed</option><option>Failed</option><option>Needs Rework</option><option>Ready for Delivery</option>
+      </select>
+
+      <label>Body Work Checked</label>
+      <select id="qcBodyWork"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Paint Quality Checked</label>
+      <select id="qcPaintQuality"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Color Match Checked</label>
+      <select id="qcColorMatch"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Panel Alignment Checked</label>
+      <select id="qcPanelAlignment"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Lights / Electrical Checked</label>
+      <select id="qcElectrical"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>ADAS / Calibration Checked</label>
+      <select id="qcCalibration"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Interior Clean / Protected</label>
+      <select id="qcInterior"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Exterior Detail Complete</label>
+      <select id="qcExterior"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Warning Lights Checked</label>
+      <select id="qcWarningLights"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Test Drive Needed</label>
+      <select id="qcTestDriveNeeded"><option>No</option><option>Yes</option></select>
+      <label>Test Drive Completed</label>
+      <select id="qcTestDriveCompleted"><option>No</option><option>Yes</option><option>N/A</option></select>
+      <label>Customer Items / Old Parts Checked</label>
+      <select id="qcCustomerItems"><option>No</option><option>Yes</option><option>N/A</option></select>
+
+      <label>Rework Needed?</label>
+      <select id="qcReworkNeeded"><option>No</option><option>Yes</option></select>
+      <label>Rework Assigned To</label>
+      <input type="text" id="qcReworkAssignedTo" />
+      <label>Rework Due Date</label>
+      <input type="date" id="qcReworkDueDate" />
+      <label>Customer Called?</label>
+      <select id="qcCustomerCalled"><option>No</option><option>Yes</option></select>
+
+      <label>QC Issues / Rework Notes</label>
+      <textarea id="qcIssues" placeholder="List anything that failed QC or needs to be fixed before delivery."></textarea>
+      <label>Delivery Notes</label>
+      <textarea id="qcDeliveryNotes" placeholder="Final notes before customer pickup."></textarea>
+
+      <button class="btn btn-primary" id="toSignatureBtn">Continue to Signature</button>
+      <button class="btn btn-secondary" id="backToLookupBtn">Back</button>
+    </div>
+  </div>
+</section>
+
+<!-- SIGNATURE -->
+<section class="screen" id="screen-signature">
+  <header class="topbar">
+    <div><h1>Sign & Submit</h1><div class="sub" id="sigRoSub"></div></div>
+    <button id="logoutBtn3">Log Out</button>
+  </header>
+  <footer class="progress"><span class="done"></span><span class="done"></span><span></span></footer>
+  <div class="mobile-main">
+    <div class="card">
+      <h2>Your Signature</h2>
+      <p class="hint">Sign below to confirm you personally performed this quality check.</p>
+      <div class="error-box" id="sigError"></div>
+      <div class="sig-wrap"><canvas id="sigPad"></canvas></div>
+      <div class="sig-actions">
+        <button class="btn btn-secondary" id="clearSigBtn">Clear</button>
+      </div>
+      <button class="btn btn-primary" id="submitQcBtn">Submit QC</button>
+      <button class="btn btn-secondary" id="backToFormBtn">Back to Checklist</button>
+    </div>
+  </div>
+</section>
+
+<!-- DONE -->
+<section class="screen" id="screen-done">
+  <header class="topbar"><div><h1>Shop QC</h1></div><button id="logoutBtn4">Log Out</button></header>
+  <div class="mobile-main">
+    <div class="card">
+      <h2>QC Submitted</h2>
+      <div class="status-box visible" id="doneMessage"></div>
+      <div id="doneSummary"></div>
+      <button class="btn btn-primary" id="startAnotherBtn">Start Another QC</button>
+    </div>
+    <p class="center-note">Concept Shop Control &middot; Mobile QC</p>
+  </div>
+</section>
+
+<script src="mobile.js"></script>
+</body>
+</html>

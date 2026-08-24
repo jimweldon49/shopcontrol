@@ -6,8 +6,9 @@ const ROLE_PERMISSIONS = {
   manager: { resources: ["*"], actions: ["list", "create", "update", "delete", "upload"] },
 
   office: {
-    resources: ["daily", "tasks", "facility", "activity", "uploads"],
+    resources: ["daily", "tasks", "facility", "ar", "activity", "uploads"],
     actions: ["list", "create", "update", "upload"],
+    readOnlyResources: ["parts", "qc", "booth"],
   },
   estimator: {
     resources: ["daily", "tasks", "qc", "activity", "uploads"],
@@ -48,11 +49,15 @@ function hasPermission(user, resource, action) {
   const config = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.employee;
   const resources = config.resources || [];
   const actions = config.actions || [];
+  const readOnlyResources = config.readOnlyResources || [];
 
   if (action === "delete" && user && user.canDelete === false) return false;
 
-  return (resources.includes("*") || resources.includes(resource)) &&
-         (actions.includes("*") || actions.includes(action));
+  if (resources.includes("*") || resources.includes(resource)) {
+    return actions.includes("*") || actions.includes(action);
+  }
+
+  return readOnlyResources.includes(resource) && action === "list";
 }
 
 function requireAuth(req, res, next) {

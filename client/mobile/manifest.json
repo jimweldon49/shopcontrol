@@ -1,0 +1,10 @@
+{
+  "name": "Concept Shop QC",
+  "short_name": "Shop QC",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": []
+}

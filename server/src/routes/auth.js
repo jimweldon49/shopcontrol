@@ -30,7 +30,7 @@ router.post("/forgot-password", async (req, res) => {
     const result = await pool.query(
       `SELECT id, username, full_name, email, active
        FROM users
-       WHERE lower(username) = lower($1) OR lower(email) = lower($1)
+       WHERE lower(username) = lower($1)
        LIMIT 1`,
       [String(identifier).trim()]
     );

@@ -142,8 +142,9 @@ async function checkTaskReminders() {
        AND lower(coalesce(task_status, '')) NOT IN ('completed', 'complete', 'done', 'cancelled', 'canceled')
        AND task_assigned_to IS NOT NULL
        AND task_assigned_to <> ''
-       AND created_at <= now() - interval '1 hour'
-     ORDER BY created_at ASC
+       AND task_assigned_at IS NOT NULL
+       AND task_assigned_at <= now() - interval '1 hour'
+     ORDER BY task_assigned_at ASC
      LIMIT 200`
   );
 
@@ -151,7 +152,7 @@ async function checkTaskReminders() {
   let sent3h = 0;
 
   for (const task of result.rows) {
-    const ageMs = Date.now() - new Date(task.created_at).getTime();
+    const ageMs = Date.now() - new Date(task.task_assigned_at).getTime();
     const hours = ageMs / 36e5;
 
     if (hours >= 3 && !task.task_reminder_3h_sent_at) {

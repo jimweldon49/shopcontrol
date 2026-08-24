@@ -242,6 +242,10 @@ function buildDailyFromPackage(parsed) {
   const location = /modesto/i.test(locationText) ? "Modesto" : "Ceres";
   const suppNo = firstValue(env, ["SUPP_NO"]);
   const transType = firstValue(env, ["TRANS_TYPE"]);
+  const grossTotal = ttl ? firstValue(ttl, ["G_TTL_AMT"]) : "";
+  const roAmount = grossTotal !== "" && grossTotal !== undefined && Number.isFinite(Number(grossTotal))
+    ? Number(grossTotal)
+    : null;
 
   return {
     ro_number: buildRoNumber(env, ad1, ad2),
@@ -268,6 +272,7 @@ function buildDailyFromPackage(parsed) {
     end_of_day_status: "",
     end_of_day_notes: buildSummaryNotes({ env, ad1, ad2, veh, ttl, stl, lin }),
     delivered_at: null,
+    ro_amount: roAmount,
   };
 }
 
@@ -331,6 +336,11 @@ async function upsertDailyFromImport(req, mapped) {
     setClauses.push(`updated_at = now()`);
     setClauses.push(`updated_by = $${cols.length + 1}`);
     const params = [...values, userName, before.id];
+
+    const normalizeAmount = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+    if (cols.includes("ro_amount") && normalizeAmount(before.ro_amount) !== normalizeAmount(mapped.ro_amount)) {
+      setClauses.push("cycle_24h_reminder_sent_at = NULL", "cycle_past_due_sent_at = NULL");
+    }
 
     const result = await pool.query(
       `UPDATE daily_go_list SET ${setClauses.join(", ")} WHERE id = $${params.length} RETURNING *`,

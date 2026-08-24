@@ -13,7 +13,7 @@ const RESOURCES = {
       "actual_delivered_date", "customer_updated_today", "estimate_needed", "estimate_completed",
       "supplement_needed", "supplement_submitted", "supplement_approved", "supplement_completed",
       "needs_management_help", "todays_goal", "management_issue", "end_of_day_status",
-      "end_of_day_notes", "delivered_at",
+      "end_of_day_notes", "delivered_at", "ro_amount",
     ],
     orderBy: "created_at DESC",
   },
@@ -44,6 +44,7 @@ const RESOURCES = {
       "qc_electrical", "qc_calibration", "qc_interior", "qc_exterior", "qc_warning_lights",
       "qc_test_drive_needed", "qc_test_drive_completed", "qc_customer_items", "qc_rework_needed",
       "qc_rework_assigned_to", "qc_rework_due_date", "qc_customer_called", "qc_issues", "qc_delivery_notes",
+      "qc_signature_data", "qc_signed_at",
     ],
     orderBy: "created_at DESC",
   },
@@ -62,6 +63,14 @@ const RESOURCES = {
       "facility_completed_by", "facility_verified", "facility_notes",
     ],
     orderBy: "created_at DESC",
+  },
+  ar: {
+    table: "ar_balances",
+    columns: [
+      "ar_ro_number", "ar_customer_name", "ar_vehicle", "ar_amount", "ar_terms",
+      "ar_entry_date", "ar_status", "ar_paid_date", "ar_notes",
+    ],
+    orderBy: "ar_due_date ASC NULLS LAST, created_at DESC",
   },
 };
 
@@ -107,7 +116,22 @@ function buildRouterFor(resourceKey, config) {
         summary: `Created ${resourceKey} record`,
       });
 
-      res.status(201).json(result.rows[0]);
+      let createdRow = result.rows[0];
+
+      if (resourceKey === "tasks" && createdRow.task_assigned_to) {
+        const clockResult = await pool.query(
+          `UPDATE tasks
+           SET task_assigned_at = now(), task_reminder_1h_sent_at = NULL, task_reminder_3h_sent_at = NULL
+           WHERE id = $1 RETURNING *`,
+          [createdRow.id]
+        );
+        createdRow = clockResult.rows[0];
+        sendAssignmentEmail(createdRow, "assigned").catch((emailErr) => {
+          console.error("Task assignment email failed:", emailErr.message);
+        });
+      }
+
+      res.status(201).json(createdRow);
     } catch (err) {
       console.error(`Create ${resourceKey} error:`, err);
       res.status(500).json({ error: `Failed to save ${resourceKey} record.` });
@@ -146,18 +170,41 @@ function buildRouterFor(resourceKey, config) {
         summary: `Updated ${resourceKey} record`,
       });
 
+      let updatedRow = result.rows[0];
+
+      if (resourceKey === "daily") {
+        const normalizeAmount = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+        const amountChanged = normalizeAmount(before.ro_amount) !== normalizeAmount(updatedRow.ro_amount);
+        if (amountChanged) {
+          const clockResult = await pool.query(
+            `UPDATE daily_go_list
+             SET cycle_24h_reminder_sent_at = NULL, cycle_past_due_sent_at = NULL
+             WHERE id = $1 RETURNING *`,
+            [updatedRow.id]
+          );
+          updatedRow = clockResult.rows[0];
+        }
+      }
+
       if (resourceKey === "tasks") {
-        const assignedChanged = (before.task_assigned_to || "") !== (result.rows[0].task_assigned_to || "");
-        const needsAssignmentEmail = result.rows[0].task_assigned_to && (assignedChanged || !result.rows[0].task_assigned_email_sent_at);
-        if (needsAssignmentEmail) {
-          const reason = assignedChanged ? "reassigned" : "assigned";
-          sendAssignmentEmail(result.rows[0], reason).catch((emailErr) => {
+        const assignedChanged = (before.task_assigned_to || "") !== (updatedRow.task_assigned_to || "");
+        const neverGotClock = !updatedRow.task_assigned_at;
+        if (updatedRow.task_assigned_to && (assignedChanged || neverGotClock)) {
+          const clockResult = await pool.query(
+            `UPDATE tasks
+             SET task_assigned_at = now(), task_reminder_1h_sent_at = NULL, task_reminder_3h_sent_at = NULL
+             WHERE id = $1 RETURNING *`,
+            [updatedRow.id]
+          );
+          updatedRow = clockResult.rows[0];
+          const reason = assignedChanged && before.task_assigned_to ? "reassigned" : "assigned";
+          sendAssignmentEmail(updatedRow, reason).catch((emailErr) => {
             console.error("Task assignment email failed:", emailErr.message);
           });
         }
       }
 
-      res.json(result.rows[0]);
+      res.json(updatedRow);
     } catch (err) {
       console.error(`Update ${resourceKey} error:`, err);
       res.status(500).json({ error: `Failed to update ${resourceKey} record.` });
