@@ -41,6 +41,7 @@ async function findUserForTask(task) {
     `SELECT id, username, full_name, email
      FROM users
      WHERE active = TRUE
+       AND receives_notifications = TRUE
        AND email IS NOT NULL
        AND (
          lower(full_name) = lower($1)

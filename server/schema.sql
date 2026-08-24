@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   email         TEXT UNIQUE,
   role          TEXT NOT NULL DEFAULT 'employee', -- admin, owner, manager, office, estimator, parts, paint, body, qc, cleanup, employee
   can_delete    BOOLEAN NOT NULL DEFAULT TRUE, -- can this person delete records?
+  receives_notifications BOOLEAN NOT NULL DEFAULT TRUE, -- gets task/cycle-time alert emails?
   active        BOOLEAN NOT NULL DEFAULT TRUE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

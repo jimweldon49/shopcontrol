@@ -45,7 +45,7 @@ function cycleTargetDate(job) {
 
 async function activeUserEmails() {
   const result = await pool.query(
-    "SELECT email FROM users WHERE active = TRUE AND email IS NOT NULL AND email <> ''"
+    "SELECT email FROM users WHERE active = TRUE AND receives_notifications = TRUE AND email IS NOT NULL AND email <> ''"
   );
   return result.rows.map(r => r.email);
 }
