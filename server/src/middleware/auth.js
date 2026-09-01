@@ -6,9 +6,9 @@ const ROLE_PERMISSIONS = {
   manager: { resources: ["*"], actions: ["list", "create", "update", "delete", "upload"] },
 
   office: {
-    resources: ["daily", "tasks", "facility", "ar", "activity", "uploads"],
+    resources: ["daily", "tasks", "facility", "ar", "parts", "activity", "uploads"],
     actions: ["list", "create", "update", "upload"],
-    readOnlyResources: ["parts", "qc", "booth"],
+    readOnlyResources: ["qc", "booth"],
   },
   estimator: {
     resources: ["daily", "tasks", "qc", "activity", "uploads"],
