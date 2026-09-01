@@ -51,9 +51,8 @@ function hasPermission(user, resource, action) {
   const actions = config.actions || [];
   const readOnlyResources = config.readOnlyResources || [];
 
-  if (action === "delete" && user && user.canDelete === false) return false;
-
   if (resources.includes("*") || resources.includes(resource)) {
+    if (action === "delete") return user && user.canDelete !== false;
     return actions.includes("*") || actions.includes(action);
   }
 
