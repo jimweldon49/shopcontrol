@@ -1,3 +1,7 @@
+# Unified edition — start here
+
+Read [UPGRADE.md](UPGRADE.md) for the current setup, migration, and verification instructions. The older setup notes below are historical; the unified app serves its client and API together.
+
 # Concept Shop Control — Multi-User Edition
 
 This turns the original single-browser prototype into a real shared app:
@@ -642,3 +646,4 @@ SMTP_FROM="Concept Shop Control <your-email@example.com>"
 ## Important employee setup
 
 For emails to work, each employee needs an email address saved in the Employees tab.
+

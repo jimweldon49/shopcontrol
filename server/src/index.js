@@ -30,11 +30,15 @@ app.use("/api/users", userRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/import", importRoutes);
+app.use('/api/workspace',require('./routes/workspace'));
 mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc, /api/booth, /api/facility
 
 startEmsWatcher();
 startTaskReminderScheduler();
 startCycleAlertScheduler();
+require('./coreNotifications').startCoreNotifications();
+// The web app and employee app share this server and login origin.
+app.use(express.static(path.join(__dirname,'..','..','client')));
 
 // Fallback error handler for anything that slips through
 app.use((err, req, res, next) => {
@@ -75,7 +79,7 @@ if (SSL_KEY_PATH && SSL_CERT_PATH && fs.existsSync(SSL_KEY_PATH) && fs.existsSyn
     });
   }
 } else {
-  app.listen(PORT, () => {
+  app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
     console.log(`Concept Shop Control API listening on port ${PORT}`);
     if (SSL_KEY_PATH || SSL_CERT_PATH) {
       console.warn("SSL_KEY_PATH or SSL_CERT_PATH was set, but the file was not found. Starting HTTP only.");

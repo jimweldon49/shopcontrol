@@ -273,6 +273,8 @@ function buildDailyFromPackage(parsed) {
     end_of_day_notes: buildSummaryNotes({ env, ad1, ad2, veh, ttl, stl, lin }),
     delivered_at: null,
     ro_amount: roAmount,
+    onsite: false,
+    estimator: estimator || "",
   };
 }
 
@@ -330,7 +332,9 @@ async function upsertDailyFromImport(req, mapped) {
 
   if (existing.rows[0]) {
     const before = existing.rows[0];
-    const cols = Object.keys(mapped).filter(k => mapped[k] !== undefined);
+    // Repeat CCC imports update estimate data without moving production cards or clearing delivery state.
+    const importedFields=['ro_number','customer_name','vehicle','ro_amount','estimator','end_of_day_notes'];
+    const cols = Object.keys(mapped).filter(k => importedFields.includes(k) && mapped[k] !== undefined && (k!=='ro_amount'||mapped[k]!==null));
     const values = cols.map(k => mapped[k] === "" ? null : mapped[k]);
     const setClauses = cols.map((c, i) => `${c} = $${i + 1}`);
     setClauses.push(`updated_at = now()`);

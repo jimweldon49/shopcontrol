@@ -214,6 +214,7 @@ async function loadAll(silent) {
   });
   try { cache.uploads = (await api.uploads()).map(objToCamel); } catch (_) {}
   try { cache.activity = (await api.activity()).map(objToCamel); } catch (_) {}
+  await loadWorkspace();
   renderAll();
   if (sessionExpired) return;
   if (firstError) showStatus(`Could not load data: ${firstError.message}`, true);
@@ -233,6 +234,7 @@ async function upsert(key, obj) {
     saved = objToCamel(saved);
     const idx = cache[key].findIndex((r) => r.id === saved.id);
     if (idx >= 0) cache[key][idx] = saved; else cache[key].unshift(saved);
+    if(key==="daily")cache.daily=(await api.list("daily")).map(objToCamel);
     renderAll();
     showStatus("Saved.");
     return saved;
@@ -325,6 +327,10 @@ function dailyObj() {
 
   return {
     id: existingId || undefined,
+    onsite: $("onsite").checked,
+    followUpDate: $("followUpDate").value,
+    followUpNotes: $("followUpNotes").value,
+    expectedUpdatedAt: $("dailyExpectedUpdatedAt").value||undefined, expectedVersion: $("dailyExpectedUpdatedAt").dataset.version?Number($("dailyExpectedUpdatedAt").dataset.version):undefined,
     createdAt,
     updatedAt,
     deliveredAt,
@@ -367,7 +373,12 @@ function renderDaily() {
   const view = $("dailyView")?.value || "all";
   const search = ($("dailySearch")?.value || "").toLowerCase();
   rows = rows.filter(r => {
-    const active = r.currentStage !== "Delivered" && r.currentStage !== "Total Loss";
+    const active = ShopModel.isOnsite(r);
+    if(view!=="everything"&&r.mergedInto)return false;
+    if(view==='scheduled'&&r.currentStage!=='Scheduled')return false;
+    if(view==='onRoad'&&r.currentStage!=='On the Road')return false;
+    if(view==='noShow'&&r.currentStage!=='No Show')return false;
+    if(view==='offsite'&&!(ShopModel.jobKind(r.roNumber)==='active'&&!r.onsite&&ShopModel.production.includes(r.currentStage)))return false;
     if (view === "all" && !active) return false;
     if (view === "must" && r.priority !== "Must Move Today") return false;
     if (view === "delivery" && r.priority !== "Delivery Today") return false;
@@ -401,6 +412,8 @@ function editDaily(id) {
   const r = store.get("daily").find(x => x.id === id); if (!r) return;
   Object.keys(r).forEach(k => { const el = $(k); if (el) el.value = r[k] ?? ""; });
   $("dailyId").value = r.id;
+  $("onsite").checked = r.onsite===true;
+  $("dailyExpectedUpdatedAt").value=r.updatedAt||""; $("dailyExpectedUpdatedAt").dataset.version=String(r.version??0);
   const box = $("dailyTimestampBox");
   if (box) {
     box.innerHTML = `<strong>Created:</strong> ${formatDateTime(r.createdAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Last Updated:</strong> ${formatDateTime(r.updatedAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Delivered:</strong> ${formatDateTime(r.deliveredAt) || r.actualDeliveredDate || "Not delivered"}`;
@@ -699,6 +712,8 @@ function editFacility(id){ const r=store.get("facility").find(x=>x.id===id); if(
 function partsObj() {
   return {
     id: $("partsId").value || undefined,
+    hasCore: $("hasCore").checked,
+    coreReturned: $("coreReturned").checked,
     partsRoNumber: $("partsRoNumber").value,
     partsCustomerName: $("partsCustomerName").value,
     partsVehicle: $("partsVehicle").value,
@@ -720,7 +735,7 @@ function partsObj() {
 }
 function resetParts(){ $("partsForm").reset(); $("partsId").value = ""; }
 function partGroupKey(r) {
-  return [r.partsRoNumber || "", r.partsCustomerName || "", r.partsVehicle || ""].join("||");
+  return String(r.partsRoNumber||"").trim() || [r.partsCustomerName||"",r.partsVehicle||""].join("||");
 }
 
 function summarizePartGroup(rows) {
@@ -811,7 +826,10 @@ function syncSelectAllPartsCheckbox() {
   const selectAll = $("partsSelectAll");
   if (!selectAll) return;
   const rows = currentPartsGroupRows();
+  selectedPartIds=new Set([...selectedPartIds].filter(id=>rows.some(r=>r.id===id)));
   selectAll.checked = rows.length > 0 && rows.every(r => selectedPartIds.has(r.id));
+  selectAll.indeterminate=selectedPartIds.size>0&&!selectAll.checked;
+  if($("partsSelectionCount"))$("partsSelectionCount").textContent=`${selectedPartIds.size} of ${rows.length} selected`;
 }
 
 function renderPartsDetailRows(rows) {
@@ -820,7 +838,7 @@ function renderPartsDetailRows(rows) {
     const etaLate = r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus);
     return `<tr>
       <td><input type="checkbox" ${selectedPartIds.has(r.id) ? "checked" : ""} onchange="onPartCheckboxChange('${r.id}', this.checked)"></td>
-      <td>${r.partDescription || ""}</td>
+      <td>${escapeHtml(r.partDescription || "")}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":"Core return due"}</span>`:""}</td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
       <td class="${["Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) ? "status-bad" : ""}">${r.partStatus || ""}</td>
@@ -871,12 +889,8 @@ function selectMirrorMatchedParts() {
 async function bulkUpdatePartsAndRefresh(ids, patch) {
   if (!ids.length) { showStatus("No parts selected.", true); return; }
   try {
-    const results = await Promise.all(ids.map(id => api.update("parts", id, patch)));
-    results.forEach(saved => {
-      const s = objToCamel(saved);
-      const idx = cache.parts.findIndex(r => r.id === s.id);
-      if (idx >= 0) cache.parts[idx] = s;
-    });
+    await apiRequest('/workspace/parts/bulk',{method:'POST',body:JSON.stringify({action:'update',ids,ro_number:currentPartsGroupRows()[0]?.partsRoNumber||'',patch:objToSnake(patch)})});
+    cache.parts=(await api.list('parts')).map(objToCamel);
     showStatus(`Updated ${ids.length} part${ids.length === 1 ? "" : "s"}.`);
     const key = currentPartsGroupKey;
     renderParts();
@@ -898,6 +912,8 @@ function editParts(id){
   const r = store.get("parts").find(x => x.id === id); if (!r) return;
   Object.keys(r).forEach(k => { const el = $(k); if (el) el.value = r[k] ?? ""; });
   $("partsId").value = r.id;
+  $("hasCore").checked=r.hasCore===true;
+  $("coreReturned").checked=r.coreReturned===true;
   closePartsModal();
   document.querySelector('[data-tab="parts"]').click();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1186,7 +1202,7 @@ function renderDashboard() {
   const t = store.get("tasks");
   const b = store.get("booth");
   const f = store.get("facility");
-  $("metricActiveJobs").textContent = d.filter(r=>!["Delivered","Total Loss"].includes(r.currentStage)).length;
+  $("metricActiveJobs").textContent = d.filter(ShopModel.isOnsite).length;
   $("metricMustMove").textContent = d.filter(r=>r.priority==="Must Move Today").length;
   $("metricDelivery").textContent = d.filter(r=>r.priority==="Delivery Today").length;
   $("metricDeliveredToday").textContent = d.filter(r=>r.currentStage==="Delivered" && (dateFromIsoLocal(r.deliveredAt)===today() || (!r.deliveredAt && r.actualDeliveredDate===today()))).length;
@@ -1222,7 +1238,7 @@ function renderDashboard() {
   $("metricCycleDueTomorrow").textContent = cycleDueTomorrow;
   $("metricCyclePastDue").textContent = cyclePastDue;
 }
-function renderAll(){ renderDaily(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
+function renderAll(){ renderUnified(); renderDaily(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
 
 function loadDefaultChecklist() {
   const items = [
@@ -1399,6 +1415,7 @@ async function handleLoginSubmit(e) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  initUnified();
   bindTabs();
   bindDashboardCards();
   $("targetDeliveryDate").value = today();
@@ -1461,7 +1478,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("exportAllBtn").onclick = () => {
     const backup = {
       daily: store.get("daily"), tasks: store.get("tasks"), parts: store.get("parts"), qc: store.get("qc"), booth: store.get("booth"), facility: store.get("facility"), ar: store.get("ar"),
-      exportedAt: new Date().toISOString()
+      appointments: workspace.appointments, boardSettings: workspace.settings, exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(backup,null,2)], {type:"application/json"});
     const url = URL.createObjectURL(blob);

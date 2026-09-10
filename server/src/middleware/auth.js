@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const {pool}=require('../db');
 
 const ROLE_PERMISSIONS = {
   admin: { resources: ["*"], actions: ["*"] },
@@ -59,7 +60,7 @@ function hasPermission(user, resource, action) {
   return readOnlyResources.includes(resource) && action === "list";
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
@@ -69,7 +70,9 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; // { id, username, fullName, role, canDelete }
+    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active FROM users WHERE id=$1',[payload.id])).rows[0];
+    if(!row||!row.active)return res.status(401).json({error:'This account is not active.'});
+    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete};
     next();
   } catch (err) {
     return res.status(401).json({ error: "Your session has expired. Please log in again." });
