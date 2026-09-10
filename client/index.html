@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Concept Shop Control</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="unified.css" />
+  <script src="shared.js"></script>
   <script src="config.js"></script>
 </head>
 <body>
@@ -54,9 +56,18 @@
     </div>
   </header>
 
-  <nav class="tabs">
+  <nav class="tabs" aria-label="Shop workspace">
+    <div class="nav-brand"><b>C<span>•</span></b><div>CONCEPT<small>SHOP CONTROL</small></div></div>
     <button class="tab active" data-tab="dashboard">Dashboard</button>
     <button class="tab" data-tab="daily">Daily GO List</button>
+    <button class="tab" data-tab="opportunities">Opportunities</button>
+    <button class="tab" data-tab="production">Production Board</button>
+    <button class="tab" data-tab="deliveryBoard">Delivery Board</button>
+    <button class="tab" data-tab="planningBoard">Planning Board</button>
+    <button class="tab" data-tab="calendar">Calendar</button>
+    <button class="tab" data-tab="workspaceSettings">Board Settings</button>
+    <button class="tab" data-tab="notifications">Notifications <span id="notificationCount"></span></button>
+    <a class="mobile-link" href="mobile/">Employee app ↗</a>
     <button class="tab" data-tab="tasks">Tasks</button>
     <button class="tab" data-tab="parts">Parts</button>
     <button class="tab" data-tab="qc">Vehicle QC</button>
@@ -74,6 +85,7 @@
   </nav>
 
   <main>
+<div id="unifiedPanels"></div>
     <section id="daily" class="tab-panel">
       <div class="section-head">
         <h2>Daily GO List</h2>
@@ -88,6 +100,10 @@
         <div class="wide timestamp-box" id="dailyTimestampBox">System timestamps will appear here after saving.</div>
         <label>RO Number <input id="roNumber" required /></label>
         <label>Customer Name <input id="customerName" required /></label>
+        <label class="check-label"><input id="onsite" type="checkbox" />Vehicle is physically onsite</label>
+        <input type="hidden" id="dailyExpectedUpdatedAt" />
+        <label>Follow-up date<input id="followUpDate" type="date" /></label>
+        <label>Follow-up notes<textarea id="followUpNotes"></textarea></label>
         <label>Vehicle <input id="vehicle" required placeholder="2022 Honda Accord" /></label>
         <label>RO / Estimate Amount $ <input id="roAmount" type="number" step="0.01" min="0" placeholder="Used for cycle time tracking" /></label>
         <label>Location
@@ -97,7 +113,7 @@
         </label>
         <label>Current Stage
           <select id="currentStage">
-            <option>Check-In</option><option>Tear Down</option><option>Waiting on Supplement</option><option>Waiting on Parts</option>
+            <option>Scheduled</option><option>On the Road</option><option>No Show</option><option>Repair Plan</option><option>Waiting Approval</option><option>Sublet</option><option>Check-In</option><option>Tear Down</option><option>Waiting on Supplement</option><option>Waiting on Parts</option>
             <option>Body</option><option>Prep</option><option>Paint</option><option>Assembly</option><option>Detail</option>
             <option>QC</option><option>Ready for Delivery</option><option>Delivered</option><option>Total Loss</option><option>On Hold</option>
           </select>
@@ -165,7 +181,7 @@
       <div class="toolbar">
         <input id="dailySearch" placeholder="Search RO, customer, vehicle..." />
         <select id="dailyView">
-          <option value="all">All Active</option>
+          <option value="all">Active onsite jobs</option><option value="scheduled">Scheduled arrivals</option><option value="onRoad">On the Road</option><option value="offsite">ROs awaiting arrival confirmation</option><option value="noShow">No Show</option><option value="everything">All records / history</option>
           <option value="must">Must Move Today</option>
           <option value="delivery">Delivery Today</option>
           <option value="parts">Waiting on Parts</option>
@@ -251,6 +267,7 @@
         <label>RO Number <input id="partsRoNumber" required /></label>
         <label>Customer Name <input id="partsCustomerName" /></label>
         <label>Vehicle <input id="partsVehicle" placeholder="2022 Honda Accord" /></label>
+        <label class="check-label"><input type="checkbox" id="hasCore" />Has a core — notify staff</label><label class="check-label"><input type="checkbox" id="coreReturned" />Core returned</label>
         <label>Part Description <input id="partDescription" required placeholder="LH headlamp, rear bumper, tail lamp..." /></label>
         <label>Part Type
           <select id="partType">
@@ -801,6 +818,11 @@
         <button type="button" id="closePartsModalBtn">Close</button>
       </div>
       <div class="toolbar">
+        <button type="button" onclick="toggleSelectAllParts(true)">Select all parts</button>
+        <button type="button" onclick="toggleSelectAllParts(false)">Clear selection</button>
+        <button type="button" onclick="openBulkPartsEditor()">Edit selected</button>
+        <button type="button" class="danger" onclick="deleteSelectedParts()">Delete selected</button>
+        <span id="partsSelectionCount" role="status"></span>
         <button type="button" onclick="selectOrderedParts()">Select Already Ordered</button>
         <button type="button" onclick="markSelectedOrdered()">Order Selected</button>
         <button type="button" onclick="selectMirrorMatchedParts()">Select Already Mirror Matched</button>
@@ -819,6 +841,7 @@
 
   <div class="status-banner" id="statusBanner"></div>
 
+<script src="unified.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

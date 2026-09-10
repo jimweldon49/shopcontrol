@@ -74,6 +74,8 @@ const RESOURCES = {
   },
 };
 
+const {allowed: extraColumns,validate}=require('../unifiedValidation');
+Object.entries(extraColumns).forEach(([key,fields])=>RESOURCES[key].columns.push(...fields));
 function cleanValue(value) {
   return value === "" ? null : value;
 }
@@ -95,6 +97,7 @@ function buildRouterFor(resourceKey, config) {
   router.post("/", requireAuth, requirePermission(resourceKey, "create"), async (req, res) => {
     try {
       const body = req.body || {};
+      validate(resourceKey,body);
       const cols = columns.filter((c) => Object.prototype.hasOwnProperty.call(body, c));
       const values = cols.map((c) => cleanValue(body[c]));
 
@@ -134,7 +137,7 @@ function buildRouterFor(resourceKey, config) {
       res.status(201).json(createdRow);
     } catch (err) {
       console.error(`Create ${resourceKey} error:`, err);
-      res.status(500).json({ error: `Failed to save ${resourceKey} record.` });
+      res.status(400).json({ error: err.message || `Failed to save ${resourceKey} record.` });
     }
   });
 
@@ -142,24 +145,29 @@ function buildRouterFor(resourceKey, config) {
     try {
       const beforeResult = await pool.query(`SELECT * FROM ${table} WHERE id = $1`, [req.params.id]);
       const before = beforeResult.rows[0];
+      if (before && req.body?.expected_updated_at && new Date(before.updated_at).getTime()!==new Date(req.body.expected_updated_at).getTime()) return res.status(409).json({error:'This record changed in another window. Reopen it before saving.'});
       if (!before) {
         return res.status(404).json({ error: "Record not found." });
       }
 
       const body = req.body || {};
+      validate(resourceKey,body);
       const cols = columns.filter((c) => Object.prototype.hasOwnProperty.call(body, c));
       const values = cols.map((c) => cleanValue(body[c]));
 
       const setClauses = cols.map((c, i) => `${c} = $${i + 1}`);
       setClauses.push(`updated_at = now()`);
       setClauses.push(`updated_by = $${cols.length + 1}`);
-      const params = [...values, req.user.fullName || req.user.username, req.params.id];
+      if(resourceKey==='daily' && req.body.expected_version!==undefined && req.body.expected_version!==before.version) return res.status(409).json({error:'This job changed in another window. Reopen it before saving.'});
+      const params = [...values, req.user.fullName || req.user.username, req.params.id, resourceKey==='daily'?before.version:before.updated_at];
+      const concurrencyField=resourceKey==='daily'?'version':"date_trunc('milliseconds',updated_at)";
 
       const result = await pool.query(
-        `UPDATE ${table} SET ${setClauses.join(", ")} WHERE id = $${params.length} RETURNING *`,
+        `UPDATE ${table} SET ${setClauses.join(", ")} WHERE id = $${params.length-1} AND ${concurrencyField} = $${params.length} RETURNING *`,
         params
       );
 
+      if (!result.rows.length) return res.status(409).json({error:'This record changed while saving. Refresh and try again.'});
       await logActivity({
         req,
         resource: resourceKey,
@@ -207,7 +215,7 @@ function buildRouterFor(resourceKey, config) {
       res.json(updatedRow);
     } catch (err) {
       console.error(`Update ${resourceKey} error:`, err);
-      res.status(500).json({ error: `Failed to update ${resourceKey} record.` });
+      res.status(400).json({ error: err.message || `Failed to update ${resourceKey} record.` });
     }
   });
 

@@ -6,8 +6,8 @@ const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-let authToken = localStorage.getItem("mobileQcToken") || null;
-let currentUser = JSON.parse(localStorage.getItem("mobileQcUser") || "null");
+let authToken = localStorage.getItem("authToken") || null;
+let currentUser = JSON.parse(localStorage.getItem("authUser") || "null");
 
 async function apiRequest(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -37,8 +37,8 @@ function showScreen(id) {
 function logout() {
   authToken = null;
   currentUser = null;
-  localStorage.removeItem("mobileQcToken");
-  localStorage.removeItem("mobileQcUser");
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
   showScreen("screen-login");
 }
 
@@ -64,8 +64,8 @@ async function handleLogin() {
     const result = await apiRequest("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
     authToken = result.token;
     currentUser = result.user;
-    localStorage.setItem("mobileQcToken", authToken);
-    localStorage.setItem("mobileQcUser", JSON.stringify(currentUser));
+    localStorage.setItem("authToken", authToken);
+    localStorage.setItem("authUser", JSON.stringify(currentUser));
     $("loginPassword").value = "";
     enterLookup();
   } catch (err) {
