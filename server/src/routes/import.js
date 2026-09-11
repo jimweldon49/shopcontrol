@@ -178,6 +178,15 @@ function buildRoNumber(env, ad1, ad2) {
     `CCC-${Date.now()}`;
 }
 
+// env.RO_ID is often blank on the initial estimate (before the shop's RO number
+// is entered into CCC) and only gets populated on a later supplement. env.ESTFILE_ID
+// is CCC's own package/file id and stays constant across the estimate and every
+// supplement for the same job, so it's used to keep re-imports matched to the same
+// Daily GO List record even after the "real" RO number appears. See migrations/011.
+function buildEstFileId(env) {
+  return firstValue(env, ["ESTFILE_ID"]) || null;
+}
+
 function buildSummaryNotes({ env, ad1, ad2, veh, ttl, stl, lin }) {
   const notes = [];
 
@@ -249,6 +258,7 @@ function buildDailyFromPackage(parsed) {
 
   return {
     ro_number: buildRoNumber(env, ad1, ad2),
+    ccc_estfile_id: buildEstFileId(env),
     customer_name: buildCustomerName(ad1, ad2),
     vehicle: buildVehicle(veh),
     location,
@@ -326,14 +336,36 @@ function mapPartLine(line, daily) {
   };
 }
 
+async function findExistingDaily(mapped) {
+  // Match on CCC's own package/file id first: it stays constant across the initial
+  // estimate and every later supplement, even after the shop's real RO number
+  // (env.RO_ID) shows up for the first time and changes what buildRoNumber() returns.
+  // Falling back to ro_number alone would treat that as a brand-new job. Excludes
+  // already-merged duplicates and orders deterministically so repeat imports always
+  // land on the same row (a plain `LIMIT 1` with no ORDER BY previously picked an
+  // arbitrary row whenever more than one shared the same ro_number).
+  if (mapped.ccc_estfile_id) {
+    const byEstFile = await pool.query(
+      "SELECT * FROM daily_go_list WHERE ccc_estfile_id = $1 AND merged_into IS NULL ORDER BY created_at ASC LIMIT 1",
+      [mapped.ccc_estfile_id]
+    );
+    if (byEstFile.rows[0]) return byEstFile.rows[0];
+  }
+
+  const byRoNumber = await pool.query(
+    "SELECT * FROM daily_go_list WHERE ro_number = $1 AND merged_into IS NULL ORDER BY created_at ASC LIMIT 1",
+    [mapped.ro_number]
+  );
+  return byRoNumber.rows[0] || null;
+}
+
 async function upsertDailyFromImport(req, mapped) {
-  const existing = await pool.query("SELECT * FROM daily_go_list WHERE ro_number = $1 LIMIT 1", [mapped.ro_number]);
+  const before = await findExistingDaily(mapped);
   const userName = req.user.fullName || req.user.username;
 
-  if (existing.rows[0]) {
-    const before = existing.rows[0];
+  if (before) {
     // Repeat CCC imports update estimate data without moving production cards or clearing delivery state.
-    const importedFields=['ro_number','customer_name','vehicle','ro_amount','estimator','end_of_day_notes'];
+    const importedFields=['ro_number','ccc_estfile_id','customer_name','vehicle','ro_amount','estimator','end_of_day_notes'];
     const cols = Object.keys(mapped).filter(k => importedFields.includes(k) && mapped[k] !== undefined && (k!=='ro_amount'||mapped[k]!==null));
     const values = cols.map(k => mapped[k] === "" ? null : mapped[k]);
     const setClauses = cols.map((c, i) => `${c} = $${i + 1}`);
