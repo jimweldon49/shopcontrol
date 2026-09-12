@@ -194,6 +194,59 @@ function enterHub() {
 
   showScreen("screen-hub");
   loadHubParts();
+  loadHubRework();
+}
+
+// ============================================================
+// Rework tracking
+// ============================================================
+async function loadHubRework() {
+  const box = $("hubRework");
+  box.innerHTML = `<div class="muted-note">Loading rework items...</div>`;
+  try {
+    const qcList = await apiRequest("/qc");
+    const items = qcList
+      .filter((r) =>
+        String(r.qc_ro_number || "").toLowerCase() === String(activeJob.ro_number || "").toLowerCase() &&
+        r.qc_rework_needed === "Yes"
+      )
+      .sort((a, b) => (a.qc_rework_due_date || "9999-99-99").localeCompare(b.qc_rework_due_date || "9999-99-99"));
+
+    if (!items.length) {
+      box.innerHTML = `<div class="muted-note">No open rework on this RO.</div>`;
+      return;
+    }
+
+    const todayStr = today();
+    box.innerHTML = items.map((r) => {
+      const overdue = r.qc_rework_due_date && r.qc_rework_due_date < todayStr;
+      const dueText = r.qc_rework_due_date
+        ? `Due ${r.qc_rework_due_date}${overdue ? " (overdue)" : ""}`
+        : "No due date set";
+      return `
+        <div class="rework-row">
+          <div class="name">${r.qc_rework_assigned_to || "Unassigned"}</div>
+          <div class="sub${overdue ? " overdue" : ""}">${dueText} &middot; flagged by ${r.qc_performed_by || "QC"} on ${r.qc_date || ""}</div>
+          ${r.qc_issues ? `<div class="sub">${r.qc_issues}</div>` : ""}
+          <button class="btn btn-secondary" onclick="markReworkComplete('${r.id}')">Mark Rework Complete</button>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    box.innerHTML = `<div class="muted-note">Rework info not available for your account.</div>`;
+  }
+}
+
+async function markReworkComplete(id) {
+  try {
+    await apiRequest(`/qc/${id}`, { method: "PUT", body: JSON.stringify({ qc_rework_needed: "No" }) });
+    if (activeQcRecord && String(activeQcRecord.id) === String(id)) {
+      activeQcRecord.qc_rework_needed = "No";
+    }
+    loadHubRework();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function loadHubParts() {

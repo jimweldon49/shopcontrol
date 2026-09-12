@@ -86,6 +86,11 @@
   .file-row .meta .sub { font-size: 12px; color: var(--muted); }
   .file-row a { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; flex-shrink: 0; }
   .muted-note { color: var(--muted); font-size: 13px; text-align: center; padding: 10px 0; }
+  .rework-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .rework-row .name { font-weight: 700; font-size: 14px; }
+  .rework-row .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .rework-row .sub.overdue { color: var(--danger); font-weight: 700; }
+  .rework-row .btn { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -143,6 +148,12 @@
       <h2>Parts</h2>
       <p class="hint">Parts on this RO, from the shop's parts list.</p>
       <div id="hubParts"><div class="muted-note">Loading parts...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Rework Tracking</h2>
+      <p class="hint">Open rework items flagged on this RO.</p>
+      <div id="hubRework"><div class="muted-note">Loading rework items...</div></div>
     </div>
 
     <div class="card hub-actions">
