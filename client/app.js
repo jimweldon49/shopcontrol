@@ -936,6 +936,27 @@ function partGroupKey(r) {
   return String(r.partsRoNumber||"").trim() || [r.partsCustomerName||"",r.partsVehicle||""].join("||");
 }
 
+function dailyRecordForPartsRow(r, dailyRows) {
+  const ro = String(r.partsRoNumber||"").trim();
+  if (ro) {
+    const match = dailyRows.find(d => String(d.roNumber||"").trim() === ro);
+    if (match) return match;
+  }
+  const cust = String(r.partsCustomerName||"").trim().toLowerCase();
+  const veh = String(r.partsVehicle||"").trim().toLowerCase();
+  if (cust && veh) {
+    return dailyRows.find(d => String(d.customerName||"").trim().toLowerCase()===cust && String(d.vehicle||"").trim().toLowerCase()===veh) || null;
+  }
+  return null;
+}
+
+// No matching Daily GO List record means we can't confirm the vehicle has left, so
+// it stays counted as a problem rather than silently disappearing.
+function isPartsRowVehicleOnsite(r, dailyRows) {
+  const match = dailyRecordForPartsRow(r, dailyRows);
+  return match ? ShopModel.isOnsite(match) : true;
+}
+
 function summarizePartGroup(rows) {
   return {
     total: rows.length,
@@ -947,7 +968,11 @@ function summarizePartGroup(rows) {
   };
 }
 
-function partsGroupMatchesView(groupRows, view) {
+function partsGroupHasProblem(groupRows) {
+  return groupRows.some(r => r.partStatus !== "Complete" && (["Need to Order","Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || (r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus)) || (r.partStatus === "Received" && r.partMirrorMatched !== "Yes")));
+}
+
+function partsGroupMatchesView(groupRows, view, dailyRows) {
   const s = summarizePartGroup(groupRows);
   if (view === "all") return s.open > 0;
   if (view === "needOrder") return s.needOrder > 0;
@@ -956,7 +981,7 @@ function partsGroupMatchesView(groupRows, view) {
   if (view === "received") return groupRows.some(r => r.partStatus === "Received");
   if (view === "mirror") return s.mirror > 0;
   if (view === "returns") return s.returns > 0;
-  if (view === "problems") return groupRows.some(r => r.partStatus !== "Complete" && (["Need to Order","Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || (r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus)) || (r.partStatus === "Received" && r.partMirrorMatched !== "Yes")));
+  if (view === "problems") return partsGroupHasProblem(groupRows) && groupRows.some(r => isPartsRowVehicleOnsite(r, dailyRows || []));
   if (view === "complete") return s.open === 0 && s.total > 0;
   return true;
 }
@@ -967,6 +992,7 @@ function renderParts() {
   renderPartLocationOptions();
 
   const allRows = store.get("parts");
+  const dailyRows = store.get("daily");
   const view = $("partsView")?.value || "all";
   const search = ($("partsSearch")?.value || "").toLowerCase();
 
@@ -983,7 +1009,7 @@ function renderParts() {
     return { key, rows, first, hay, summary: summarizePartGroup(rows) };
   });
 
-  groups = groups.filter(g => partsGroupMatchesView(g.rows, view) && g.hay.includes(search));
+  groups = groups.filter(g => partsGroupMatchesView(g.rows, view, dailyRows) && g.hay.includes(search));
   groups.sort((a,b) => (b.summary.open - a.summary.open) || String(a.first.partsRoNumber || "").localeCompare(String(b.first.partsRoNumber || "")));
 
   table.querySelector("tbody").innerHTML = groups.map(g => `
@@ -1587,7 +1613,7 @@ function renderDashboard() {
   $("metricSupplementsNeeded").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementCompleted!=="Yes").length;
   const p = store.get("parts");
   $("metricManagement").textContent = d.filter(r=>r.needsManagementHelp==="Yes").length;
-  $("metricPartsProblems").textContent = p.filter(r=>r.partStatus !== "Complete" && (["Need to Order","Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || (r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus)) || (r.partStatus === "Received" && r.partMirrorMatched !== "Yes"))).length;
+  $("metricPartsProblems").textContent = p.filter(r=>partsGroupHasProblem([r]) && isPartsRowVehicleOnsite(r, d)).length;
   $("metricPartsReturns").textContent = p.filter(r=>r.partReturnNeeded === "Yes" || ["Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || r.partCreditNeeded === "Yes").length;
   $("metricOpenTasks").textContent = t.filter(r=>r.taskStatus!=="Completed").length;
   const q = store.get("qc");
