@@ -7,36 +7,36 @@ const ROLE_PERMISSIONS = {
   manager: { resources: ["*"], actions: ["list", "create", "update", "delete", "upload"] },
 
   office: {
-    resources: ["daily", "tasks", "facility", "ar", "parts", "activity", "uploads"],
+    resources: ["daily", "tasks", "facility", "ar", "parts", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
     readOnlyResources: ["qc", "booth"],
   },
   estimator: {
-    resources: ["daily", "tasks", "qc", "activity", "uploads"],
+    resources: ["daily", "tasks", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
   parts: {
-    resources: ["daily", "tasks", "parts", "activity", "uploads"],
+    resources: ["daily", "tasks", "parts", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
   paint: {
-    resources: ["daily", "tasks", "booth", "qc", "activity", "uploads"],
+    resources: ["daily", "tasks", "booth", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
   body: {
-    resources: ["daily", "tasks", "qc", "activity", "uploads"],
+    resources: ["daily", "tasks", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
   qc: {
-    resources: ["daily", "tasks", "qc", "activity", "uploads"],
+    resources: ["daily", "tasks", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
   cleanup: {
-    resources: ["tasks", "facility", "booth", "activity", "uploads"],
+    resources: ["tasks", "facility", "booth", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
   employee: {
-    resources: ["daily", "tasks", "parts", "qc", "booth", "facility", "activity", "uploads"],
+    resources: ["daily", "tasks", "parts", "qc", "booth", "facility", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
 };

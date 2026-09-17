@@ -20,6 +20,13 @@ router.get("/", requireAuth, requireAdmin, async (req, res) => {
   res.json(result.rows);
 });
 
+// Minimal active-staff roster for building assignee pickers (e.g. Missed Calls) --
+// any signed-in user can see who exists, unlike the admin-only full listing above.
+router.get("/roster", requireAuth, async (req, res) => {
+  const result = await pool.query("SELECT id, full_name, username FROM users WHERE active=true ORDER BY full_name");
+  res.json(result.rows);
+});
+
 // Create a new employee login
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
   const { username, password, fullName, email, role, canDelete } = req.body || {};

@@ -15,6 +15,7 @@ const { mountRecordRoutes } = require("./routes/records");
 const { startEmsWatcher } = require("./emsWatcher");
 const { startTaskReminderScheduler } = require("./taskEmails");
 const { startCycleAlertScheduler } = require("./cycleTimeAlerts");
+const { startMissedCallScheduler } = require("./missedCallAlerts");
 
 const app = express();
 
@@ -31,11 +32,13 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/import", importRoutes);
 app.use('/api/workspace',require('./routes/workspace'));
+app.use('/api/missedCalls', require('./routes/missedCalls'));
 mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc, /api/booth, /api/facility
 
 startEmsWatcher();
 startTaskReminderScheduler();
 startCycleAlertScheduler();
+startMissedCallScheduler();
 require('./coreNotifications').startCoreNotifications();
 // The web app and employee app share this server and login origin.
 app.use(express.static(path.join(__dirname,'..','..','client')));

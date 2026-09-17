@@ -101,6 +101,10 @@ const api = {
   update: (resource, id, obj) => apiRequest(`/${resource}/${id}`, { method: "PUT", body: JSON.stringify(objToSnake(obj)) }),
   remove: (resource, id) => apiRequest(`/${resource}/${id}`, { method: "DELETE" }),
   listUsers: () => apiRequest("/users"),
+  listRoster: () => apiRequest("/users/roster"),
+  logCallbackAttempt: (id, obj) => apiRequest(`/missedCalls/${id}/attempts`, { method: "POST", body: JSON.stringify(objToSnake(obj)) }),
+  listCallbackAttempts: (id) => apiRequest(`/missedCalls/${id}/attempts`),
+  checkDuplicateCall: (phone, ro) => apiRequest(`/missedCalls/duplicate-check?phone=${encodeURIComponent(phone || "")}&ro=${encodeURIComponent(ro || "")}`),
   createUser: (obj) => apiRequest("/users", { method: "POST", body: JSON.stringify(obj) }),
   patchUser: (id, obj) => apiRequest(`/users/${id}`, { method: "PATCH", body: JSON.stringify(obj) }),
   resetUserPassword: (id, password) => apiRequest(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
@@ -191,8 +195,9 @@ async function handleCccImport(e) {
 // The `store` interface below is kept so the rest of the app's
 // render/filter logic can stay exactly like the original.
 // ============================================================
-const RESOURCE_KEYS = ["daily", "tasks", "parts", "qc", "booth", "facility", "ar"];
-const cache = { daily: [], tasks: [], parts: [], qc: [], booth: [], facility: [], ar: [], activity: [], uploads: [] };
+const RESOURCE_KEYS = ["daily", "tasks", "parts", "qc", "booth", "facility", "ar", "missedCalls"];
+const cache = { daily: [], tasks: [], parts: [], qc: [], booth: [], facility: [], ar: [], missedCalls: [], activity: [], uploads: [] };
+let staffRoster = [];
 
 const store = {
   get(key) { return cache[key] || []; },
@@ -390,7 +395,6 @@ function renderDaily() {
     if (view === "management" && r.needsManagementHelp !== "Yes") return false;
     if (view === "customerUpdate" && !(r.customerUpdatedToday !== "Yes" && !["Delivered","Total Loss"].includes(r.currentStage))) return false;
     if (view === "stale" && !isStaleVehicle(r)) return false;
-    if (view === "deliveryNotReady" && !(r.priority === "Delivery Today" && !["Ready for Delivery","Delivered"].includes(r.currentStage))) return false;
     if (view === "supplementNotApproved" && !(r.supplementNeeded === "Yes" && r.supplementApproved !== "Yes")) return false;
     if (view === "deliveredToday" && !(r.currentStage === "Delivered" && (dateFromIsoLocal(r.deliveredAt) === today() || (!r.deliveredAt && r.actualDeliveredDate === today())))) return false;
     if (view === "delivered" && !["Delivered","Total Loss"].includes(r.currentStage)) return false;
@@ -463,6 +467,163 @@ function editTask(id) {
   const r = store.get("tasks").find(x => x.id === id); if (!r) return;
   Object.keys(r).forEach(k => { const el = $(k); if (el) el.value = r[k] ?? ""; });
   $("taskId").value = r.id; document.querySelector('[data-tab="tasks"]').click(); window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function toLocalDatetimeInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function missedCallDeadline(r) { return r.createdAt ? new Date(new Date(r.createdAt).getTime() + 3600000) : null; }
+function isOpenMissedCall(r) { return !["Returned / resolved", "Closed — no callback needed"].includes(r.status); }
+function isOverdueMissedCall(r) {
+  if (!isOpenMissedCall(r) || !["New", "In progress"].includes(r.status)) return false;
+  const deadline = missedCallDeadline(r);
+  return !!deadline && new Date() > deadline;
+}
+function missedCallObj() {
+  const receivedLocal = $("missedCallReceivedAt").value;
+  return {
+    id: $("missedCallId").value || undefined,
+    expectedUpdatedAt: $("missedCallExpectedUpdatedAt").value || undefined,
+    assignedTo: $("missedCallAssignedTo").value || null,
+    receivedAt: receivedLocal ? new Date(receivedLocal).toISOString() : undefined,
+    callerName: $("missedCallCallerName").value,
+    company: $("missedCallCompany").value,
+    callbackPhone: $("missedCallCallbackPhone").value,
+    email: $("missedCallEmail").value,
+    callerType: $("missedCallCallerType").value,
+    reason: $("missedCallReason").value,
+    priority: $("missedCallPriority").value,
+    message: $("missedCallMessage").value,
+    vehicleYear: $("missedCallVehicleYear").value,
+    vehicleMake: $("missedCallVehicleMake").value,
+    vehicleModel: $("missedCallVehicleModel").value,
+    vehicleVin: $("missedCallVehicleVin").value,
+    vehiclePlate: $("missedCallVehiclePlate").value,
+    roNumber: $("missedCallRoNumber").value,
+    claimNumber: $("missedCallClaimNumber").value,
+    insuranceCompany: $("missedCallInsuranceCompany").value,
+    preferredCallback: $("missedCallPreferredCallback").value,
+    status: $("missedCallStatus").value,
+    closedReason: $("missedCallClosedReason").value,
+  };
+}
+function resetMissedCall() {
+  $("missedCallForm").reset();
+  $("missedCallId").value = "";
+  $("missedCallExpectedUpdatedAt").value = "";
+  $("missedCallReceivedAt").value = toLocalDatetimeInput(nowIso());
+  $("missedCallCallerType").value = "Customer";
+  $("missedCallReason").value = "Other";
+  $("missedCallPriority").value = "Normal";
+  $("missedCallStatus").value = "New";
+  $("missedCallRoPreview").textContent = "";
+}
+function lookupMissedCallRo() {
+  const ro = $("missedCallRoNumber").value.trim();
+  const preview = $("missedCallRoPreview");
+  if (!ro) { preview.textContent = ""; return; }
+  const job = store.get("daily").find(j => (j.roNumber || "").trim() === ro);
+  if (!job) { preview.textContent = "No matching RO found in Daily GO List."; return; }
+  preview.textContent = `Matched: ${job.customerName || ""} · ${job.vehicle || ""}${job.insurance ? " · " + job.insurance : ""}`;
+  if (!$("missedCallInsuranceCompany").value) $("missedCallInsuranceCompany").value = job.insurance || "";
+}
+function renderMissedCalls() {
+  let rows = store.get("missedCalls");
+  const view = $("missedCallView")?.value || "open";
+  const search = ($("missedCallSearch")?.value || "").toLowerCase();
+  rows = rows.filter(r => {
+    if (view === "mine" && r.assignedTo !== currentUser?.id) return false;
+    if (view === "open" && !isOpenMissedCall(r)) return false;
+    if (view === "unassigned" && r.assignedTo) return false;
+    if (view === "overdue" && !isOverdueMissedCall(r)) return false;
+    if (view === "completed" && isOpenMissedCall(r)) return false;
+    return [r.callerName, r.callbackPhone, r.roNumber, r.message, r.company].join(" ").toLowerCase().includes(search);
+  });
+  rows = rows.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  $("missedCallTable").querySelector("tbody").innerHTML = rows.map(r => {
+    const overdue = isOverdueMissedCall(r);
+    const deadline = missedCallDeadline(r);
+    const assignee = staffRoster.find(u => u.id === r.assignedTo)?.fullName || (r.assignedTo ? "Unknown" : "Unassigned");
+    const deadlineText = deadline ? (overdue ? `Overdue since ${formatDateTime(deadline.toISOString())}` : formatDateTime(deadline.toISOString())) : "";
+    return `<tr>
+      <td>${r.callerName || ""}<small>${r.callbackPhone || ""}</small></td>
+      <td>${assignee}</td>
+      <td>${r.reason || ""}<small>${r.priority || ""}</small></td>
+      <td>${r.roNumber || ""}<small>${[r.vehicleYear,r.vehicleMake,r.vehicleModel].filter(Boolean).join(" ")}</small></td>
+      <td>${formatDateTime(r.createdAt) || ""}</td>
+      <td class="${overdue?'status-bad':''}">${deadlineText}</td>
+      <td>${r.status || ""}</td>
+      <td><div class="actions"><button onclick="editMissedCall('${r.id}')">Edit</button><button onclick="openCallbackModal('${r.id}')">Log callback</button>${deleteBtn('missedCalls', r.id)}</div></td>
+    </tr>`;
+  }).join("");
+  $("metricMissedCallsOpen").textContent = store.get("missedCalls").filter(isOpenMissedCall).length;
+}
+function editMissedCall(id) {
+  const r = store.get("missedCalls").find(x => x.id === id); if (!r) return;
+  $("missedCallId").value = r.id;
+  $("missedCallExpectedUpdatedAt").value = r.updatedAt || "";
+  $("missedCallAssignedTo").value = r.assignedTo || "";
+  $("missedCallReceivedAt").value = toLocalDatetimeInput(r.receivedAt);
+  $("missedCallCallerName").value = r.callerName || "";
+  $("missedCallCompany").value = r.company || "";
+  $("missedCallCallbackPhone").value = r.callbackPhone || "";
+  $("missedCallEmail").value = r.email || "";
+  $("missedCallCallerType").value = r.callerType || "Customer";
+  $("missedCallReason").value = r.reason || "Other";
+  $("missedCallPriority").value = r.priority || "Normal";
+  $("missedCallMessage").value = r.message || "";
+  $("missedCallVehicleYear").value = r.vehicleYear || "";
+  $("missedCallVehicleMake").value = r.vehicleMake || "";
+  $("missedCallVehicleModel").value = r.vehicleModel || "";
+  $("missedCallVehicleVin").value = r.vehicleVin || "";
+  $("missedCallVehiclePlate").value = r.vehiclePlate || "";
+  $("missedCallRoNumber").value = r.roNumber || "";
+  $("missedCallClaimNumber").value = r.claimNumber || "";
+  $("missedCallInsuranceCompany").value = r.insuranceCompany || "";
+  $("missedCallPreferredCallback").value = r.preferredCallback || "";
+  $("missedCallStatus").value = r.status || "New";
+  $("missedCallClosedReason").value = r.closedReason || "";
+  $("missedCallRoPreview").textContent = "";
+  document.querySelector('[data-tab="missedCalls"]').click();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+async function openCallbackModal(id) {
+  const r = store.get("missedCalls").find(x => x.id === id); if (!r) return;
+  $("callbackAttemptCallId").value = id;
+  $("callbackAttemptSub").textContent = `${r.callerName || ""} · ${r.callbackPhone || ""}`;
+  $("callbackAttemptForm").reset();
+  $("callbackAttemptHistory").innerHTML = "Loading history...";
+  $("callbackAttemptModal").style.display = "flex";
+  try {
+    const attempts = await api.listCallbackAttempts(id);
+    $("callbackAttemptHistory").innerHTML = attempts.length
+      ? `<h3>Attempt history</h3><ul>${attempts.map(a => `<li>${formatDateTime(a.attempted_at)} · ${a.staff_member} · ${a.outcome}${a.notes ? " — " + a.notes : ""}</li>`).join("")}</ul>`
+      : "<p>No attempts logged yet.</p>";
+  } catch (err) {
+    $("callbackAttemptHistory").innerHTML = "";
+  }
+}
+function closeCallbackModal() { $("callbackAttemptModal").style.display = "none"; }
+async function submitCallbackAttempt(e) {
+  e.preventDefault();
+  const id = $("callbackAttemptCallId").value;
+  try {
+    await api.logCallbackAttempt(id, {
+      outcome: $("callbackAttemptOutcome").value,
+      notes: $("callbackAttemptNotes").value,
+      nextFollowUpAt: $("callbackAttemptNextFollowUp").value ? new Date($("callbackAttemptNextFollowUp").value).toISOString() : null,
+    });
+    cache.missedCalls = (await api.list("missedCalls")).map(objToCamel);
+    renderAll();
+    closeCallbackModal();
+    showStatus("Callback attempt logged.");
+  } catch (err) {
+    showStatus(`Could not log callback attempt: ${err.message}`, true);
+  }
 }
 
 function arObj() {
@@ -920,6 +1081,24 @@ function editParts(id){
 }
 
 
+// ============================================================
+// Active-staff roster (any signed-in user, for assignee pickers)
+// ============================================================
+async function loadStaffRoster() {
+  try {
+    staffRoster = await api.listRoster();
+    renderMissedCallAssigneeOptions();
+    renderAll();
+  } catch (_) {}
+}
+function renderMissedCallAssigneeOptions() {
+  const select = $("missedCallAssignedTo");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">Unassigned / Needs routing</option>${staffRoster.map(u => `<option value="${u.id}">${u.fullName || u.username}</option>`).join("")}`;
+  select.value = current;
+}
+
 // ==================================================// ============================================================
 // Employee management (admin only)
 // ============================================================
@@ -1221,7 +1400,7 @@ function renderDashboard() {
   $("metricFacilityIssues").textContent = f.filter(r=>r.facilityStatus==="Needs Attention").length;
   $("metricCustomerUpdates").textContent = d.filter(r=>r.customerUpdatedToday!=="Yes" && !["Delivered","Total Loss"].includes(r.currentStage)).length;
   $("metricStaleCars").textContent = d.filter(isStaleVehicle).length;
-  $("metricDeliveryNotReady").textContent = d.filter(r=>r.priority==="Delivery Today" && !["Ready for Delivery","Delivered"].includes(r.currentStage)).length;
+  $("metricMissedCallsOverdue").textContent = store.get("missedCalls").filter(isOverdueMissedCall).length;
   $("metricSuppNotApproved").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementApproved!=="Yes").length;
   $("metricPartsNeedMirror").textContent = p.filter(r=>r.partStatus==="Received" && r.partMirrorMatched!=="Yes").length;
   const ar = store.get("ar");
@@ -1238,7 +1417,7 @@ function renderDashboard() {
   $("metricCycleDueTomorrow").textContent = cycleDueTomorrow;
   $("metricCyclePastDue").textContent = cyclePastDue;
 }
-function renderAll(){ renderUnified(); renderDaily(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
+function renderAll(){ renderUnified(); renderDaily(); renderMissedCalls(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
 
 function loadDefaultChecklist() {
   const items = [
@@ -1359,6 +1538,7 @@ function showApp() {
   $("sessionInfo").textContent = currentUser ? `Logged in as ${currentUser.fullName} (${currentUser.role || "employee"})` : "";
   $("employeesTabBtn").style.display = ["admin","owner"].includes(String(currentUser?.role || "").toLowerCase()) ? "" : "none";
   loadAll(true);
+  loadStaffRoster();
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync
@@ -1419,6 +1599,11 @@ document.addEventListener("DOMContentLoaded", () => {
   bindTabs();
   bindDashboardCards();
   $("targetDeliveryDate").value = today();
+  $("missedCallReceivedAt").value = toLocalDatetimeInput(nowIso());
+  $("missedCallCallerType").value = "Customer";
+  $("missedCallReason").value = "Other";
+  $("missedCallPriority").value = "Normal";
+  $("missedCallStatus").value = "New";
   $("taskDueDate").value = today();
   $("boothDate").value = today();
   $("facilityWeek").value = today();
@@ -1436,6 +1621,19 @@ document.addEventListener("DOMContentLoaded", () => {
   $("refreshBtn").onclick = () => loadAll(false);
 
   $("dailyForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("daily", dailyObj()); resetDaily(); } catch(_) {} });
+  $("missedCallForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    try {
+      const obj = missedCallObj();
+      if (!obj.id) {
+        const dupes = await api.checkDuplicateCall(obj.callbackPhone, obj.roNumber).catch(() => []);
+        if (dupes.length && !confirm(`An open callback request already exists for ${dupes[0].caller_name} (${dupes[0].callback_phone}${dupes[0].ro_number ? ", RO " + dupes[0].ro_number : ""}). Save this one anyway?`)) return;
+      }
+      await upsert("missedCalls", obj);
+      resetMissedCall();
+    } catch(_) {}
+  });
+  $("callbackAttemptForm").addEventListener("submit", submitCallbackAttempt);
   $("taskForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("tasks", taskObj()); resetTask(); } catch(_) {} });
   $("partsForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("parts", partsObj()); resetParts(); } catch(_) {} });
   $("qcForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("qc", qcObj()); resetQc(); } catch(_) {} });
@@ -1447,6 +1645,10 @@ document.addEventListener("DOMContentLoaded", () => {
   $("employeeForm").addEventListener("submit", handleCreateEmployee);
 
   $("resetDailyBtn").onclick = resetDaily;
+  $("resetMissedCallBtn").onclick = resetMissedCall;
+  $("missedCallLookupRoBtn").onclick = lookupMissedCallRo;
+  $("closeCallbackModalBtn").onclick = closeCallbackModal;
+  $("callbackAttemptModal").addEventListener("click", (e) => { if (e.target.id === "callbackAttemptModal") closeCallbackModal(); });
   $("resetTaskBtn").onclick = resetTask;
   $("resetPartsBtn").onclick = resetParts;
   $("resetQcBtn").onclick = resetQc;
@@ -1469,6 +1671,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("partsModal")) $("partsModal").addEventListener("click", (e) => { if (e.target.id === "partsModal") closePartsModal(); });
 
   $("exportDailyBtn").onclick = () => csvExport("concept_daily_go_list.csv", store.get("daily"));
+  $("exportMissedCallsBtn").onclick = () => csvExport("concept_missed_calls.csv", store.get("missedCalls"));
   $("exportTasksBtn").onclick = () => csvExport("concept_tasks.csv", store.get("tasks"));
   $("exportPartsBtn").onclick = () => csvExport("concept_parts.csv", store.get("parts"));
   $("exportQcBtn").onclick = () => csvExport("concept_vehicle_qc.csv", store.get("qc"));
@@ -1477,7 +1680,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("exportArBtn").onclick = () => csvExport("concept_ar_balances.csv", store.get("ar"));
   $("exportAllBtn").onclick = () => {
     const backup = {
-      daily: store.get("daily"), tasks: store.get("tasks"), parts: store.get("parts"), qc: store.get("qc"), booth: store.get("booth"), facility: store.get("facility"), ar: store.get("ar"),
+      daily: store.get("daily"), tasks: store.get("tasks"), parts: store.get("parts"), qc: store.get("qc"), booth: store.get("booth"), facility: store.get("facility"), ar: store.get("ar"), missedCalls: store.get("missedCalls"),
       appointments: workspace.appointments, boardSettings: workspace.settings, exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(backup,null,2)], {type:"application/json"});

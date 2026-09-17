@@ -60,6 +60,7 @@
     <div class="nav-brand"><b>C<span>•</span></b><div>CONCEPT<small>SHOP CONTROL</small></div></div>
     <button class="tab active" data-tab="dashboard">Dashboard</button>
     <button class="tab" data-tab="daily">Daily GO List</button>
+    <button class="tab" data-tab="missedCalls">Missed Calls</button>
     <button class="tab" data-tab="opportunities">Opportunities</button>
     <button class="tab" data-tab="production">Production Board</button>
     <button class="tab" data-tab="deliveryBoard">Delivery Board</button>
@@ -192,7 +193,6 @@
           <option value="management">Needs Management Help</option>
           <option value="customerUpdate">Customer Updates Needed</option>
           <option value="stale">Cars Sitting Too Long</option>
-          <option value="deliveryNotReady">Deliveries Today Not Ready</option>
           <option value="supplementNotApproved">Supplements Not Approved</option>
           <option value="deliveredToday">Delivered Today</option>
           <option value="delivered">Delivered / Closed</option>
@@ -211,6 +211,86 @@
         </table>
       </div>
     </section>
+
+    <section id="missedCalls" class="tab-panel">
+      <div class="section-head">
+        <h2>Missed Calls / Callback Requests</h2>
+        <p>Every incoming call gets an owner. The assigned employee is emailed immediately; the whole escalation group is paged if no callback attempt is logged within 1 business hour.</p>
+      </div>
+
+      <form id="missedCallForm" class="card form-grid">
+        <input type="hidden" id="missedCallId" />
+        <input type="hidden" id="missedCallExpectedUpdatedAt" />
+        <label>Assigned Staff Member <select id="missedCallAssignedTo"><option value="">Unassigned / Needs routing</option></select></label>
+        <label>Date/Time Received <input id="missedCallReceivedAt" type="datetime-local" required /></label>
+        <label>Caller's Name <input id="missedCallCallerName" required /></label>
+        <label>Company / Organization <input id="missedCallCompany" /></label>
+        <label>Callback Phone Number <input id="missedCallCallbackPhone" type="tel" required /></label>
+        <label>Email Address <input id="missedCallEmail" type="email" /></label>
+        <label>Caller Type <select id="missedCallCallerType"><option>Customer</option><option>Insurance adjuster</option><option>Vendor</option><option>Dealership</option><option>Other</option></select></label>
+        <label>Reason for Call <select id="missedCallReason"><option>Repair status</option><option>Estimate</option><option>Insurance/claim question</option><option>Payment</option><option>Parts</option><option>Scheduling</option><option>Complaint</option><option>Other</option></select></label>
+        <label>Priority <select id="missedCallPriority"><option>Normal</option><option>Urgent</option></select></label>
+        <label class="wide">Message / Important Information <textarea id="missedCallMessage" required placeholder="What does the caller need?"></textarea></label>
+        <label>Vehicle Year <input id="missedCallVehicleYear" /></label>
+        <label>Vehicle Make <input id="missedCallVehicleMake" /></label>
+        <label>Vehicle Model <input id="missedCallVehicleModel" /></label>
+        <label>VIN <input id="missedCallVehicleVin" /></label>
+        <label>License Plate <input id="missedCallVehiclePlate" /></label>
+        <label>RO Number <input id="missedCallRoNumber" /></label>
+        <div class="wide">
+          <button type="button" id="missedCallLookupRoBtn">Look up RO</button>
+          <span id="missedCallRoPreview" class="board-tip"></span>
+        </div>
+        <label>Insurance Claim Number <input id="missedCallClaimNumber" /></label>
+        <label>Insurance Company <input id="missedCallInsuranceCompany" /></label>
+        <label class="wide">Preferred Callback Time / Special Instructions <input id="missedCallPreferredCallback" /></label>
+        <label>Status <select id="missedCallStatus"><option>New</option><option>In progress</option><option>Callback attempted</option><option>Returned / resolved</option><option>Closed — no callback needed</option></select></label>
+        <label>Closed Reason (if closed without callback) <input id="missedCallClosedReason" /></label>
+        <div class="wide form-actions">
+          <button type="submit">Save Callback Request</button>
+          <button type="button" id="resetMissedCallBtn">New / Clear</button>
+        </div>
+      </form>
+
+      <div class="toolbar">
+        <input id="missedCallSearch" placeholder="Search caller, phone, RO..." />
+        <select id="missedCallView">
+          <option value="mine">My Calls</option>
+          <option value="open">All Open</option>
+          <option value="unassigned">Unassigned</option>
+          <option value="overdue">Overdue</option>
+          <option value="completed">Completed</option>
+        </select>
+        <button id="exportMissedCallsBtn">Export Missed Calls CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="missedCallTable">
+          <thead><tr><th>Caller</th><th>Assigned</th><th>Reason / Priority</th><th>RO / Vehicle</th><th>Received</th><th>Deadline</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="modal-backdrop" id="callbackAttemptModal" style="display:none;">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>Log Callback Attempt</h2>
+          <p id="callbackAttemptSub"></p>
+        </div>
+        <form id="callbackAttemptForm" class="form-grid">
+          <input type="hidden" id="callbackAttemptCallId" />
+          <label>Outcome <select id="callbackAttemptOutcome"><option>Reached caller</option><option>Left voicemail</option><option>No answer</option><option>Wrong number</option></select></label>
+          <label>Next Follow-up <input id="callbackAttemptNextFollowUp" type="datetime-local" /></label>
+          <label class="wide">Notes <textarea id="callbackAttemptNotes"></textarea></label>
+          <div class="wide form-actions">
+            <button type="submit">Save Attempt</button>
+            <button type="button" id="closeCallbackModalBtn">Cancel</button>
+          </div>
+        </form>
+        <div id="callbackAttemptHistory"></div>
+      </div>
+    </div>
 
     <section id="tasks" class="tab-panel">
       <div class="section-head">
@@ -656,6 +736,7 @@
         <div class="metric important clickable" data-open-tab="daily" data-set-view="dailyView:management"><span id="metricManagement">0</span><label>Needs Management Help</label></div>
         <div class="metric warning clickable" data-open-tab="parts" data-set-view="partsView:problems"><span id="metricPartsProblems">0</span><label>Parts Problems</label></div>
         <div class="metric danger-metric clickable" data-open-tab="parts" data-set-view="partsView:returns"><span id="metricPartsReturns">0</span><label>Parts Need Returned</label></div>
+        <div class="metric clickable" data-open-tab="missedCalls" data-set-view="missedCallView:open"><span id="metricMissedCallsOpen">0</span><label>Open Callback Requests</label></div>
         <div class="metric clickable" data-open-tab="tasks" data-set-view="taskView:all"><span id="metricOpenTasks">0</span><label>Open Tasks</label></div>
         <div class="metric important clickable" data-open-tab="qc" data-set-view="qcView:open"><span id="metricQcOpen">0</span><label>QC Open</label></div>
         <div class="metric danger-metric clickable" data-open-tab="qc" data-set-view="qcView:failed"><span id="metricQcFailed">0</span><label>QC Failed</label></div>
@@ -664,7 +745,7 @@
         <div class="metric warning clickable" data-open-tab="facility"><span id="metricFacilityIssues">0</span><label>Facility Issues</label></div>
         <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:customerUpdate"><span id="metricCustomerUpdates">0</span><label>Customer Updates Needed</label></div>
         <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:stale"><span id="metricStaleCars">0</span><label>Cars Sitting Too Long</label></div>
-        <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:deliveryNotReady"><span id="metricDeliveryNotReady">0</span><label>Deliveries Not Ready</label></div>
+        <div class="metric danger-metric clickable" data-open-tab="missedCalls" data-set-view="missedCallView:overdue"><span id="metricMissedCallsOverdue">0</span><label>Missed Calls Overdue</label></div>
         <div class="metric warning clickable" data-open-tab="daily" data-set-view="dailyView:supplementNotApproved"><span id="metricSuppNotApproved">0</span><label>Supplements Not Approved</label></div>
         <div class="metric warning clickable" data-open-tab="parts" data-set-view="partsView:mirror"><span id="metricPartsNeedMirror">0</span><label>Parts Need Mirror Match</label></div>
         <div class="metric clickable" data-open-tab="ar" data-set-view="arView:all"><span id="metricArOutstanding">$0.00</span><label>AR Outstanding</label></div>
