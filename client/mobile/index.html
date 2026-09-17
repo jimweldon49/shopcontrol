@@ -73,6 +73,24 @@
   footer.progress span { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
   footer.progress span.done { background: var(--accent); }
   .center-note { text-align: center; color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .hub-actions { display: flex; flex-direction: column; gap: 10px; }
+  .hub-actions .btn { margin-top: 0; }
+  .part-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .part-row .name { font-weight: 700; font-size: 14px; }
+  .part-row .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .file-row { display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+  .file-row img.thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #f1f5f9; }
+  .file-row .doc-icon { width: 56px; height: 56px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .file-row .meta { flex: 1; min-width: 0; }
+  .file-row .meta .name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row .meta .sub { font-size: 12px; color: var(--muted); }
+  .file-row a { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; flex-shrink: 0; }
+  .muted-note { color: var(--muted); font-size: 13px; text-align: center; padding: 10px 0; }
+  .rework-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .rework-row .name { font-weight: 700; font-size: 14px; }
+  .rework-row .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .rework-row .sub.overdue { color: var(--danger); font-weight: 700; }
+  .rework-row .btn { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -109,6 +127,40 @@
       <button class="btn btn-primary" id="lookupBtn">Find Vehicle</button>
     </div>
     <div id="lookupResults"></div>
+  </div>
+</section>
+
+<!-- JOB HUB -->
+<section class="screen" id="screen-hub">
+  <header class="topbar">
+    <div><h1>Job Overview</h1><div class="sub" id="hubUserSub"></div></div>
+    <button id="logoutBtnHub">Log Out</button>
+  </header>
+  <div class="mobile-main">
+    <div class="card">
+      <span class="tag" id="hubExistingTag" style="display:none;">Continuing existing QC</span>
+      <h2 id="hubVehicleTitle">Vehicle</h2>
+      <p class="hint" id="hubVehicleSub"></p>
+      <div id="hubInfoRows"></div>
+    </div>
+
+    <div class="card">
+      <h2>Parts</h2>
+      <p class="hint">Parts on this RO, from the shop's parts list.</p>
+      <div id="hubParts"><div class="muted-note">Loading parts...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Rework Tracking</h2>
+      <p class="hint">Open rework items flagged on this RO.</p>
+      <div id="hubRework"><div class="muted-note">Loading rework items...</div></div>
+    </div>
+
+    <div class="card hub-actions">
+      <button class="btn btn-primary" id="hubQcBtn">QC Checklist</button>
+      <button class="btn btn-secondary" id="hubPhotosBtn">Photos &amp; Files</button>
+      <button class="btn btn-secondary" id="hubNewSearchBtn">New Search</button>
+    </div>
   </div>
 </section>
 
@@ -174,7 +226,7 @@
       <textarea id="qcDeliveryNotes" placeholder="Final notes before customer pickup."></textarea>
 
       <button class="btn btn-primary" id="toSignatureBtn">Continue to Signature</button>
-      <button class="btn btn-secondary" id="backToLookupBtn">Back</button>
+      <button class="btn btn-secondary" id="backToLookupBtn">Back to Job</button>
     </div>
   </div>
 </section>
@@ -201,6 +253,37 @@
   </div>
 </section>
 
+<!-- PHOTOS & FILES -->
+<section class="screen" id="screen-photos">
+  <header class="topbar">
+    <div><h1>Photos &amp; Files</h1><div class="sub" id="photosRoSub"></div></div>
+    <button id="logoutBtnPhotos">Log Out</button>
+  </header>
+  <div class="mobile-main">
+    <div class="card">
+      <h2>Add a Photo or File</h2>
+      <p class="hint">Snap a photo with your camera, or attach an existing file (photos, estimates, procedure PDFs).</p>
+      <div class="error-box" id="photosError"></div>
+      <div class="status-box" id="photosStatus"></div>
+      <label>Caption (optional)</label>
+      <input type="text" id="photoNote" placeholder="e.g. Left rear quarter panel" />
+      <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="display:none" />
+      <input type="file" id="photoFileInput" accept="image/*,application/pdf" style="display:none" />
+      <button class="btn btn-primary" id="takePhotoBtn">Take Photo</button>
+      <button class="btn btn-secondary" id="chooseFileBtn">Choose File</button>
+    </div>
+
+    <div class="card">
+      <h2>Attached to this Job</h2>
+      <div id="photosList"><div class="muted-note">Loading...</div></div>
+    </div>
+
+    <div class="card hub-actions">
+      <button class="btn btn-secondary" id="backToHubBtn">Back to Job</button>
+    </div>
+  </div>
+</section>
+
 <!-- DONE -->
 <section class="screen" id="screen-done">
   <header class="topbar"><div><h1>Shop QC</h1></div><button id="logoutBtn4">Log Out</button></header>
@@ -210,6 +293,7 @@
       <div class="status-box visible" id="doneMessage"></div>
       <div id="doneSummary"></div>
       <button class="btn btn-primary" id="startAnotherBtn">Start Another QC</button>
+      <button class="btn btn-secondary" id="doneBackToHubBtn">Back to Job</button>
     </div>
     <p class="center-note">Concept Shop Control &middot; Mobile QC</p>
   </div>

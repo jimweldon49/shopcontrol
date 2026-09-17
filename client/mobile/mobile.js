@@ -156,10 +156,119 @@ async function selectJob(job) {
       !["Passed", "Ready for Delivery"].includes(r.qc_final_status)
     );
     activeQcRecord = existing || null;
-    enterForm();
+    enterHub();
   } catch (err) {
     errBox.textContent = err.message;
     errBox.classList.add("visible");
+  }
+}
+
+// ============================================================
+// Job hub
+// ============================================================
+const HUB_FIELDS = [
+  ["current_stage", "Stage"],
+  ["priority", "Priority"],
+  ["target_delivery_date", "Target Delivery"],
+  ["hold_up_reason", "Hold Up Reason"],
+  ["todays_goal", "Today's Goal"],
+  ["estimate_needed", "Estimate Needed"],
+  ["estimate_completed", "Estimate Completed"],
+  ["supplement_needed", "Supplement Needed"],
+  ["supplement_submitted", "Supplement Submitted"],
+  ["supplement_approved", "Supplement Approved"],
+  ["supplement_completed", "Supplement Completed"],
+  ["ro_amount", "RO Amount"],
+];
+
+function enterHub() {
+  $("hubUserSub").textContent = currentUser ? `Logged in as ${currentUser.fullName}` : "";
+  $("hubVehicleTitle").textContent = activeJob.vehicle || "Vehicle";
+  $("hubVehicleSub").textContent = `${activeJob.customer_name || ""} · RO ${activeJob.ro_number || ""}`;
+  $("hubExistingTag").style.display = activeQcRecord ? "" : "none";
+
+  $("hubInfoRows").innerHTML = HUB_FIELDS
+    .filter(([key]) => activeJob[key] !== null && activeJob[key] !== undefined && activeJob[key] !== "")
+    .map(([key, label]) => `<div class="summary-row"><span class="k">${label}</span><span>${activeJob[key]}</span></div>`)
+    .join("") || `<p class="muted-note">No additional job info on file.</p>`;
+
+  showScreen("screen-hub");
+  loadHubParts();
+  loadHubRework();
+}
+
+// ============================================================
+// Rework tracking
+// ============================================================
+async function loadHubRework() {
+  const box = $("hubRework");
+  box.innerHTML = `<div class="muted-note">Loading rework items...</div>`;
+  try {
+    const qcList = await apiRequest("/qc");
+    const items = qcList
+      .filter((r) =>
+        String(r.qc_ro_number || "").toLowerCase() === String(activeJob.ro_number || "").toLowerCase() &&
+        r.qc_rework_needed === "Yes"
+      )
+      .sort((a, b) => (a.qc_rework_due_date || "9999-99-99").localeCompare(b.qc_rework_due_date || "9999-99-99"));
+
+    if (!items.length) {
+      box.innerHTML = `<div class="muted-note">No open rework on this RO.</div>`;
+      return;
+    }
+
+    const todayStr = today();
+    box.innerHTML = items.map((r) => {
+      const overdue = r.qc_rework_due_date && r.qc_rework_due_date < todayStr;
+      const dueText = r.qc_rework_due_date
+        ? `Due ${r.qc_rework_due_date}${overdue ? " (overdue)" : ""}`
+        : "No due date set";
+      return `
+        <div class="rework-row">
+          <div class="name">${r.qc_rework_assigned_to || "Unassigned"}</div>
+          <div class="sub${overdue ? " overdue" : ""}">${dueText} &middot; flagged by ${r.qc_performed_by || "QC"} on ${r.qc_date || ""}</div>
+          ${r.qc_issues ? `<div class="sub">${r.qc_issues}</div>` : ""}
+          <button class="btn btn-secondary" onclick="markReworkComplete('${r.id}')">Mark Rework Complete</button>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    box.innerHTML = `<div class="muted-note">Rework info not available for your account.</div>`;
+  }
+}
+
+async function markReworkComplete(id) {
+  try {
+    await apiRequest(`/qc/${id}`, { method: "PUT", body: JSON.stringify({ qc_rework_needed: "No" }) });
+    if (activeQcRecord && String(activeQcRecord.id) === String(id)) {
+      activeQcRecord.qc_rework_needed = "No";
+    }
+    loadHubRework();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function loadHubParts() {
+  const box = $("hubParts");
+  box.innerHTML = `<div class="muted-note">Loading parts...</div>`;
+  try {
+    const parts = await apiRequest("/parts");
+    const matches = parts.filter((p) =>
+      String(p.parts_ro_number || "").toLowerCase() === String(activeJob.ro_number || "").toLowerCase()
+    );
+    if (!matches.length) {
+      box.innerHTML = `<div class="muted-note">No parts on file for this RO.</div>`;
+      return;
+    }
+    box.innerHTML = matches.map((p) => `
+      <div class="part-row">
+        <div class="name">${p.part_description || "Part"}</div>
+        <div class="sub">${[p.part_type, p.part_status, p.part_eta ? `ETA ${p.part_eta}` : ""].filter(Boolean).join(" · ")}</div>
+      </div>
+    `).join("");
+  } catch (err) {
+    box.innerHTML = `<div class="muted-note">Parts info not available for your account.</div>`;
   }
 }
 
@@ -342,6 +451,86 @@ async function submitQc() {
   }
 }
 
+// ============================================================
+// Photos & files
+// ============================================================
+async function uploadAttachment(file, note) {
+  const form = new FormData();
+  form.append("file", file);
+  if (note) form.append("note", note);
+  const res = await fetch(`${API_BASE}/uploads/daily/${activeJob.id}`, {
+    method: "POST",
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    body: form,
+  });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Your session expired. Please log in again.");
+  }
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error((data && data.error) || `Upload failed (${res.status})`);
+  return data;
+}
+
+async function loadPhotos() {
+  const box = $("photosList");
+  box.innerHTML = `<div class="muted-note">Loading...</div>`;
+  try {
+    const files = await apiRequest(`/uploads?resource=daily&recordId=${encodeURIComponent(activeJob.id)}`);
+    if (!files.length) {
+      box.innerHTML = `<div class="muted-note">Nothing attached to this job yet.</div>`;
+      return;
+    }
+    box.innerHTML = files.map((f) => {
+      const isImage = (f.mime_type || "").startsWith("image/");
+      const thumb = isImage
+        ? `<img class="thumb" src="${f.file_url}" alt="" />`
+        : `<div class="doc-icon">FILE</div>`;
+      const when = f.created_at ? new Date(f.created_at).toLocaleString() : "";
+      return `
+        <div class="file-row">
+          ${thumb}
+          <div class="meta">
+            <div class="name">${f.note || f.original_name || "Attachment"}</div>
+            <div class="sub">${f.uploaded_by || ""}${when ? ` · ${when}` : ""}</div>
+          </div>
+          <a href="${f.file_url}" target="_blank" rel="noopener">View</a>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    box.innerHTML = `<div class="muted-note">Could not load attachments: ${err.message}</div>`;
+  }
+}
+
+function enterPhotos() {
+  $("photosRoSub").textContent = `RO ${activeJob.ro_number || ""}`;
+  $("photoNote").value = "";
+  $("photosError").classList.remove("visible");
+  $("photosStatus").classList.remove("visible");
+  showScreen("screen-photos");
+  loadPhotos();
+}
+
+async function handlePhotoFile(file) {
+  if (!file) return;
+  const errBox = $("photosError");
+  const statusBox = $("photosStatus");
+  errBox.classList.remove("visible");
+  statusBox.classList.remove("visible");
+  try {
+    await uploadAttachment(file, $("photoNote").value.trim());
+    $("photoNote").value = "";
+    statusBox.textContent = "Uploaded.";
+    statusBox.classList.add("visible");
+    loadPhotos();
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.add("visible");
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   $("loginBtn").onclick = handleLogin;
   $("loginPassword").addEventListener("keydown", (e) => { if (e.key === "Enter") handleLogin(); });
@@ -349,16 +538,33 @@ document.addEventListener("DOMContentLoaded", () => {
   $("lookupBtn").onclick = handleLookup;
   $("roInput").addEventListener("keydown", (e) => { if (e.key === "Enter") handleLookup(); });
 
+  $("hubQcBtn").onclick = enterForm;
+  $("hubPhotosBtn").onclick = enterPhotos;
+  $("hubNewSearchBtn").onclick = enterLookup;
+
   $("toSignatureBtn").onclick = enterSignature;
-  $("backToLookupBtn").onclick = enterLookup;
+  $("backToLookupBtn").onclick = enterHub;
 
   $("clearSigBtn").onclick = clearSignature;
   $("submitQcBtn").onclick = submitQc;
   $("backToFormBtn").onclick = () => showScreen("screen-form");
 
   $("startAnotherBtn").onclick = enterLookup;
+  $("doneBackToHubBtn").onclick = enterHub;
 
-  ["logoutBtn1", "logoutBtn2", "logoutBtn3", "logoutBtn4"].forEach((id) => { $(id).onclick = logout; });
+  $("takePhotoBtn").onclick = () => $("photoCameraInput").click();
+  $("chooseFileBtn").onclick = () => $("photoFileInput").click();
+  $("photoCameraInput").addEventListener("change", (e) => {
+    handlePhotoFile(e.target.files[0]);
+    e.target.value = "";
+  });
+  $("photoFileInput").addEventListener("change", (e) => {
+    handlePhotoFile(e.target.files[0]);
+    e.target.value = "";
+  });
+  $("backToHubBtn").onclick = enterHub;
+
+  ["logoutBtn1", "logoutBtn2", "logoutBtn3", "logoutBtn4", "logoutBtnHub", "logoutBtnPhotos"].forEach((id) => { $(id).onclick = logout; });
 
   window.addEventListener("resize", () => {
     if ($("screen-signature").classList.contains("active")) initSignaturePad();
