@@ -50,7 +50,7 @@ function boardFilter(board,key,value){workspace.filters[board]={...workspace.fil
 function renderBoard(board){
  const id={production:'production',delivery:'deliveryBoard',planning:'planningBoard'}[board];const title={production:'Production Board',delivery:'Delivery Board',planning:'Planning Board'}[board];
  const f=workspace.filters[board]||{},s=workspace.settings;
- let jobs=store.get('daily').filter(j=>!j.mergedInto&&(board==='production'?ShopModel.isOnsite(j):board==='delivery'?!!j.deliveryStage:ShopModel.jobKind(j.roNumber)==='active'&&!['Delivered','Total Loss','No Show'].includes(j.currentStage)));
+ let jobs=store.get('daily').filter(j=>!j.mergedInto&&(board==='production'?ShopModel.isOnsite(j):board==='delivery'?!!j.deliveryStage:ShopModel.jobKind(j.roNumber)==='active'&&!ShopModel.isOnsite(j)&&!['Delivered','Total Loss','No Show'].includes(j.currentStage)));
  jobs=jobs.filter(j=>{
   if(f.search&&!`${j.roNumber} ${j.customerName} ${j.vehicle}`.toLowerCase().includes(f.search.toLowerCase()))return false;
   if(f.location&&j.location!==f.location||f.insurance&&j.insurance!==f.insurance||f.estimator&&j.estimator!==f.estimator||f.payType&&j.payType!==f.payType||f.partsStatus&&j.partsStatus!==f.partsStatus)return false;
