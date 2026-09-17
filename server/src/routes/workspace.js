@@ -5,6 +5,7 @@ const {allowed,validate,bulk}=require('../unifiedValidation');
 const model=require('../../../client/shared');
 const {RESOURCES}=require('./records');
 const {logActivity}=require('../activityLogger');
+const {assertCartAssignment}=require('../inventoryRules');
 const router=express.Router();router.use(requireAuth);
 function fail(res,e){console.error('Workspace request:',e.message);return res.status(e.status||400).json({error:e.message});}
 router.get('/settings',async(req,res)=>{try{let row=(await pool.query('SELECT * FROM board_settings WHERE id=1')).rows[0];if(!row){await pool.query('INSERT INTO board_settings(id,data) VALUES(1,$1) ON CONFLICT DO NOTHING',[model.defaults()]);row=(await pool.query('SELECT * FROM board_settings WHERE id=1')).rows[0];}res.json(row);}catch(e){fail(res,e);}});
@@ -26,7 +27,7 @@ router.post('/parts/bulk',async(req,res,next)=>{const action=req.body.action==='
   const rows=(await db.query('SELECT * FROM parts WHERE id=ANY($1::uuid[]) AND btrim(parts_ro_number)=btrim($2) FOR UPDATE',[body.ids,body.ro_number])).rows;
   if(rows.length!==body.ids.length)throw Error('Some selected parts changed or belong to another RO. Refresh the group. No changes saved.');
   if(body.action==='delete')await db.query('DELETE FROM parts WHERE id=ANY($1::uuid[])',[body.ids]);
-  else{validate('parts',body.patch);const columns=[...new Set([...RESOURCES.parts.columns,...allowed.parts])].filter(k=>Object.hasOwn(body.patch,k));if(!columns.length)throw Error('Choose at least one field to update.');const forbidden=['parts_ro_number','parts_customer_name','parts_vehicle'];if(columns.some(k=>forbidden.includes(k)))throw Error('Group edits cannot change vehicle identity.');const values=columns.map(k=>body.patch[k]===''?null:body.patch[k]);await db.query(`UPDATE parts SET ${columns.map((k,i)=>k+'=$'+(i+1)).join(',')},updated_at=now(),updated_by=$${values.length+1} WHERE id=ANY($${values.length+2}::uuid[])`,[...values,req.user.fullName||req.user.username,body.ids]);}
+  else{validate('parts',body.patch);const columns=[...new Set([...RESOURCES.parts.columns,...allowed.parts])].filter(k=>Object.hasOwn(body.patch,k));if(!columns.length)throw Error('Choose at least one field to update.');const forbidden=['parts_ro_number','parts_customer_name','parts_vehicle'];if(columns.some(k=>forbidden.includes(k)))throw Error('Group edits cannot change vehicle identity.');if(columns.includes('part_location')&&body.patch.part_location)await assertCartAssignment(db,body.ro_number,body.patch.part_location);const values=columns.map(k=>body.patch[k]===''?null:body.patch[k]);await db.query(`UPDATE parts SET ${columns.map((k,i)=>k+'=$'+(i+1)).join(',')},updated_at=now(),updated_by=$${values.length+1} WHERE id=ANY($${values.length+2}::uuid[])`,[...values,req.user.fullName||req.user.username,body.ids]);}
   await db.query(`INSERT INTO activity_log(user_id,username,full_name,resource,action,summary,changes) VALUES($1,$2,$3,'parts',$4,$5,$6)`,[req.user.id,req.user.username,req.user.fullName,body.action,`Bulk ${body.action}: ${rows.length} parts for RO ${body.ro_number}`,JSON.stringify({before:rows,patch:body.patch||null})]);
   await db.query('COMMIT');res.json({count:rows.length});
  }catch(e){if(db)await db.query('ROLLBACK');fail(res,e);}finally{if(db)db.release();}

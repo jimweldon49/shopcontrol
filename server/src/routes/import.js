@@ -333,6 +333,8 @@ function mapPartLine(line, daily) {
     part_assigned_to: "",
     part_last_follow_up: null,
     part_notes: notes,
+    part_cost: price && Number.isFinite(Number(price)) ? Number(price) : null,
+    part_qty: qty && Number.isFinite(Number(qty)) && Number(qty) > 0 ? Number(qty) : 1,
   };
 }
 

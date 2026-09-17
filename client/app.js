@@ -195,8 +195,8 @@ async function handleCccImport(e) {
 // The `store` interface below is kept so the rest of the app's
 // render/filter logic can stay exactly like the original.
 // ============================================================
-const RESOURCE_KEYS = ["daily", "tasks", "parts", "qc", "booth", "facility", "ar", "missedCalls"];
-const cache = { daily: [], tasks: [], parts: [], qc: [], booth: [], facility: [], ar: [], missedCalls: [], activity: [], uploads: [] };
+const RESOURCE_KEYS = ["daily", "tasks", "parts", "qc", "booth", "facility", "ar", "missedCalls", "inventoryLocations"];
+const cache = { daily: [], tasks: [], parts: [], qc: [], booth: [], facility: [], ar: [], missedCalls: [], inventoryLocations: [], activity: [], uploads: [] };
 let staffRoster = [];
 
 const store = {
@@ -891,10 +891,47 @@ function partsObj() {
     partCreditNeeded: $("partCreditNeeded").value,
     partAssignedTo: $("partAssignedTo").value,
     partLastFollowUp: $("partLastFollowUp").value,
-    partNotes: $("partNotes").value
+    partNotes: $("partNotes").value,
+    partCost: $("partCost").value || null,
+    partQty: $("partQty").value || 1,
+    partLocation: $("partLocation").value || null,
+    partShelf: $("partLocation").value ? ($("partShelf").value || null) : null,
   };
 }
-function resetParts(){ $("partsForm").reset(); $("partsId").value = ""; }
+function resetParts(){ $("partsForm").reset(); $("partsId").value = ""; $("partQty").value = 1; renderPartLocationOptions("", ""); }
+function partLocationName(r) {
+  const loc = store.get("inventoryLocations").find(l => l.id === r.partLocation);
+  if (!loc) return "";
+  return loc.name + (r.partShelf ? " · " + (r.partShelf === "Top" ? "Top" : "Shelf " + r.partShelf) : "");
+}
+function isPartOnsite(r) { return !["Complete", "Returned", "Credit Pending"].includes(r.partStatus); }
+function partValue(r) { return Number(r.partCost || 0) * Number(r.partQty || 1); }
+function partAgeDays(r) {
+  if (!r.partReceivedDate) return null;
+  return Math.max(0, Math.floor((new Date(today() + "T00:00:00") - new Date(r.partReceivedDate + "T00:00:00")) / 86400000));
+}
+function renderPartLocationOptions(selectedLocation, selectedShelf) {
+  const sel = $("partLocation");
+  if (!sel) return;
+  const current = selectedLocation !== undefined ? selectedLocation : sel.value;
+  sel.innerHTML = `<option value="">Not placed yet</option>` + store.get("inventoryLocations").map(l =>
+    `<option value="${l.id}">${escapeHtml(l.name)}${l.kind === "cart" && l.ros?.length ? " — RO " + escapeHtml(l.ros.join(" / ")) : ""}</option>`
+  ).join("");
+  sel.value = current || "";
+  renderPartShelfOptions(selectedShelf);
+}
+function renderPartShelfOptions(selected) {
+  const sel = $("partShelf"), label = $("partShelfLabel");
+  if (!sel) return;
+  const loc = store.get("inventoryLocations").find(l => l.id === $("partLocation").value);
+  const isCart = loc && loc.kind === "cart";
+  if (label) label.hidden = !isCart;
+  const current = selected !== undefined ? selected : sel.value;
+  sel.innerHTML = isCart
+    ? [...Array.from({ length: loc.shelfCount || 0 }, (_, i) => String(i + 1)), ...(loc.hasTop ? ["Top"] : [])].map(s => `<option value="${s}">${s === "Top" ? "Top" : "Shelf " + s}</option>`).join("")
+    : "";
+  sel.value = current || "";
+}
 function partGroupKey(r) {
   return String(r.partsRoNumber||"").trim() || [r.partsCustomerName||"",r.partsVehicle||""].join("||");
 }
@@ -927,6 +964,7 @@ function partsGroupMatchesView(groupRows, view) {
 function renderParts() {
   const table = $("partsTable");
   if (!table) return;
+  renderPartLocationOptions();
 
   const allRows = store.get("parts");
   const view = $("partsView")?.value || "all";
@@ -941,7 +979,7 @@ function renderParts() {
 
   let groups = [...map.entries()].map(([key, rows]) => {
     const first = rows[0] || {};
-    const hay = rows.map(r => [r.partsRoNumber,r.partsCustomerName,r.partsVehicle,r.partDescription,r.partVendor,r.partStatus,r.partNotes].join(" ")).join(" ").toLowerCase();
+    const hay = rows.map(r => [r.partsRoNumber,r.partsCustomerName,r.partsVehicle,r.partDescription,r.partVendor,r.partStatus,r.partNotes,partLocationName(r)].join(" ")).join(" ").toLowerCase();
     return { key, rows, first, hay, summary: summarizePartGroup(rows) };
   });
 
@@ -1002,6 +1040,8 @@ function renderPartsDetailRows(rows) {
       <td>${escapeHtml(r.partDescription || "")}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":"Core return due"}</span>`:""}</td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
+      <td>${escapeHtml(partLocationName(r)) || "Not placed"}</td>
+      <td>${formatCurrency(partValue(r))}</td>
       <td class="${["Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) ? "status-bad" : ""}">${r.partStatus || ""}</td>
       <td class="${etaLate ? "status-bad" : ""}">${r.partEta || ""}</td>
       <td>${r.partMirrorMatched || ""}</td>
@@ -1075,11 +1115,169 @@ function editParts(id){
   $("partsId").value = r.id;
   $("hasCore").checked=r.hasCore===true;
   $("coreReturned").checked=r.coreReturned===true;
+  renderPartLocationOptions(r.partLocation || "", r.partShelf || "");
   closePartsModal();
   document.querySelector('[data-tab="parts"]').click();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+
+// ============================================================
+// Parts Inventory: carts, shelves, floor plan, returns/aging
+// ============================================================
+let selectedCartId = null;
+function inventoryTileHtml(l) {
+  const partsHere = store.get("parts").filter(p => isPartOnsite(p) && p.partLocation === l.id);
+  const occupied = l.kind === "cart" && l.ros && l.ros.length;
+  return `<button type="button" class="production-card ${selectedCartId===l.id?'selected':''}" onclick="selectInventoryLocation('${l.id}')">
+    <h3>${escapeHtml(l.name)}</h3>
+    <p>${occupied ? "RO " + escapeHtml(l.ros.join(" / ")) : (l.kind === "cart" ? "Available" : "Other storage")}</p>
+    <p>${partsHere.length} part(s) · ${escapeHtml(l.zone)}</p>
+  </button>`;
+}
+function partCardHtml(p) {
+  return `<button type="button" class="production-card" draggable="true" data-part="${p.id}" ondragstart="event.dataTransfer.setData('text/plain', this.dataset.part)" onclick="editParts('${p.id}')">
+    <h3>${escapeHtml(p.partDescription || "")}</h3>
+    <p>RO ${escapeHtml(p.partsRoNumber || "")}${Number(p.partQty||1) > 1 ? " · Qty " + p.partQty : ""}</p>
+  </button>`;
+}
+function selectInventoryLocation(id) { selectedCartId = id; renderCartsShelves(); renderFloorPlan(); }
+function renderShelvesForSelected() {
+  const loc = store.get("inventoryLocations").find(l => l.id === selectedCartId);
+  if (!loc) return '<p class="board-tip">Select a cart or location to see what\'s stored there.</p>';
+  const partsHere = store.get("parts").filter(p => isPartOnsite(p) && p.partLocation === loc.id);
+  if (loc.kind !== "cart") {
+    return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:center"><h3>${escapeHtml(loc.name)}</h3><button type="button" onclick="editLocationRow('${loc.id}')">Edit location</button></div>${partsHere.map(partCardHtml).join("") || '<p class="empty">No parts here.</p>'}</div>`;
+  }
+  const shelves = [...(loc.hasTop ? ["Top"] : []), ...Array.from({ length: loc.shelfCount || 0 }, (_, i) => String((loc.shelfCount||0) - i))];
+  return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:center"><h3>${escapeHtml(loc.name)}</h3><button type="button" onclick="editLocationRow('${loc.id}')">Edit cart</button></div>
+    <p class="board-tip">Drag a part card onto a shelf to move it. One vehicle per cart.</p>
+    <div class="production-columns">${shelves.map(s => {
+      const shelfParts = partsHere.filter(p => (p.partShelf || "") === s);
+      return `<section class="production-column" data-destination="${s}"><header><h3>${s === "Top" ? "Top · rarely used" : "Shelf " + s}</h3></header><div>${shelfParts.map(partCardHtml).join("") || '<p class="column-empty">Drop a part here</p>'}</div></section>`;
+    }).join("")}</div></div>`;
+}
+function wireInventoryDragAndDrop() {
+  document.querySelectorAll(".production-column[data-destination]").forEach(col => {
+    col.ondragover = e => { e.preventDefault(); col.classList.add("drag-over"); };
+    col.ondragleave = () => col.classList.remove("drag-over");
+    col.ondrop = async e => {
+      e.preventDefault(); col.classList.remove("drag-over");
+      const partId = e.dataTransfer.getData("text/plain");
+      const part = store.get("parts").find(p => p.id === partId);
+      if (!part || !selectedCartId) return;
+      try {
+        await upsert("parts", { id: partId, partLocation: selectedCartId, partShelf: col.dataset.destination, expectedUpdatedAt: part.updatedAt });
+      } catch (_) {}
+    };
+  });
+}
+function renderCartsShelves() {
+  const grid = $("cartsGrid");
+  if (!grid) return;
+  grid.innerHTML = store.get("inventoryLocations").map(inventoryTileHtml).join("") || '<p class="empty">No carts or locations yet. Add one in Manage Locations.</p>';
+  $("cartShelvesDetail").innerHTML = renderShelvesForSelected();
+  wireInventoryDragAndDrop();
+}
+function renderFloorPlan() {
+  const container = $("floorPlanZones");
+  if (!container) return;
+  const locations = store.get("inventoryLocations");
+  const zones = [...new Set(locations.map(l => l.zone))];
+  container.innerHTML = (zones.length ? zones.map(z => `<div class="zone"><h3>${escapeHtml(z)}</h3><div class="grid">${locations.filter(l => l.zone === z).map(inventoryTileHtml).join("")}</div></div>`).join("") : '<p class="empty">No locations yet. Add one in Manage Locations.</p>') + renderShelvesForSelected();
+  wireInventoryDragAndDrop();
+}
+function renderReturnsAlerts() {
+  const table = $("agingPartsTable"), returnsTable = $("returnsPartsTable"), metrics = $("returnsMetrics");
+  if (!table) return;
+  const onsite = store.get("parts").filter(isPartOnsite);
+  const onsiteValue = onsite.reduce((s, p) => s + partValue(p), 0);
+  const awaitingReturn = onsite.filter(p => p.partStatus === "Return Needed");
+  const creditsOutstanding = store.get("parts").filter(p => p.partStatus === "Credit Pending");
+  const aging = onsite.filter(p => { const age = partAgeDays(p); return age !== null && age >= 25; });
+  metrics.innerHTML = [
+    ["On-site inventory value", formatCurrency(onsiteValue), onsite.length + " part(s) physically in storage"],
+    ["Awaiting return", formatCurrency(awaitingReturn.reduce((s,p)=>s+partValue(p),0)), "Included in on-site value"],
+    ["Credits outstanding", formatCurrency(creditsOutstanding.reduce((s,p)=>s+partValue(p),0)), "Returned parts; excluded from on-site value"],
+    ["25+ days on site", String(aging.length), "Review return eligibility now"],
+  ].map((m,i)=>`<div class="metric ${i===3?'danger-metric':''}"><label>${m[0]}</label><span>${m[1]}</span><label>${m[2]}</label></div>`).join("");
+  aging.sort((a,b)=>(partAgeDays(b)||0)-(partAgeDays(a)||0));
+  table.querySelector("tbody").innerHTML = aging.map(p => `<tr>
+    <td>${escapeHtml(p.partsRoNumber||"")}<small>${escapeHtml(p.partsVehicle||"")}</small></td>
+    <td>${escapeHtml(p.partDescription||"")}</td>
+    <td>${escapeHtml(partLocationName(p))||"Not placed"}</td>
+    <td>${p.partReceivedDate||""}</td>
+    <td class="status-bad">${partAgeDays(p)} days</td>
+    <td>${formatCurrency(partValue(p))}</td>
+    <td><div class="actions"><button onclick="editParts('${p.id}')">Manage</button></div></td>
+  </tr>`).join("") || '<tr><td colspan="7">Nothing overdue right now.</td></tr>';
+  const returnRows = store.get("parts").filter(p => ["Return Needed","Returned","Credit Pending"].includes(p.partStatus));
+  returnsTable.querySelector("tbody").innerHTML = returnRows.map(p => `<tr>
+    <td>${escapeHtml(p.partsRoNumber||"")}<small>${escapeHtml(p.partsVehicle||"")}</small></td>
+    <td>${escapeHtml(p.partDescription||"")}</td>
+    <td>${p.partStatus||""}</td>
+    <td>${formatCurrency(partValue(p))}</td>
+    <td>${escapeHtml(p.partNotes||"")}</td>
+    <td><div class="actions"><button onclick="editParts('${p.id}')">Manage</button></div></td>
+  </tr>`).join("") || '<tr><td colspan="6">No returns or credits in progress.</td></tr>';
+  if ($("metricPartsOnsiteValue")) $("metricPartsOnsiteValue").textContent = formatCurrency(onsiteValue);
+  if ($("metricPartsAging")) $("metricPartsAging").textContent = String(aging.length);
+}
+
+function locationObj() {
+  const kind = $("locationKind").value;
+  return {
+    id: $("locationId").value || undefined,
+    expectedUpdatedAt: $("locationExpectedUpdatedAt").value || undefined,
+    kind,
+    name: $("locationName").value,
+    zone: $("locationZone").value,
+    shelfCount: kind === "cart" ? Number($("locationShelfCount").value || 0) : null,
+    hasTop: kind === "cart" ? $("locationHasTop").checked : false,
+    ros: kind === "cart" ? $("locationRos").value.split(",").map(s=>s.trim()).filter(Boolean) : [],
+    confirmSameCar: $("locationConfirmSameCar").checked,
+  };
+}
+function toggleLocationCartFields() {
+  const isCart = $("locationKind").value === "cart";
+  for (const id of ["locationShelfCountLabel","locationTopLabel","locationRosLabel","locationSameCarLabel"]) {
+    if ($(id)) $(id).hidden = !isCart;
+  }
+}
+function resetLocation() {
+  $("locationForm").reset();
+  $("locationId").value = ""; $("locationExpectedUpdatedAt").value = "";
+  $("locationKind").value = "cart"; $("locationHasTop").checked = true; $("locationShelfCount").value = 5;
+  toggleLocationCartFields();
+}
+function editLocationRow(id) {
+  const l = store.get("inventoryLocations").find(x => x.id === id); if (!l) return;
+  $("locationId").value = l.id;
+  $("locationExpectedUpdatedAt").value = l.updatedAt || "";
+  $("locationKind").value = l.kind;
+  $("locationName").value = l.name || "";
+  $("locationZone").value = l.zone || "";
+  $("locationShelfCount").value = l.shelfCount || 5;
+  $("locationHasTop").checked = l.hasTop === true;
+  $("locationRos").value = (l.ros || []).join(", ");
+  $("locationConfirmSameCar").checked = false;
+  toggleLocationCartFields();
+  document.querySelector('[data-tab="manageLocations"]').click();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function renderManageLocations() {
+  const table = $("locationsTable");
+  if (!table) return;
+  const rows = store.get("inventoryLocations").slice().sort((a,b)=> (a.zone||"").localeCompare(b.zone||"") || (a.name||"").localeCompare(b.name||""));
+  table.querySelector("tbody").innerHTML = rows.map(l => `<tr>
+    <td>${escapeHtml(l.name||"")}</td>
+    <td>${l.kind==="cart"?"Cart":"Storage"}</td>
+    <td>${escapeHtml(l.zone||"")}</td>
+    <td>${l.kind==="cart"?(l.shelfCount||0)+(l.hasTop?" + top":""):"—"}</td>
+    <td>${(l.ros||[]).join(" / ")||"—"}</td>
+    <td><div class="actions"><button onclick="editLocationRow('${l.id}')">Configure</button>${deleteBtn('inventoryLocations', l.id)}</div></td>
+  </tr>`).join("") || '<tr><td colspan="6">No carts or storage locations yet.</td></tr>';
+}
 
 // ============================================================
 // Active-staff roster (any signed-in user, for assignee pickers)
@@ -1417,7 +1615,7 @@ function renderDashboard() {
   $("metricCycleDueTomorrow").textContent = cycleDueTomorrow;
   $("metricCyclePastDue").textContent = cyclePastDue;
 }
-function renderAll(){ renderUnified(); renderDaily(); renderMissedCalls(); renderTasks(); renderParts(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
+function renderAll(){ renderUnified(); renderDaily(); renderMissedCalls(); renderTasks(); renderParts(); renderCartsShelves(); renderFloorPlan(); renderReturnsAlerts(); renderManageLocations(); renderQc(); renderBooth(); renderFacility(); renderAr(); renderAllCycleTabs(); renderDashboard(); renderBoothCountdown(); renderUploadRecordOptions(); renderUploads(); renderActivity(); }
 
 function loadDefaultChecklist() {
   const items = [
@@ -1604,6 +1802,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("missedCallReason").value = "Other";
   $("missedCallPriority").value = "Normal";
   $("missedCallStatus").value = "New";
+  $("partQty").value = 1;
+  $("locationHasTop").checked = true;
   $("taskDueDate").value = today();
   $("boothDate").value = today();
   $("facilityWeek").value = today();
@@ -1634,6 +1834,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch(_) {}
   });
   $("callbackAttemptForm").addEventListener("submit", submitCallbackAttempt);
+  $("locationForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("inventoryLocations", locationObj()); resetLocation(); } catch(_) {} });
+  $("resetLocationBtn").onclick = resetLocation;
+  toggleLocationCartFields();
   $("taskForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("tasks", taskObj()); resetTask(); } catch(_) {} });
   $("partsForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("parts", partsObj()); resetParts(); } catch(_) {} });
   $("qcForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("qc", qcObj()); resetQc(); } catch(_) {} });

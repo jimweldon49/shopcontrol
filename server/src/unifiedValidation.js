@@ -1,5 +1,5 @@
 const model=require('../../client/shared');
-const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial'],parts:['has_core','core_returned']};
+const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial'],parts:['has_core','core_returned','part_location','part_shelf']};
 function validate(resource,body){
  if(!body||typeof body!=='object'||Array.isArray(body))throw Error('Expected an object.');
  if(resource==='daily'){
@@ -12,6 +12,7 @@ function validate(resource,body){
  }
  for(const k of ['onsite','commercial','has_core','core_returned'])if(body[k]!==undefined&&typeof body[k]!=='boolean')throw Error('Checkbox values must be true or false.');
  for(const k of ['in_date','dropoff_date','pickup_date','follow_up_date','target_delivery_date','actual_delivered_date'])if(body[k]&&!/^\d{4}-\d{2}-\d{2}$/.test(body[k]))throw Error('Use a valid date.');
+ for(const k of ['part_cost','part_qty'])if(body[k]!==undefined&&body[k]!==null&&body[k]!==''&&(!Number.isFinite(Number(body[k]))||Number(body[k])<0))throw Error('Part cost and quantity must be nonnegative numbers.');
  return body;
 }
 function bulk(body){if(!Array.isArray(body.ids)||!body.ids.length||body.ids.length>2000||new Set(body.ids).size!==body.ids.length||body.ids.some(x=>!/^[-0-9a-f]{36}$/i.test(x)))throw Error('Select 1–2,000 unique parts.');if(typeof body.ro_number!=='string'||!body.ro_number.trim())throw Error('An RO number is required for group actions.');return body;}

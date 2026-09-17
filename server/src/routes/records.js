@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { logActivity } = require("../activityLogger");
 const { sendAssignmentEmail } = require("../taskEmails");
+const { assertCartAssignment } = require("../inventoryRules");
 
 const RESOURCES = {
   daily: {
@@ -33,6 +34,7 @@ const RESOURCES = {
       "part_vendor", "part_status", "part_priority", "part_ordered_date", "part_eta",
       "part_received_date", "part_mirror_matched", "part_return_needed", "part_credit_needed",
       "part_assigned_to", "part_last_follow_up", "part_notes",
+      "part_cost", "part_qty", "part_location", "part_shelf",
     ],
     orderBy: "created_at DESC",
   },
@@ -98,6 +100,9 @@ function buildRouterFor(resourceKey, config) {
     try {
       const body = req.body || {};
       validate(resourceKey,body);
+      if (resourceKey === "parts" && body.part_location) {
+        await assertCartAssignment(pool, body.parts_ro_number, body.part_location);
+      }
       const cols = columns.filter((c) => Object.prototype.hasOwnProperty.call(body, c));
       const values = cols.map((c) => cleanValue(body[c]));
 
@@ -152,6 +157,9 @@ function buildRouterFor(resourceKey, config) {
 
       const body = req.body || {};
       validate(resourceKey,body);
+      if (resourceKey === "parts" && "part_location" in body && body.part_location && body.part_location !== before.part_location) {
+        await assertCartAssignment(pool, body.parts_ro_number ?? before.parts_ro_number, body.part_location);
+      }
       const cols = columns.filter((c) => Object.prototype.hasOwnProperty.call(body, c));
       const values = cols.map((c) => cleanValue(body[c]));
 
