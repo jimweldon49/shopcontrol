@@ -1,5 +1,5 @@
 const model=require('../../client/shared');
-const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial'],parts:['has_core','core_returned','part_location','part_shelf']};
+const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial'],parts:['has_core','core_returned']};
 function validate(resource,body){
  if(!body||typeof body!=='object'||Array.isArray(body))throw Error('Expected an object.');
  if(resource==='daily'){
