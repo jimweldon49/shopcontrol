@@ -413,7 +413,8 @@ body.kiosk-mode #production .section-head p {
 }
 
 body.kiosk-mode .production-columns {
-  min-height: calc(100vh - 220px);
+  height: calc(100vh - 220px);
+  min-height: 0;
   scrollbar-width: none;
 }
 
@@ -424,10 +425,28 @@ body.kiosk-mode .production-columns::-webkit-scrollbar {
 body.kiosk-mode .production-column {
   flex: 0 0 320px;
   padding: 14px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The card list (the column's second child, after its <header>) scrolls on
+   its own when a stage has more cars than fit, instead of stretching the
+   whole row taller and pushing the board into page-level vertical scroll. */
+body.kiosk-mode .production-column > div {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+body.kiosk-mode .production-column > div::-webkit-scrollbar {
+  display: none;
 }
 
 body.kiosk-mode .production-column header {
   min-height: auto;
+  flex: none;
 }
 
 body.kiosk-mode .production-column header h3 {
