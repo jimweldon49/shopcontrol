@@ -35,6 +35,10 @@ const ROLE_PERMISSIONS = {
     resources: ["tasks", "facility", "booth", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
   },
+  display: {
+    resources: ["*"],
+    actions: ["list"],
+  },
   employee: {
     resources: ["daily", "tasks", "parts", "qc", "booth", "facility", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
@@ -53,7 +57,7 @@ function hasPermission(user, resource, action) {
   const readOnlyResources = config.readOnlyResources || [];
 
   if (resources.includes("*") || resources.includes(resource)) {
-    if (action === "delete") return user && user.canDelete !== false;
+    if (action === "delete") return (actions.includes("*") || actions.includes("update")) && user && user.canDelete !== false;
     return actions.includes("*") || actions.includes(action);
   }
 

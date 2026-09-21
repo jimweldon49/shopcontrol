@@ -363,3 +363,113 @@ a {
 .parts-modal-card table {
   font-size: 13px;
 }
+
+/* Kiosk / TV display mode: hides all navigation and editing chrome and
+   enlarges the Production Board for viewing from across the shop floor.
+   Turned on automatically for the "display" login role, or for any account
+   by adding ?kiosk=1 to the URL. See isKioskMode() in app.js. */
+body.kiosk-mode .app-header,
+body.kiosk-mode .tabs,
+body.kiosk-mode .board-toolbar,
+body.kiosk-mode .board-extra,
+body.kiosk-mode .board-tip,
+body.kiosk-mode #production .section-head.heading-row > button,
+body.kiosk-mode .status-banner {
+  display: none !important;
+}
+
+body.kiosk-mode main {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+body.kiosk-mode #production {
+  padding: 22px 30px;
+}
+
+body.kiosk-mode .board-summary {
+  margin: 8px 0 22px;
+}
+
+body.kiosk-mode .board-summary small {
+  font-size: 14px;
+}
+
+body.kiosk-mode .board-summary b {
+  font-size: 28px;
+}
+
+body.kiosk-mode #production .eyebrow {
+  font-size: 15px;
+}
+
+body.kiosk-mode #production h2 {
+  font-size: 34px;
+}
+
+body.kiosk-mode #production .section-head p {
+  font-size: 17px;
+}
+
+body.kiosk-mode .production-columns {
+  min-height: calc(100vh - 220px);
+}
+
+body.kiosk-mode .production-column {
+  flex: 0 0 320px;
+  padding: 14px;
+}
+
+body.kiosk-mode .production-column header {
+  min-height: auto;
+}
+
+body.kiosk-mode .production-column header h3 {
+  font-size: 19px;
+}
+
+body.kiosk-mode .production-column header b {
+  font-size: 17px;
+}
+
+body.kiosk-mode .production-column header small {
+  font-size: 13px;
+}
+
+body.kiosk-mode .production-card {
+  padding: 18px 16px;
+  cursor: default;
+}
+
+body.kiosk-mode .production-card h3 {
+  font-size: 21px;
+}
+
+body.kiosk-mode .card-ro {
+  font-size: 15px;
+}
+
+body.kiosk-mode .card-ro small {
+  font-size: 13px;
+}
+
+body.kiosk-mode .card-value {
+  font-size: 27px;
+}
+
+body.kiosk-mode .card-hours,
+body.kiosk-mode .card-staff,
+body.kiosk-mode .card-insurer,
+body.kiosk-mode .card-dates {
+  font-size: 14px;
+}
+
+body.kiosk-mode .board-flags {
+  font-size: 13px;
+}
+
+body.kiosk-mode .column-empty {
+  font-size: 13px;
+  padding: 30px 10px;
+}

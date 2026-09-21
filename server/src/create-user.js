@@ -10,7 +10,7 @@ require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const { pool } = require("./db");
 
-const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "employee"];
+const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
 function normalizeRole(role) {
   const value = String(role || "admin").toLowerCase();
   return ALLOWED_ROLES.includes(value) ? value : "employee";

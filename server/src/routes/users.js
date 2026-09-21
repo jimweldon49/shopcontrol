@@ -7,7 +7,7 @@ const { logActivity } = require("../activityLogger");
 const router = express.Router();
 
 const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at";
-const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "employee"];
+const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
 
 function normalizeRole(role) {
   const value = String(role || "employee").toLowerCase();

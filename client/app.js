@@ -1756,16 +1756,23 @@ async function handleResetPasswordSubmit(e) {
 // ============================================================
 let pollTimer = null;
 
+function isKioskMode() {
+  return String(currentUser?.role || "").toLowerCase() === "display" || new URLSearchParams(location.search).has("kiosk");
+}
+
 function showApp() {
   $("loginScreen").style.display = "none";
   $("appRoot").classList.add("visible");
   $("sessionInfo").textContent = currentUser ? `Logged in as ${currentUser.fullName} (${currentUser.role || "employee"})` : "";
   $("employeesTabBtn").style.display = ["admin","owner"].includes(String(currentUser?.role || "").toLowerCase()) ? "" : "none";
+  const kiosk = isKioskMode();
+  document.body.classList.toggle("kiosk-mode", kiosk);
   loadAll(true);
   loadStaffRoster();
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync
+  if (kiosk) switchView("production");
 }
 
 function showLogin() {
@@ -1872,6 +1879,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("uploadForm")) $("uploadForm").addEventListener("submit", handleUpload);
   if ($("cccImportForm")) $("cccImportForm").addEventListener("submit", handleCccImport);
   $("employeeForm").addEventListener("submit", handleCreateEmployee);
+  $("empRole").addEventListener("change", () => {
+    const isDisplay = $("empRole").value === "display";
+    if (isDisplay) $("empCanDelete").checked = false;
+    $("empCanDelete").disabled = isDisplay;
+  });
 
   $("resetDailyBtn").onclick = resetDaily;
   $("resetMissedCallBtn").onclick = resetMissedCall;
