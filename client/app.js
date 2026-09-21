@@ -1777,7 +1777,11 @@ function advanceKioskBoard() {
   const maxScroll = el.scrollWidth - el.clientWidth;
   if (maxScroll <= 4) return; // everything already fits on screen
   const next = el.scrollLeft + pageWidth;
-  el.scrollTo({ left: next >= maxScroll - 4 ? 0 : next, behavior: "smooth" });
+  // A direct scrollLeft jump instead of scrollTo({behavior:"smooth"}) or a
+  // requestAnimationFrame tween: both silently no-op on some kiosk Chrome
+  // builds (observed: animation APIs stall when the tab isn't the active
+  // foreground surface), while a plain property write always works.
+  el.scrollLeft = next >= maxScroll - 4 ? 0 : next;
 }
 function startKioskAutoScroll() {
   clearInterval(kioskScrollTimer);
