@@ -1756,6 +1756,8 @@ async function handleResetPasswordSubmit(e) {
 // ============================================================
 let pollTimer = null;
 let kioskScrollTimer = null;
+let kioskReloadTimer = null;
+const KIOSK_RELOAD_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 function isKioskMode() {
   return String(currentUser?.role || "").toLowerCase() === "display" || new URLSearchParams(location.search).has("kiosk");
@@ -1782,6 +1784,15 @@ function startKioskAutoScroll() {
   kioskScrollTimer = setInterval(advanceKioskBoard, 11000);
 }
 
+// Board data already refreshes every 20s via pollTimer. This is a coarser
+// full-page reload so a TV left running for days also picks up deployed
+// code changes and clears any accumulated browser state, without ever
+// firing for a regular logged-in user mid-edit (kiosk mode only).
+function startKioskAutoReload() {
+  clearTimeout(kioskReloadTimer);
+  kioskReloadTimer = setTimeout(() => location.reload(), KIOSK_RELOAD_MS);
+}
+
 function showApp() {
   $("loginScreen").style.display = "none";
   $("appRoot").classList.add("visible");
@@ -1794,13 +1805,14 @@ function showApp() {
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync
-  if (kiosk) { switchView("production"); startKioskAutoScroll(); }
-  else clearInterval(kioskScrollTimer);
+  if (kiosk) { switchView("production"); startKioskAutoScroll(); startKioskAutoReload(); }
+  else { clearInterval(kioskScrollTimer); clearTimeout(kioskReloadTimer); }
 }
 
 function showLogin() {
   clearInterval(pollTimer);
   clearInterval(kioskScrollTimer);
+  clearTimeout(kioskReloadTimer);
   document.body.classList.remove("kiosk-mode");
   $("appRoot").classList.remove("visible");
   $("loginScreen").style.display = "flex";
