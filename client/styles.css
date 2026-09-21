@@ -414,6 +414,11 @@ body.kiosk-mode #production .section-head p {
 
 body.kiosk-mode .production-columns {
   min-height: calc(100vh - 220px);
+  scrollbar-width: none;
+}
+
+body.kiosk-mode .production-columns::-webkit-scrollbar {
+  display: none;
 }
 
 body.kiosk-mode .production-column {

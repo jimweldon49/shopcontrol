@@ -1755,9 +1755,31 @@ async function handleResetPasswordSubmit(e) {
 // Auth / session handling
 // ============================================================
 let pollTimer = null;
+let kioskScrollTimer = null;
 
 function isKioskMode() {
   return String(currentUser?.role || "").toLowerCase() === "display" || new URLSearchParams(location.search).has("kiosk");
+}
+
+// Cycles the Production Board sideways one screen-width of columns at a time
+// (instead of a continuously-drifting marquee) so cards hold still and stay
+// readable on a shop-floor TV, then wraps back to the start.
+function advanceKioskBoard() {
+  const el = document.querySelector("#production .production-columns");
+  const col = el?.querySelector(".production-column");
+  if (!el || !col) return;
+  const gap = parseFloat(getComputedStyle(el).columnGap || getComputedStyle(el).gap || "0") || 0;
+  const colWidth = col.getBoundingClientRect().width + gap;
+  const perPage = Math.max(1, Math.floor(el.clientWidth / colWidth));
+  const pageWidth = perPage * colWidth;
+  const maxScroll = el.scrollWidth - el.clientWidth;
+  if (maxScroll <= 4) return; // everything already fits on screen
+  const next = el.scrollLeft + pageWidth;
+  el.scrollTo({ left: next >= maxScroll - 4 ? 0 : next, behavior: "smooth" });
+}
+function startKioskAutoScroll() {
+  clearInterval(kioskScrollTimer);
+  kioskScrollTimer = setInterval(advanceKioskBoard, 11000);
 }
 
 function showApp() {
@@ -1772,11 +1794,14 @@ function showApp() {
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync
-  if (kiosk) switchView("production");
+  if (kiosk) { switchView("production"); startKioskAutoScroll(); }
+  else clearInterval(kioskScrollTimer);
 }
 
 function showLogin() {
   clearInterval(pollTimer);
+  clearInterval(kioskScrollTimer);
+  document.body.classList.remove("kiosk-mode");
   $("appRoot").classList.remove("visible");
   $("loginScreen").style.display = "flex";
   $("loginPassword").value = "";
