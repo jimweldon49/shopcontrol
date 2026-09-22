@@ -80,6 +80,9 @@ const pool = {
     if (sql.startsWith('SELECT id FROM daily_go_list WHERE ccc_estfile_id')) {
       return { rows: rows.filter(r => r.ccc_estfile_id === args[0]).slice(0, 1) };
     }
+    if (sql.startsWith('SELECT id, customer_name FROM daily_go_list WHERE id <>')) {
+      return { rows: rows.filter(r => r.id !== args[0] && !r.merged_into && r.ro_number === args[1]).slice(0, 1) };
+    }
     if (sql.startsWith('SELECT * FROM daily_go_list WHERE id')) {
       return { rows: rows.filter(r => r.id === args[0]).map(r => ({ ...r })) };
     }
@@ -236,4 +239,18 @@ test('when CCC assigns the real RO number, the job\'s parts move from the CCC fi
   assert.deepEqual(move.args.slice(0, 2), ['17990', 'af0c82ed']);
   const moveIdx = calls.indexOf(move), dedupeIdx = calls.findIndex(c => c.sql.startsWith('SELECT id FROM parts'));
   assert.ok(dedupeIdx === -1 || moveIdx < dedupeIdx, 'parts are moved before the new-parts duplicate check runs');
+});
+
+test('an RO from CCC that is already on a different job is not copied onto this job', async () => {
+  rows.length = 0; calls.length = 0;
+  rows.push({ id: 'accord', created_at: 0, merged_into: null, ro_number: '17944', ccc_estfile_id: '74164c20', ro_amount: null });
+  rows.push({ id: 'colorado', created_at: 1, merged_into: null, ro_number: '0a7fce43', ccc_estfile_id: '0a7fce43', ro_amount: null });
+  const result = await importEmsFiles([
+    envFile({ RO_ID: '17944', ESTFILE_ID: '0a7fce43', SUPP_NO: 'S01', TRANS_TYPE: 'S' }),
+    ad1File(),
+  ], user);
+  assert.equal(result.dailyAction, 'updated');
+  assert.equal(rows[1].ro_number, '0a7fce43', 'the Colorado keeps its own number');
+  assert.equal(rows[0].ro_number, '17944');
+  assert.ok(!calls.some(c => c.sql.startsWith('UPDATE parts SET parts_ro_number')), 'no parts are moved');
 });

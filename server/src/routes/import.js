@@ -385,6 +385,19 @@ async function upsertDailyFromImport(req, mapped, { hasRealRo = true, createIfMi
     // With RO_ID blank, ro_number is only a stand-in (the CCC file id) and must not
     // replace a real RO number already on the job.
     if (!hasRealRo && before.ro_number) skip.add('ro_number');
+    // Never move an RO onto this job when a different job already has it
+    // (migrations/014 would reject the whole update and fail the import).
+    const incomingRo = String(mapped.ro_number || "").trim();
+    if (!skip.has('ro_number') && incomingRo && incomingRo !== String(before.ro_number || "").trim()) {
+      const taken = await pool.query(
+        "SELECT id, customer_name FROM daily_go_list WHERE id <> $1 AND merged_into IS NULL AND btrim(ro_number) = $2 LIMIT 1",
+        [before.id, incomingRo]
+      );
+      if (taken.rows[0]) {
+        skip.add('ro_number');
+        console.warn(`EMS import: RO ${incomingRo} from CCC is already on another job (${taken.rows[0].customer_name}); kept ${before.ro_number} on ${before.id}.`);
+      }
+    }
     // Keep the job's own estfile id; never take one another (merged) row still holds.
     if (before.ccc_estfile_id) skip.add('ccc_estfile_id');
     else if (mapped.ccc_estfile_id) {
