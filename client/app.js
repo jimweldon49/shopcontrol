@@ -221,6 +221,7 @@ async function loadAll(silent) {
   try { cache.activity = (await api.activity()).map(objToCamel); } catch (_) {}
   await loadWorkspace();
   renderAll();
+  if (isKioskMode()) syncKioskBoardPage();
   if (sessionExpired) return;
   if (firstError) showStatus(`Could not load data: ${firstError.message}`, true);
   else if (!silent) showStatus("Data refreshed.");
@@ -1763,10 +1764,16 @@ function isKioskMode() {
   return String(currentUser?.role || "").toLowerCase() === "display" || new URLSearchParams(location.search).has("kiosk");
 }
 
-// Cycles the Production Board sideways one screen-width of columns at a time
-// (instead of a continuously-drifting marquee) so cards hold still and stay
-// readable on a shop-floor TV, then wraps back to the start.
-function advanceKioskBoard() {
+const KIOSK_PAGE_HOLD_MS = 11000;
+
+// Derives which page SHOULD be showing right now from wall-clock time,
+// rather than "advance one page from wherever we last were." That makes it
+// self-correcting: on this kiosk, Chrome stalls setInterval in this tab
+// unless DevTools is attached (a known background-tab throttling behavior),
+// so whenever this actually gets to run - on its own timer, after a data
+// refresh, or when the tab regains visibility - it snaps straight to the
+// correct page instead of drifting or just getting stuck.
+function syncKioskBoardPage() {
   const el = document.querySelector("#production .production-columns");
   const col = el?.querySelector(".production-column");
   if (!el || !col) return;
@@ -1776,16 +1783,24 @@ function advanceKioskBoard() {
   const pageWidth = perPage * colWidth;
   const maxScroll = el.scrollWidth - el.clientWidth;
   if (maxScroll <= 4) return; // everything already fits on screen
-  const next = el.scrollLeft + pageWidth;
+  const pages = Math.ceil((maxScroll + el.clientWidth) / pageWidth);
+  const page = Math.floor(Date.now() / KIOSK_PAGE_HOLD_MS) % pages;
+  const target = Math.min(page * pageWidth, maxScroll);
   // A direct scrollLeft jump instead of scrollTo({behavior:"smooth"}) or a
-  // requestAnimationFrame tween: both silently no-op on some kiosk Chrome
-  // builds (observed: animation APIs stall when the tab isn't the active
-  // foreground surface), while a plain property write always works.
-  el.scrollLeft = next >= maxScroll - 4 ? 0 : next;
+  // requestAnimationFrame tween: both silently no-op on this kiosk's Chrome
+  // build, while a plain property write always works.
+  if (Math.abs(el.scrollLeft - target) > 2) el.scrollLeft = target;
 }
 function startKioskAutoScroll() {
   clearInterval(kioskScrollTimer);
-  kioskScrollTimer = setInterval(advanceKioskBoard, 11000);
+  syncKioskBoardPage();
+  kioskScrollTimer = setInterval(syncKioskBoardPage, 2000);
+  document.addEventListener("visibilitychange", syncKioskBoardPage);
+  // Best-effort: Chrome exempts a genuinely fullscreen tab from background
+  // timer throttling, and a wake lock keeps the display from sleeping.
+  // Both silently no-op if unsupported or already satisfied.
+  document.documentElement.requestFullscreen?.().catch(() => {});
+  navigator.wakeLock?.request("screen").catch(() => {});
 }
 
 // Board data already refreshes every 20s via pollTimer. This is a coarser
