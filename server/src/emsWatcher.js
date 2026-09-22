@@ -151,7 +151,7 @@ async function runOnce() {
           "utf8"
         );
 
-        console.log(`EMS auto import complete for ${prefix}:`, summary.result && summary.result.ro_number);
+        console.log(`EMS auto import ${summary.dailyAction} for ${prefix}:`, summary.result && summary.result.ro_number);
       } catch (err) {
         console.error(`EMS auto import failed for ${prefix}:`, err);
         await moveToError(files, errorRoot, prefix, err);

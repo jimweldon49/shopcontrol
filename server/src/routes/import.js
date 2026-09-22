@@ -140,6 +140,12 @@ function buildCustomerName(ad1, ad2) {
   const owner = makeName(firstValue(ad1, ["OWNR_FN", "INSD_FN"]), firstValue(ad1, ["OWNR_LN", "INSD_LN"]));
   if (owner) return owner;
 
+  // Commercial/fleet jobs (e.g. "Ceres Unified") have no owner first/last name in CCC,
+  // only a company name. Without this they fell through to the estimator contact and
+  // showed up under a staff member's name instead of the customer's.
+  const company = firstValue(ad1, ["OWNR_CO_NM", "INSD_CO_NM"]);
+  if (company) return company;
+
   const insured = makeName(firstValue(ad1, ["INSD_FN"]), firstValue(ad1, ["INSD_LN"]));
   if (insured) return insured;
 
@@ -348,10 +354,17 @@ async function findExistingDaily(mapped) {
   // arbitrary row whenever more than one shared the same ro_number).
   if (mapped.ccc_estfile_id) {
     const byEstFile = await pool.query(
-      "SELECT * FROM daily_go_list WHERE ccc_estfile_id = $1 AND merged_into IS NULL ORDER BY created_at ASC LIMIT 1",
+      "SELECT * FROM daily_go_list WHERE ccc_estfile_id = $1 ORDER BY created_at ASC LIMIT 1",
       [mapped.ccc_estfile_id]
     );
-    if (byEstFile.rows[0]) return byEstFile.rows[0];
+    // An estimate card that was merged into its real job still holds the (unique)
+    // ccc_estfile_id, so follow merged_into to the surviving job. Skipping merged rows
+    // here used to fall through to an INSERT that collided with idx_daily_ccc_estfile_id.
+    let row = byEstFile.rows[0];
+    for (let hops = 0; row && row.merged_into && hops < 10; hops++) {
+      row = (await pool.query("SELECT * FROM daily_go_list WHERE id = $1", [row.merged_into])).rows[0];
+    }
+    if (row && !row.merged_into) return row;
   }
 
   const byRoNumber = await pool.query(
@@ -361,14 +374,24 @@ async function findExistingDaily(mapped) {
   return byRoNumber.rows[0] || null;
 }
 
-async function upsertDailyFromImport(req, mapped) {
+async function upsertDailyFromImport(req, mapped, { hasRealRo = true, createIfMissing = true } = {}) {
   const before = await findExistingDaily(mapped);
   const userName = req.user.fullName || req.user.username;
 
   if (before) {
     // Repeat CCC imports update estimate data without moving production cards or clearing delivery state.
     const importedFields=['ro_number','ccc_estfile_id','customer_name','vehicle','ro_amount','estimator','end_of_day_notes'];
-    const cols = Object.keys(mapped).filter(k => importedFields.includes(k) && mapped[k] !== undefined && (k!=='ro_amount'||mapped[k]!==null));
+    const skip = new Set();
+    // With RO_ID blank, ro_number is only a stand-in (the CCC file id) and must not
+    // replace a real RO number already on the job.
+    if (!hasRealRo && before.ro_number) skip.add('ro_number');
+    // Keep the job's own estfile id; never take one another (merged) row still holds.
+    if (before.ccc_estfile_id) skip.add('ccc_estfile_id');
+    else if (mapped.ccc_estfile_id) {
+      const holder = await pool.query("SELECT id FROM daily_go_list WHERE ccc_estfile_id = $1 LIMIT 1", [mapped.ccc_estfile_id]);
+      if (holder.rows[0]) skip.add('ccc_estfile_id');
+    }
+    const cols = Object.keys(mapped).filter(k => importedFields.includes(k) && !skip.has(k) && mapped[k] !== undefined && (k!=='ro_amount'||mapped[k]!==null));
     const values = cols.map(k => mapped[k] === "" ? null : mapped[k]);
     const setClauses = cols.map((c, i) => `${c} = $${i + 1}`);
     setClauses.push(`updated_at = now()`);
@@ -388,6 +411,8 @@ async function upsertDailyFromImport(req, mapped) {
     await logActivity({ req, resource: "daily", recordId: result.rows[0].id, action: "update", before, after: result.rows[0], summary: "Updated Daily GO List from CCC EMS import" });
     return { action: "updated", row: result.rows[0] };
   }
+
+  if (!createIfMissing) return { action: "skipped", row: null };
 
   const cols = Object.keys(mapped);
   const values = cols.map(k => mapped[k] === "" ? null : mapped[k]);
@@ -454,8 +479,27 @@ async function importEmsFiles(files, userOverride) {
 
   const { parsed, parseErrors } = buildPackage(files);
   const daily = buildDailyFromPackage(parsed);
-  const savedDaily = await upsertDailyFromImport(reqLike, daily);
-  const partRows = parsed.lin?.records || [];
+  const hasRealRo = !!firstValue(getFirst(parsed, "env"), ["RO_ID"]);
+  // CCC fills AD2.DATE_OUT only once the vehicle has actually left. CCC re-exports a
+  // closed RO whenever anything on it changes (a payment, insurance info), and those
+  // exports must not resurrect the job or re-add every part as "Need to Order".
+  const vehicleOutDate = normalizeDate(firstValue(getFirst(parsed, "ad2"), ["DATE_OUT"]));
+  const savedDaily = await upsertDailyFromImport(reqLike, daily, { hasRealRo, createIfMissing: !vehicleOutDate });
+
+  if (savedDaily.action === "skipped") {
+    return {
+      success: true,
+      imported: 0,
+      dailyAction: "skipped",
+      partsCreated: 0,
+      filesRead: Object.keys(parsed),
+      parseErrors,
+      result: { ro_number: daily.ro_number, customer_name: daily.customer_name, vehicle: daily.vehicle, vehicle_out_date: vehicleOutDate },
+      note: `Skipped: CCC shows this vehicle already out on ${vehicleOutDate} and no matching job exists in Shop Control, so this closed RO was not re-created.`,
+    };
+  }
+
+  const partRows = vehicleOutDate ? [] : (parsed.lin?.records || []);
   const createdParts = await createPartsFromImport(reqLike, savedDaily.row, partRows);
 
   return {

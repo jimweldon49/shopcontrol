@@ -40,19 +40,48 @@ function envFile(row) {
   ], [row]) };
 }
 
-function ad1File() {
-  return { originalname: 'job.ad1', buffer: buildDbf([{ name: 'CLM_NO', type: 'C', length: 10 }], [{ CLM_NO: '' }]) };
+function ad1File(row = { CLM_NO: '' }) {
+  return { originalname: 'job.ad1', buffer: buildDbf([
+    { name: 'CLM_NO', type: 'C', length: 10 },
+    { name: 'OWNR_FN', type: 'C', length: 20 },
+    { name: 'OWNR_LN', type: 'C', length: 20 },
+    { name: 'OWNR_CO_NM', type: 'C', length: 30 },
+  ], [row]) };
+}
+
+function ad2File(row) {
+  return { originalname: 'job.ad2', buffer: buildDbf([
+    { name: 'EST_CT_FN', type: 'C', length: 20 },
+    { name: 'EST_CT_LN', type: 'C', length: 20 },
+    { name: 'DATE_OUT', type: 'D', length: 8 },
+  ], [row]) };
+}
+
+function linFile() {
+  return { originalname: 'job.lin', buffer: buildDbf([
+    { name: 'LINE_DESC', type: 'C', length: 20 },
+    { name: 'OEM_PARTNO', type: 'C', length: 12 },
+    { name: 'PART_QTY', type: 'N', length: 3 },
+    { name: 'ACT_PRICE', type: 'N', length: 8 },
+  ], [{ LINE_DESC: 'Bumper cover', OEM_PARTNO: 'ABC-1', PART_QTY: 1, ACT_PRICE: 250 }]) };
 }
 
 const calls = [];
 const rows = [];
+let partsInserted = 0;
 const pool = {
   query: async (sql, args = []) => {
     calls.push({ sql, args });
     if (sql.startsWith('SELECT * FROM daily_go_list WHERE ccc_estfile_id')) {
       const [estId] = args;
-      const matches = rows.filter(r => r.ccc_estfile_id === estId && !r.merged_into).sort((a, b) => a.created_at - b.created_at);
+      const matches = rows.filter(r => r.ccc_estfile_id === estId).sort((a, b) => a.created_at - b.created_at);
       return { rows: matches.slice(0, 1) };
+    }
+    if (sql.startsWith('SELECT id FROM daily_go_list WHERE ccc_estfile_id')) {
+      return { rows: rows.filter(r => r.ccc_estfile_id === args[0]).slice(0, 1) };
+    }
+    if (sql.startsWith('SELECT * FROM daily_go_list WHERE id')) {
+      return { rows: rows.filter(r => r.id === args[0]) };
     }
     if (sql.startsWith('SELECT * FROM daily_go_list WHERE ro_number')) {
       const [ro] = args;
@@ -62,8 +91,10 @@ const pool = {
     if (sql.startsWith('UPDATE daily_go_list SET')) {
       const id = args.at(-1);
       const row = rows.find(r => r.id === id);
-      // cols are whatever import.js decided to set; just merge every mapped-looking arg back by re-reading the SET clause order isn't needed for this test's assertions.
-      Object.assign(row, { _updated: true });
+      // Apply each "col = $n" assignment so tests can see exactly what the import wrote.
+      for (const [, col, n] of sql.matchAll(/(\w+) = \$(\d+)/g)) {
+        if (col !== 'updated_by' && col !== 'id') row[col] = args[Number(n) - 1];
+      }
       return { rows: [row] };
     }
     if (sql.startsWith('INSERT INTO daily_go_list')) {
@@ -73,7 +104,7 @@ const pool = {
       return { rows: [row] };
     }
     if (sql.startsWith('SELECT id FROM parts')) return { rows: [] };
-    if (sql.startsWith('INSERT INTO parts')) return { rows: [{ id: 'part-1' }] };
+    if (sql.startsWith('INSERT INTO parts')) { partsInserted++; return { rows: [{ id: 'part-1' }] }; }
     if (sql.startsWith('INSERT INTO activity_log')) return { rows: [] };
     return { rows: [] };
   },
@@ -125,4 +156,70 @@ test('a supplement import with a newly-populated RO_ID updates the original job 
   assert.equal(rows.length, 1, 'no duplicate Daily GO List row should be created for the same CCC package');
   assert.equal(second.dailyAction, 'updated');
   assert.equal(second.result.id, first.result.id);
+});
+
+test('a commercial owner with only a company name is used as the customer, not the estimator contact', async () => {
+  rows.length = 0; calls.length = 0;
+  const result = await importEmsFiles([
+    envFile({ RO_ID: '17779', ESTFILE_ID: 'bus9', SUPP_NO: '', TRANS_TYPE: 'E' }),
+    ad1File({ CLM_NO: '', OWNR_FN: '', OWNR_LN: '', OWNR_CO_NM: 'Ceres Unified' }),
+    ad2File({ EST_CT_FN: 'Vinny', EST_CT_LN: 'Gutierrez', DATE_OUT: '' }),
+  ], user);
+  assert.equal(result.dailyAction, 'created');
+  const insert = calls.find(c => c.sql.startsWith('INSERT INTO daily_go_list'));
+  assert.ok(insert.args.includes('Ceres Unified'));
+  assert.ok(!insert.args.includes('Vinny Gutierrez'));
+});
+
+test('a closed RO (vehicle already out in CCC) with no job in Shop Control is not re-created and adds no parts', async () => {
+  rows.length = 0; calls.length = 0; partsInserted = 0;
+  const result = await importEmsFiles([
+    envFile({ RO_ID: '17801', ESTFILE_ID: 'ff39ad19', SUPP_NO: 'S03', TRANS_TYPE: 'S' }),
+    ad1File(),
+    ad2File({ DATE_OUT: '20260727' }),
+    linFile(),
+  ], user);
+  assert.equal(result.dailyAction, 'skipped');
+  assert.equal(rows.length, 0);
+  assert.equal(partsInserted, 0);
+});
+
+test('a closed RO that still has its job is updated but does not get new "Need to Order" parts', async () => {
+  rows.length = 0; calls.length = 0; partsInserted = 0;
+  rows.push({ id: 'job-1', created_at: 0, merged_into: null, ro_number: '17801', ccc_estfile_id: 'ff39ad19', ro_amount: null });
+  const result = await importEmsFiles([
+    envFile({ RO_ID: '17801', ESTFILE_ID: 'ff39ad19', SUPP_NO: 'S03', TRANS_TYPE: 'S' }),
+    ad1File(),
+    ad2File({ DATE_OUT: '20260727' }),
+    linFile(),
+  ], user);
+  assert.equal(result.dailyAction, 'updated');
+  assert.equal(partsInserted, 0);
+});
+
+test('an open job still gets its parts', async () => {
+  rows.length = 0; calls.length = 0; partsInserted = 0;
+  const result = await importEmsFiles([
+    envFile({ RO_ID: '17990', ESTFILE_ID: 'open1', SUPP_NO: '', TRANS_TYPE: 'E' }),
+    ad1File(),
+    ad2File({ DATE_OUT: '' }),
+    linFile(),
+  ], user);
+  assert.equal(result.dailyAction, 'created');
+  assert.equal(partsInserted, 1);
+});
+
+test('a supplement for an estimate card that was merged into its real job updates that job instead of crashing', async () => {
+  rows.length = 0; calls.length = 0;
+  rows.push({ id: 'real', created_at: 0, merged_into: null, ro_number: '17949', ccc_estfile_id: null, ro_amount: null });
+  rows.push({ id: 'estimate', created_at: 1, merged_into: 'real', ro_number: 'a7bdade9', ccc_estfile_id: 'a7bdade9', ro_amount: null });
+  const result = await importEmsFiles([
+    envFile({ RO_ID: '', ESTFILE_ID: 'a7bdade9', SUPP_NO: 'S01', TRANS_TYPE: 'S' }),
+    ad1File(),
+  ], user);
+  assert.equal(result.dailyAction, 'updated');
+  assert.equal(result.result.id, 'real');
+  assert.equal(rows.length, 2, 'no new row inserted');
+  assert.equal(rows[0].ro_number, '17949', 'the real RO number is not replaced by the CCC file id');
+  assert.equal(rows[0].ccc_estfile_id, null, 'the estfile id still held by the merged card is not copied (unique index)');
 });
