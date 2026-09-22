@@ -152,8 +152,11 @@ router.post("/login", async (req, res) => {
       canDelete: user.can_delete,
     };
 
+    // The unattended TV kiosk login stays logged in via a token in the
+    // browser's storage rather than someone re-typing a password, so it
+    // gets a much longer session than a normal employee login.
     const token = jwt.sign(claims, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || "12h",
+      expiresIn: user.role === "display" ? (process.env.KIOSK_JWT_EXPIRES_IN || "365d") : (process.env.JWT_EXPIRES_IN || "12h"),
     });
 
     res.json({ token, user: claims });
