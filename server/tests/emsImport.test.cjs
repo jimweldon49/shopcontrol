@@ -75,18 +75,18 @@ const pool = {
     if (sql.startsWith('SELECT * FROM daily_go_list WHERE ccc_estfile_id')) {
       const [estId] = args;
       const matches = rows.filter(r => r.ccc_estfile_id === estId).sort((a, b) => a.created_at - b.created_at);
-      return { rows: matches.slice(0, 1) };
+      return { rows: matches.slice(0, 1).map(r => ({ ...r })) };
     }
     if (sql.startsWith('SELECT id FROM daily_go_list WHERE ccc_estfile_id')) {
       return { rows: rows.filter(r => r.ccc_estfile_id === args[0]).slice(0, 1) };
     }
     if (sql.startsWith('SELECT * FROM daily_go_list WHERE id')) {
-      return { rows: rows.filter(r => r.id === args[0]) };
+      return { rows: rows.filter(r => r.id === args[0]).map(r => ({ ...r })) };
     }
     if (sql.startsWith('SELECT * FROM daily_go_list WHERE ro_number')) {
       const [ro] = args;
       const matches = rows.filter(r => r.ro_number === ro && !r.merged_into).sort((a, b) => a.created_at - b.created_at);
-      return { rows: matches.slice(0, 1) };
+      return { rows: matches.slice(0, 1).map(r => ({ ...r })) };
     }
     if (sql.startsWith('UPDATE daily_go_list SET')) {
       const id = args.at(-1);
@@ -222,4 +222,18 @@ test('a supplement for an estimate card that was merged into its real job update
   assert.equal(rows.length, 2, 'no new row inserted');
   assert.equal(rows[0].ro_number, '17949', 'the real RO number is not replaced by the CCC file id');
   assert.equal(rows[0].ccc_estfile_id, null, 'the estfile id still held by the merged card is not copied (unique index)');
+});
+
+test('when CCC assigns the real RO number, the job\'s parts move from the CCC file id to the RO', async () => {
+  rows.length = 0; calls.length = 0;
+  rows.push({ id: 'job-1', created_at: 0, merged_into: null, ro_number: 'af0c82ed', ccc_estfile_id: 'af0c82ed', ro_amount: null });
+  await importEmsFiles([
+    envFile({ RO_ID: '17990', ESTFILE_ID: 'af0c82ed', SUPP_NO: 'S01', TRANS_TYPE: 'S' }),
+    ad1File(),
+  ], user);
+  const move = calls.find(c => c.sql.startsWith('UPDATE parts SET parts_ro_number'));
+  assert.ok(move, 'parts are moved to the new RO');
+  assert.deepEqual(move.args.slice(0, 2), ['17990', 'af0c82ed']);
+  const moveIdx = calls.indexOf(move), dedupeIdx = calls.findIndex(c => c.sql.startsWith('SELECT id FROM parts'));
+  assert.ok(dedupeIdx === -1 || moveIdx < dedupeIdx, 'parts are moved before the new-parts duplicate check runs');
 });

@@ -408,6 +408,23 @@ async function upsertDailyFromImport(req, mapped, { hasRealRo = true, createIfMi
       params
     );
 
+    // When the real RO number replaces CCC's stand-in file id, move the job's parts
+    // with it. Otherwise they stay filed under the old id, and the new-parts check
+    // below (keyed on RO) re-creates every one of them as "Need to Order".
+    const oldRo = String(before.ro_number || "").trim();
+    const newRo = String(result.rows[0].ro_number || "").trim();
+    if (oldRo && newRo && oldRo !== newRo) {
+      const moved = await pool.query(
+        `UPDATE parts SET parts_ro_number = $1, updated_at = now(), updated_by = $3
+         WHERE btrim(parts_ro_number) = $2
+           AND NOT EXISTS (SELECT 1 FROM parts x WHERE btrim(x.parts_ro_number) = $1 AND x.part_description = parts.part_description)`,
+        [newRo, oldRo, userName]
+      );
+      if (moved.rowCount) {
+        await logActivity({ req, resource: "parts", action: "update", after: { from: oldRo, to: newRo, count: moved.rowCount }, summary: `Moved ${moved.rowCount} parts from ${oldRo} to RO ${newRo} after CCC assigned the RO number` });
+      }
+    }
+
     await logActivity({ req, resource: "daily", recordId: result.rows[0].id, action: "update", before, after: result.rows[0], summary: "Updated Daily GO List from CCC EMS import" });
     return { action: "updated", row: result.rows[0] };
   }

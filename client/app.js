@@ -940,7 +940,9 @@ function partGroupKey(r) {
 function dailyRecordForPartsRow(r, dailyRows) {
   const ro = String(r.partsRoNumber||"").trim();
   if (ro) {
-    const match = dailyRows.find(d => String(d.roNumber||"").trim() === ro);
+    const match = dailyRows.find(d => String(d.roNumber||"").trim() === ro)
+      // Parts imported before the real RO existed still carry CCC's file id as their RO.
+      || dailyRows.find(d => !d.mergedInto && String(d.cccEstfileId||"").trim() === ro);
     if (match) return match;
   }
   const cust = String(r.partsCustomerName||"").trim().toLowerCase();
@@ -956,6 +958,16 @@ function dailyRecordForPartsRow(r, dailyRows) {
 function isPartsRowVehicleOnsite(r, dailyRows) {
   const match = dailyRecordForPartsRow(r, dailyRows);
   return match ? ShopModel.isOnsite(match) : true;
+}
+
+// A shop RO number is all digits. Estimates without one carry CCC's file id
+// (e.g. "af0c82ed"), so any letters mean the vehicle isn't confirmed coming in yet.
+function isRealRo(ro) {
+  return /^\d+$/.test(String(ro||"").trim());
+}
+
+function isPartsRowWithRo(r, dailyRows) {
+  return isRealRo(r.partsRoNumber) || isRealRo(dailyRecordForPartsRow(r, dailyRows || [])?.roNumber);
 }
 
 function summarizePartGroup(rows) {
@@ -982,7 +994,8 @@ function partsGroupMatchesView(groupRows, view, dailyRows) {
   if (view === "received") return groupRows.some(r => r.partStatus === "Received");
   if (view === "mirror") return s.mirror > 0;
   if (view === "returns") return s.returns > 0;
-  if (view === "problems") return partsGroupHasProblem(groupRows) && groupRows.some(r => isPartsRowVehicleOnsite(r, dailyRows || []));
+  if (view === "problems") return isPartsRowWithRo(groupRows[0], dailyRows) && partsGroupHasProblem(groupRows) && groupRows.some(r => isPartsRowVehicleOnsite(r, dailyRows || []));
+  if (view === "noRo") return !isPartsRowWithRo(groupRows[0], dailyRows) && s.open > 0;
   if (view === "complete") return s.open === 0 && s.total > 0;
   return true;
 }
@@ -1614,7 +1627,8 @@ function renderDashboard() {
   $("metricSupplementsNeeded").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementCompleted!=="Yes").length;
   const p = store.get("parts");
   $("metricManagement").textContent = d.filter(r=>r.needsManagementHelp==="Yes").length;
-  $("metricPartsProblems").textContent = p.filter(r=>partsGroupHasProblem([r]) && isPartsRowVehicleOnsite(r, d)).length;
+  $("metricPartsProblems").textContent = p.filter(r=>isPartsRowWithRo(r, d) && partsGroupHasProblem([r]) && isPartsRowVehicleOnsite(r, d)).length;
+  $("metricPartsNoRo").textContent = p.filter(r=>r.partStatus!=="Complete" && !isPartsRowWithRo(r, d)).length;
   $("metricPartsReturns").textContent = p.filter(r=>r.partReturnNeeded === "Yes" || ["Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || r.partCreditNeeded === "Yes").length;
   $("metricOpenTasks").textContent = t.filter(r=>r.taskStatus!=="Completed").length;
   const q = store.get("qc");

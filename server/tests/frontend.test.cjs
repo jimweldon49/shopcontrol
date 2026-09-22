@@ -15,3 +15,21 @@ test('board job editor saves the same job identity and its version guard',async(
  assert.equal(context.saved.key,'daily');assert.equal(context.saved.data.id,'job1');assert.equal(context.saved.data.currentStage,'Paint');assert.equal(context.saved.data.expectedVersion,7);assert.equal(context.saved.data.roAmount,100.25);assert.equal(context.saved.data.bodyTechs.length,2);
 });
 test('opportunity cannot be scheduled with a non-RO file number',async()=>{const {run,context}=loadClient();run(`openDialog=(title,html,submit)=>globalThis.editorSubmit=submit;upsert=async()=>{throw Error('Should not be called');};openBoardJob();`);const form=new FormData();form.set('roNumber','OPP42');form.set('currentStage','Scheduled');await assert.rejects(()=>context.editorSubmit(form),/five-digit RO/);});
+test('parts for estimates with no RO number go to "No RO Yet" instead of Parts Problems',()=>{
+ const {run}=loadClient();
+ const views=run(`(()=>{
+  const daily=[
+   {id:'j1',roNumber:'17944',cccEstfileId:'0a7fce43',onsite:true,currentStage:'Body'},
+   {id:'j2',roNumber:'aeefbda9',cccEstfileId:'aeefbda9',onsite:false,currentStage:'Check-In'},
+  ];
+  const part=(ro)=>[{partsRoNumber:ro,partStatus:'Need to Order'}];
+  const v=(ro,view)=>partsGroupMatchesView(part(ro),view,daily);
+  return {
+   realOnsite:[v('17944','problems'),v('17944','noRo')],
+   placeholderForRealJob:[v('0a7fce43','problems'),v('0a7fce43','noRo')],
+   estimateOnly:[v('aeefbda9','problems'),v('aeefbda9','noRo')],
+   noJobAtAll:[v('1ee738cc','problems'),v('1ee738cc','noRo')],
+  };
+ })()`);
+ assert.deepEqual(JSON.parse(JSON.stringify(views)),{realOnsite:[true,false],placeholderForRealJob:[true,false],estimateOnly:[false,true],noJobAtAll:[false,true]});
+});
