@@ -974,6 +974,7 @@ function summarizePartGroup(rows) {
   return {
     total: rows.length,
     open: rows.filter(r => r.partStatus !== "Complete").length,
+    problems: rows.filter(r => partProblemReason(r)).length,
     needOrder: rows.filter(r => r.partStatus === "Need to Order").length,
     waiting: rows.filter(r => ["Ordered","Backordered"].includes(r.partStatus)).length,
     mirror: rows.filter(r => r.partStatus === "Received" && r.partMirrorMatched !== "Yes").length,
@@ -981,8 +982,23 @@ function summarizePartGroup(rows) {
   };
 }
 
+// Expected ETA has passed and the part still hasn't shown up.
+function isPartLate(r) {
+  return !!r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus);
+}
+
+// Why this one part counts as a problem, or null. Judged per part, so a vehicle
+// with one late part out of 20 counts as one problem, not twenty.
+function partProblemReason(r) {
+  if (r.partStatus === "Complete") return null;
+  if (isPartLate(r)) return "Not arrived by ETA";
+  if (["Need to Order","Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus)) return r.partStatus;
+  if (r.partStatus === "Received" && r.partMirrorMatched !== "Yes") return "Not mirror matched";
+  return null;
+}
+
 function partsGroupHasProblem(groupRows) {
-  return groupRows.some(r => r.partStatus !== "Complete" && (["Need to Order","Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || (r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus)) || (r.partStatus === "Received" && r.partMirrorMatched !== "Yes")));
+  return groupRows.some(r => partProblemReason(r));
 }
 
 function partsGroupMatchesView(groupRows, view, dailyRows) {
@@ -996,6 +1012,7 @@ function partsGroupMatchesView(groupRows, view, dailyRows) {
   if (view === "returns") return s.returns > 0;
   if (view === "problems") return isPartsRowWithRo(groupRows[0], dailyRows) && partsGroupHasProblem(groupRows) && groupRows.some(r => isPartsRowVehicleOnsite(r, dailyRows || []));
   if (view === "noRo") return !isPartsRowWithRo(groupRows[0], dailyRows) && s.open > 0;
+  if (view === "late") return isPartsRowWithRo(groupRows[0], dailyRows) && groupRows.some(isPartLate);
   if (view === "complete") return s.open === 0 && s.total > 0;
   return true;
 }
@@ -1032,7 +1049,8 @@ function renderParts() {
       <td>${g.first.partsCustomerName || ""}</td>
       <td>${g.first.partsVehicle || ""}</td>
       <td>${g.summary.total}</td>
-      <td class="${g.summary.open ? "status-bad" : ""}">${g.summary.open}</td>
+      <td class="${g.summary.problems ? "status-bad" : ""}">${g.summary.problems}</td>
+      <td>${g.summary.open}</td>
       <td>${g.summary.needOrder}</td>
       <td>${g.summary.waiting}</td>
       <td class="${g.summary.mirror ? "status-bad" : ""}">${g.summary.mirror}</td>
@@ -1045,9 +1063,24 @@ function renderParts() {
 let currentPartsGroupKey = null;
 let selectedPartIds = new Set();
 
+let partsModalProblemsOnly = false;
+
 function currentPartsGroupRows() {
   if (!currentPartsGroupKey) return [];
   return store.get("parts").filter(r => partGroupKey(r) === currentPartsGroupKey);
+}
+
+// What the parts window is showing: just the problem parts when opened from a
+// problem view, so a vehicle with one bad part doesn't look like it has twenty.
+function visiblePartsGroupRows() {
+  const rows = currentPartsGroupRows();
+  return partsModalProblemsOnly ? rows.filter(r => partProblemReason(r)) : rows;
+}
+
+function setPartsModalProblemsOnly(on) {
+  partsModalProblemsOnly = on;
+  selectedPartIds = new Set();
+  renderPartsDetailRows(visiblePartsGroupRows());
 }
 
 function onPartCheckboxChange(id, checked) {
@@ -1056,7 +1089,7 @@ function onPartCheckboxChange(id, checked) {
 }
 
 function toggleSelectAllParts(checked) {
-  const rows = currentPartsGroupRows();
+  const rows = visiblePartsGroupRows();
   selectedPartIds = checked ? new Set(rows.map(r => r.id)) : new Set();
   renderPartsDetailRows(rows);
 }
@@ -1064,7 +1097,7 @@ function toggleSelectAllParts(checked) {
 function syncSelectAllPartsCheckbox() {
   const selectAll = $("partsSelectAll");
   if (!selectAll) return;
-  const rows = currentPartsGroupRows();
+  const rows = visiblePartsGroupRows();
   selectedPartIds=new Set([...selectedPartIds].filter(id=>rows.some(r=>r.id===id)));
   selectAll.checked = rows.length > 0 && rows.every(r => selectedPartIds.has(r.id));
   selectAll.indeterminate=selectedPartIds.size>0&&!selectAll.checked;
@@ -1074,10 +1107,11 @@ function syncSelectAllPartsCheckbox() {
 function renderPartsDetailRows(rows) {
   $("partsDetailTable").querySelector("tbody").innerHTML = rows.map(r => {
     const returnCredit = (r.partReturnNeeded === "Yes" ? "Return " : "") + (r.partCreditNeeded === "Yes" ? "Credit" : "");
-    const etaLate = r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus);
-    return `<tr>
+    const etaLate = isPartLate(r);
+    const problem = partProblemReason(r);
+    return `<tr class="${problem ? "part-problem-row" : ""}">
       <td><input type="checkbox" ${selectedPartIds.has(r.id) ? "checked" : ""} onchange="onPartCheckboxChange('${r.id}', this.checked)"></td>
-      <td>${escapeHtml(r.partDescription || "")}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":"Core return due"}</span>`:""}</td>
+      <td>${escapeHtml(r.partDescription || "")}${problem ? `<br><span class="problem-badge">${escapeHtml(problem)}</span>` : ""}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":"Core return due"}</span>`:""}</td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
       <td>${escapeHtml(partLocationName(r)) || "Not placed"}</td>
@@ -1093,7 +1127,7 @@ function renderPartsDetailRows(rows) {
   syncSelectAllPartsCheckbox();
 }
 
-function openPartsGroup(encodedKey) {
+function openPartsGroup(encodedKey, keepFilter) {
   const key = decodeURIComponent(encodedKey);
   const rows = store.get("parts").filter(r => partGroupKey(r) === key);
   if (!rows.length) return;
@@ -1101,10 +1135,15 @@ function openPartsGroup(encodedKey) {
 
   currentPartsGroupKey = key;
   selectedPartIds = new Set();
+  if (!keepFilter) {
+    const view = $("partsView")?.value;
+    partsModalProblemsOnly = (view === "problems" || view === "late") && rows.some(r => partProblemReason(r));
+  }
+  if ($("partsProblemsOnly")) $("partsProblemsOnly").checked = partsModalProblemsOnly;
 
   $("partsModalTitle").textContent = `${first.partsRoNumber || ""} • ${first.partsCustomerName || ""}`;
-  $("partsModalSub").textContent = first.partsVehicle || "";
-  renderPartsDetailRows(rows);
+  $("partsModalSub").textContent = `${first.partsVehicle || ""} · ${rows.filter(r => partProblemReason(r)).length} problem part(s) of ${rows.length}`;
+  renderPartsDetailRows(visiblePartsGroupRows());
 
   $("partsModal").style.display = "flex";
 }
@@ -1116,13 +1155,13 @@ function closePartsModal() {
 }
 
 function selectOrderedParts() {
-  const rows = currentPartsGroupRows();
+  const rows = visiblePartsGroupRows();
   selectedPartIds = new Set(rows.filter(r => ["Ordered", "Backordered"].includes(r.partStatus)).map(r => r.id));
   renderPartsDetailRows(rows);
 }
 
 function selectMirrorMatchedParts() {
-  const rows = currentPartsGroupRows();
+  const rows = visiblePartsGroupRows();
   selectedPartIds = new Set(rows.filter(r => r.partMirrorMatched === "Yes").map(r => r.id));
   renderPartsDetailRows(rows);
 }
@@ -1135,18 +1174,72 @@ async function bulkUpdatePartsAndRefresh(ids, patch) {
     showStatus(`Updated ${ids.length} part${ids.length === 1 ? "" : "s"}.`);
     const key = currentPartsGroupKey;
     renderParts();
-    if (key) openPartsGroup(encodeURIComponent(key));
+    if (key) openPartsGroup(encodeURIComponent(key), true);
   } catch (err) {
     showStatus(`Bulk update failed: ${err.message}`, true);
+    throw err;
   }
 }
 
-async function markSelectedOrdered() {
-  await bulkUpdatePartsAndRefresh([...selectedPartIds], { partStatus: "Ordered", partOrderedDate: today() });
+function addDaysKey(days) {
+  const d = new Date(); d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-async function markSelectedMirrorMatched() {
-  await bulkUpdatePartsAndRefresh([...selectedPartIds], { partMirrorMatched: "Yes" });
+// Ordering asks for the date the vendor promised; if the part isn't received by
+// then it shows up under "Parts Not Arrived On Time".
+function markSelectedOrdered() {
+  const ids = [...selectedPartIds];
+  if (!ids.length) { showStatus("No parts selected.", true); return; }
+  openDialog(`Order ${ids.length} part${ids.length === 1 ? "" : "s"}`, `
+    <label>Expected arrival (ETA) <input type="date" name="eta" min="${today()}" value="${addDaysKey(1)}"></label>
+    <p class="board-tip">If a part isn't marked received by this date, it moves to <b>Parts Not Arrived On Time</b>. Leave blank if the vendor didn't give one.</p>`,
+    async (form) => {
+      const eta = form.get("eta") || null;
+      await bulkUpdatePartsAndRefresh(ids, { partStatus: "Ordered", partOrderedDate: today(), partEta: eta });
+    });
+}
+
+function cartShelfOptions(loc) {
+  if (!loc || loc.kind !== "cart") return "";
+  const shelves = [...(loc.hasTop ? ["Top"] : []), ...Array.from({ length: loc.shelfCount || 0 }, (_, i) => String(i + 1))];
+  return shelves.map(s => `<option value="${s}">${s === "Top" ? "Top" : "Shelf " + s}</option>`).join("");
+}
+
+// Mirror matching is when a part gets put away, so pick its cart at the same time.
+// Carts already holding this RO come first, then empty carts; shelves can be
+// sorted afterwards by dragging in Carts & Shelves.
+function markSelectedMirrorMatched() {
+  const ids = [...selectedPartIds];
+  if (!ids.length) { showStatus("No parts selected.", true); return; }
+  const ro = String(currentPartsGroupRows()[0]?.partsRoNumber || "").trim();
+  const locations = store.get("inventoryLocations");
+  const mine = locations.filter(l => l.kind === "cart" && (l.ros || []).includes(ro));
+  const empty = locations.filter(l => l.kind === "cart" && !(l.ros || []).length);
+  const storage = locations.filter(l => l.kind !== "cart");
+  const opt = l => `<option value="${l.id}">${escapeHtml(l.name)} · ${escapeHtml(l.zone || "")}</option>`;
+  const current = currentPartsGroupRows().find(r => r.partLocation && mine.some(l => l.id === r.partLocation))?.partLocation || mine[0]?.id || "";
+  const dialog = openDialog(`Mirror match ${ids.length} part${ids.length === 1 ? "" : "s"}`, `
+    <label>Put on cart
+      <select name="location" id="mirrorCartSelect">
+        <option value="">Don't place yet</option>
+        ${mine.length ? `<optgroup label="Already holding RO ${escapeHtml(ro)}">${mine.map(opt).join("")}</optgroup>` : ""}
+        ${empty.length ? `<optgroup label="Empty carts">${empty.map(opt).join("")}</optgroup>` : ""}
+        ${storage.length ? `<optgroup label="Other storage">${storage.map(opt).join("")}</optgroup>` : ""}
+      </select>
+    </label>
+    <label>Shelf (optional) <select name="shelf" id="mirrorShelfSelect"><option value="">Sort later</option></select></label>
+    ${!mine.length && !empty.length ? '<p class="board-tip">No empty carts right now. Add one in Carts &amp; Shelves → Manage Locations.</p>' : ""}`,
+    async (form) => {
+      const location = form.get("location") || null;
+      const patch = { partMirrorMatched: "Yes" };
+      if (location) { patch.partLocation = location; patch.partShelf = form.get("shelf") || null; }
+      await bulkUpdatePartsAndRefresh(ids, patch);
+      if (location) { cache.inventoryLocations = (await api.list("inventoryLocations")).map(objToCamel); renderCartsShelves(); renderFloorPlan(); }
+    });
+  const cartSel = dialog.querySelector("#mirrorCartSelect"), shelfSel = dialog.querySelector("#mirrorShelfSelect");
+  const syncShelves = () => { shelfSel.innerHTML = `<option value="">Sort later</option>${cartShelfOptions(locations.find(l => l.id === cartSel.value))}`; };
+  cartSel.value = current; syncShelves(); cartSel.onchange = syncShelves;
 }
 
 function editParts(id){
@@ -1190,9 +1283,11 @@ function renderShelvesForSelected() {
     return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:center"><h3>${escapeHtml(loc.name)}</h3><button type="button" onclick="editLocationRow('${loc.id}')">Edit location</button></div>${partsHere.map(partCardHtml).join("") || '<p class="empty">No parts here.</p>'}</div>`;
   }
   const shelves = [...(loc.hasTop ? ["Top"] : []), ...Array.from({ length: loc.shelfCount || 0 }, (_, i) => String((loc.shelfCount||0) - i))];
+  // Parts placed on the cart during mirror match but not yet given a shelf.
+  const unsorted = partsHere.filter(p => !p.partShelf || !shelves.includes(p.partShelf));
   return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:center"><h3>${escapeHtml(loc.name)}</h3><button type="button" onclick="editLocationRow('${loc.id}')">Edit cart</button></div>
     <p class="board-tip">Drag a part card onto a shelf to move it. One vehicle per cart.</p>
-    <div class="production-columns">${shelves.map(s => {
+    <div class="production-columns">${unsorted.length ? `<section class="production-column unsorted-column"><header><h3>Needs a shelf <span>${unsorted.length}</span></h3></header><div>${unsorted.map(partCardHtml).join("")}</div></section>` : ""}${shelves.map(s => {
       const shelfParts = partsHere.filter(p => (p.partShelf || "") === s);
       return `<section class="production-column" data-destination="${s}"><header><h3>${s === "Top" ? "Top · rarely used" : "Shelf " + s}</h3></header><div>${shelfParts.map(partCardHtml).join("") || '<p class="column-empty">Drop a part here</p>'}</div></section>`;
     }).join("")}</div></div>`;
@@ -1627,7 +1722,9 @@ function renderDashboard() {
   $("metricSupplementsNeeded").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementCompleted!=="Yes").length;
   const p = store.get("parts");
   $("metricManagement").textContent = d.filter(r=>r.needsManagementHelp==="Yes").length;
-  $("metricPartsProblems").textContent = p.filter(r=>isPartsRowWithRo(r, d) && partsGroupHasProblem([r]) && isPartsRowVehicleOnsite(r, d)).length;
+  const problemVehicles = new Set(p.filter(r=>isPartsRowWithRo(r, d) && partProblemReason(r) && isPartsRowVehicleOnsite(r, d)).map(partGroupKey));
+  $("metricPartsProblems").textContent = problemVehicles.size;
+  $("metricPartsLate").textContent = p.filter(r=>isPartsRowWithRo(r, d) && isPartLate(r)).length;
   $("metricPartsNoRo").textContent = p.filter(r=>r.partStatus!=="Complete" && !isPartsRowWithRo(r, d)).length;
   $("metricPartsReturns").textContent = p.filter(r=>r.partReturnNeeded === "Yes" || ["Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || r.partCreditNeeded === "Yes").length;
   $("metricOpenTasks").textContent = t.filter(r=>r.taskStatus!=="Completed").length;

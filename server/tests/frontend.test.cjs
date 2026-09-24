@@ -33,3 +33,22 @@ test('parts for estimates with no RO number go to "No RO Yet" instead of Parts P
  })()`);
  assert.deepEqual(JSON.parse(JSON.stringify(views)),{realOnsite:[true,false],placeholderForRealJob:[true,false],estimateOnly:[false,true],noJobAtAll:[false,true]});
 });
+test('parts problems are counted per part, late ETAs get their own view, and the dashboard counts vehicles',()=>{
+ const {run,el}=loadClient();
+ const out=run(`(()=>{
+  const past='2020-01-01', future='2999-01-01';
+  cache.daily=[{id:'j1',roNumber:'17974',onsite:true,currentStage:'Body'},{id:'j2',roNumber:'17970',onsite:true,currentStage:'Body'}];
+  cache.parts=[
+   ...Array.from({length:10},(_,i)=>({id:'a'+i,partsRoNumber:'17974',partsCustomerName:'Ollie',partsVehicle:'Car',partStatus:'Ordered',partEta:future})),
+   {id:'late',partsRoNumber:'17974',partsCustomerName:'Ollie',partsVehicle:'Car',partStatus:'Ordered',partEta:past},
+   {id:'b1',partsRoNumber:'17970',partsCustomerName:'Iz',partsVehicle:'Truck',partStatus:'Need to Order'},
+   {id:'b2',partsRoNumber:'17970',partsCustomerName:'Iz',partsVehicle:'Truck',partStatus:'Need to Order'},
+  ];
+  const ollie=cache.parts.filter(p=>p.partsRoNumber==='17974');
+  renderDashboard();
+  return {ollieProblems:summarizePartGroup(ollie).problems, reason:partProblemReason(cache.parts[10]), ollieLateView:partsGroupMatchesView(ollie,'late',cache.daily), izLateView:partsGroupMatchesView(cache.parts.slice(11),'late',cache.daily)};
+ })()`);
+ assert.deepEqual(JSON.parse(JSON.stringify(out)),{ollieProblems:1,reason:'Not arrived by ETA',ollieLateView:true,izLateView:false});
+ assert.equal(el('metricPartsProblems').textContent,2,'two vehicles, not 3 parts');
+ assert.equal(el('metricPartsLate').textContent,1);
+});

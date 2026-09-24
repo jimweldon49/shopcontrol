@@ -497,3 +497,8 @@ body.kiosk-mode .column-empty {
   font-size: 13px;
   padding: 30px 10px;
 }
+
+/* Parts: flag the individual parts that are problems */
+.problem-badge { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: #fdecea; color: var(--danger); font-size: 11px; font-weight: 700; }
+tr.part-problem-row td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.production-column.unsorted-column { background: #fff8e6; border-color: #f0d58a; }
