@@ -1,4 +1,5 @@
 const model=require('../../client/shared');
+const qcChecklists=require('../../client/qcChecklists');
 const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial'],parts:['has_core','core_returned']};
 function validate(resource,body){
  if(!body||typeof body!=='object'||Array.isArray(body))throw Error('Expected an object.');
@@ -9,6 +10,10 @@ function validate(resource,body){
   for(const k of ['ro_amount','body_hours','paint_hours','other_hours'])if(body[k]!==undefined&&body[k]!==null&&body[k]!==''&&(!Number.isFinite(Number(body[k]))||Number(body[k])<0))throw Error('Value and labor hours must be nonnegative numbers.');
   for(const k of ['body_techs','painters','support_techs','board_flags'])if(body[k]!==undefined&&(!Array.isArray(body[k])||body[k].length>100||body[k].some(x=>typeof x!=='string'||x.length>120)))throw Error('Invalid staff or flag list.');
   if(body.card_color&&!/^#[0-9a-f]{6}$/i.test(body.card_color))throw Error('Choose a valid card color.');
+ }
+ if(resource==='qc'){
+  if(body.qc_department!==undefined&&body.qc_department!==null)qcChecklists.validateChecklist(body.qc_department,body.qc_checklist);
+  else if(body.qc_checklist)throw Error('Choose a QC department for this checklist.');
  }
  for(const k of ['onsite','commercial','has_core','core_returned'])if(body[k]!==undefined&&typeof body[k]!=='boolean')throw Error('Checkbox values must be true or false.');
  for(const k of ['in_date','dropoff_date','pickup_date','follow_up_date','target_delivery_date','actual_delivered_date'])if(body[k]&&!/^\d{4}-\d{2}-\d{2}$/.test(body[k]))throw Error('Use a valid date.');

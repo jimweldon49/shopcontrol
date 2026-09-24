@@ -792,20 +792,41 @@ function renderQc() {
     if (view === "failed" && !(["Failed","Needs Rework"].includes(r.qcFinalStatus) || r.qcReworkNeeded === "Yes")) return false;
     if (view === "ready" && r.qcFinalStatus !== "Ready for Delivery") return false;
     if (view === "passed" && r.qcFinalStatus !== "Passed") return false;
-    const hay = [r.qcRoNumber,r.qcCustomerName,r.qcVehicle,r.qcPerformedBy,r.qcIssues,r.qcDeliveryNotes].join(" ").toLowerCase();
+    const hay = [r.qcRoNumber,r.qcCustomerName,r.qcVehicle,r.qcPerformedBy,r.qcIssues,r.qcDeliveryNotes,r.qcDepartment].join(" ").toLowerCase();
     return hay.includes(search);
   });
 
   table.querySelector("tbody").innerHTML = rows.map(r => {
     const bad = ["Failed","Needs Rework"].includes(r.qcFinalStatus) || r.qcReworkNeeded === "Yes";
+    const prog = r.qcDepartment ? QcChecklists.progress(r.qcDepartment, r.qcChecklist) : null;
     return `<tr>
       <td>${r.qcRoNumber || ""}</td><td>${r.qcCustomerName || ""}</td><td>${r.qcVehicle || ""}</td>
+      <td>${escapeHtml(r.qcDepartment || "General")}${prog ? `<br><small class="${prog.complete ? "status-good" : ""}">${prog.done}/${prog.total} checked</small>` : ""}</td>
       <td>${r.qcDate || ""}</td><td>${r.qcPerformedBy || ""}</td>
       <td class="${bad ? "status-bad" : (["Passed","Ready for Delivery"].includes(r.qcFinalStatus) ? "status-good" : "")}">${r.qcFinalStatus || ""}</td>
       <td>${r.qcReworkNeeded || ""}</td><td>${r.qcReworkAssignedTo || ""}</td><td>${r.qcCustomerCalled || ""}</td>
-      <td><div class="actions"><button onclick="editQc('${r.id}')">Edit</button>${deleteBtn('qc', r.id)}</div></td>
+      <td><div class="actions">${prog ? `<button onclick="viewQcChecklist('${r.id}')">Checklist</button>` : ""}<button onclick="editQc('${r.id}')">Edit</button>${deleteBtn('qc', r.id)}</div></td>
     </tr>`;
   }).join("");
+}
+
+// Read-only view of a department checklist filled out on the mobile app.
+function viewQcChecklist(id) {
+  const r = store.get("qc").find(x => x.id === id);
+  const dept = r && QcChecklists.byId[r.qcDepartment];
+  if (!dept) return;
+  const items = (r.qcChecklist && r.qcChecklist.items) || {};
+  const prog = QcChecklists.progress(r.qcDepartment, r.qcChecklist);
+  const html = `
+    <p><b>RO ${escapeHtml(r.qcRoNumber || "")}</b> · ${escapeHtml(r.qcVehicle || "")}<br>${escapeHtml(r.qcPerformedBy || "")} · ${escapeHtml(r.qcDate || "")} · ${prog.done}/${prog.total} checked${r.qcSignedAt ? " · signed " + escapeHtml(formatDateTime(r.qcSignedAt)) : ""}</p>
+    <ul class="qc-checklist-view">${dept.items.map(i => {
+      const v = items[i.id] || {};
+      return `<li class="${v.done ? "done" : ""}"><span>${v.done ? "✔" : "○"}</span>${escapeHtml(i.label)}${i.input && v.value ? ` — ${escapeHtml(i.input.label)}: <b>${escapeHtml(v.value)}${escapeHtml(i.input.suffix || "")}</b>` : ""}</li>`;
+    }).join("")}</ul>
+    ${r.qcChecklist?.notes ? `<p><b>Notes:</b> ${escapeHtml(r.qcChecklist.notes)}</p>` : ""}
+    ${r.qcSignatureData ? `<img alt="Signature" src="${r.qcSignatureData}" style="max-width:260px;border:1px solid var(--line);border-radius:6px">` : ""}`;
+  const dialog = openDialog(`${dept.id} QC`, html, async () => {});
+  dialog.querySelector("[type=submit]").remove();
 }
 function editQc(id){
   const r = store.get("qc").find(x => x.id === id); if (!r) return;
@@ -1457,6 +1478,7 @@ function renderEmployees() {
       <td>${u.username}</td>
       <td>${u.email || ""}</td>
       <td><span class="pill ${u.role === 'admin' ? 'pill-admin' : 'pill-employee'}">${u.role}</span></td>
+      <td><select aria-label="QC department for ${escapeHtml(u.full_name)}" onchange="setEmployeeDepartment('${u.id}', this.value)"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>
       <td><span class="pill ${u.can_delete ? 'pill-yes' : 'pill-no'}">${u.can_delete ? 'Yes' : 'No'}</span></td>
       <td><span class="pill ${u.active ? 'pill-yes' : 'pill-inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
       <td>
@@ -1479,6 +1501,10 @@ async function toggleActive(id, value) {
   try { await api.patchUser(id, { active: value }); showStatus(value ? "Employee reactivated." : "Employee deactivated."); await loadEmployees(); }
   catch (err) { showStatus(err.message, true); }
 }
+async function setEmployeeDepartment(id, department) {
+  try { await api.patchUser(id, { department }); showStatus(department ? `QC department set to ${department}.` : "QC department cleared."); await loadEmployees(); }
+  catch (err) { showStatus(err.message, true); await loadEmployees(); }
+}
 async function toggleRole(id, role) {
   try { await api.patchUser(id, { role }); showStatus(`Role updated to ${role}.`); await loadEmployees(); }
   catch (err) { showStatus(err.message, true); }
@@ -1499,6 +1525,7 @@ async function handleCreateEmployee(e) {
     email: $("empEmail").value.trim(),
     password: $("empPassword").value,
     role: $("empRole").value,
+    department: $("empDepartment").value,
     canDelete: $("empCanDelete").checked,
   };
   if (payload.password.length < 8) { showStatus("Password must be at least 8 characters.", true); return; }

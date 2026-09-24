@@ -6,12 +6,23 @@ const { logActivity } = require("../activityLogger");
 
 const router = express.Router();
 
-const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at";
+const { names: QC_DEPARTMENTS } = require("../../../client/qcChecklists");
+
+const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department";
 const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
 
 function normalizeRole(role) {
   const value = String(role || "employee").toLowerCase();
   return ALLOWED_ROLES.includes(value) ? value : "employee";
+}
+
+// QC department that opens automatically in the mobile app; blank = none.
+function normalizeDepartment(value) {
+  if (value === undefined) return undefined;
+  const v = String(value || "").trim();
+  if (!v) return null;
+  if (!QC_DEPARTMENTS.includes(v)) throw Error("Choose a valid QC department.");
+  return v;
 }
 
 // List employees (no password hashes returned)
@@ -29,19 +40,21 @@ router.get("/roster", requireAuth, async (req, res) => {
 
 // Create a new employee login
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
-  const { username, password, fullName, email, role, canDelete } = req.body || {};
+  const { username, password, fullName, email, role, canDelete, department } = req.body || {};
   if (!username || !password || !fullName) {
     return res.status(400).json({ error: "username, password, and fullName are required." });
   }
   if (password.length < 8) {
     return res.status(400).json({ error: "Password must be at least 8 characters." });
   }
+  let dept;
+  try { dept = normalizeDepartment(department) ?? null; } catch (e) { return res.status(400).json({ error: e.message }); }
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (username, password_hash, full_name, email, role, can_delete)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (username, password_hash, full_name, email, role, can_delete, department)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING ${USER_FIELDS}`,
       [
         username.trim().toLowerCase(),
@@ -50,6 +63,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
         email ? String(email).trim().toLowerCase() : null,
         normalizeRole(role),
         canDelete === false ? false : true,
+        dept,
       ]
     );
 
@@ -74,7 +88,9 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
 
 // Update an employee: active status, role, delete permission, full name.
 router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const { active, role, canDelete, fullName, email } = req.body || {};
+  const { active, role, canDelete, fullName, email, department } = req.body || {};
+  let dept;
+  try { dept = normalizeDepartment(department); } catch (e) { return res.status(400).json({ error: e.message }); }
 
   const beforeResult = await pool.query(`SELECT ${USER_FIELDS} FROM users WHERE id = $1`, [req.params.id]);
   const before = beforeResult.rows[0];
@@ -92,12 +108,13 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
   const nextCanDelete = typeof canDelete === "boolean" ? canDelete : before.can_delete;
   const nextFullName = typeof fullName === "string" && fullName.trim() ? fullName.trim() : before.full_name;
   const nextEmail = typeof email === "string" ? (email.trim() ? email.trim().toLowerCase() : null) : before.email;
+  const nextDepartment = dept === undefined ? before.department : dept;
 
   const result = await pool.query(
-    `UPDATE users SET active = $1, role = $2, can_delete = $3, full_name = $4, email = $5
-     WHERE id = $6
+    `UPDATE users SET active = $1, role = $2, can_delete = $3, full_name = $4, email = $5, department = $6
+     WHERE id = $7
      RETURNING ${USER_FIELDS}`,
-    [nextActive, nextRole, nextCanDelete, nextFullName, nextEmail, req.params.id]
+    [nextActive, nextRole, nextCanDelete, nextFullName, nextEmail, nextDepartment, req.params.id]
   );
 
   await logActivity({

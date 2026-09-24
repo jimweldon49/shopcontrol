@@ -22,14 +22,17 @@ const ROLE_PERMISSIONS = {
   paint: {
     resources: ["daily", "tasks", "booth", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
+    readOnlyResources: ["parts"],
   },
   body: {
     resources: ["daily", "tasks", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
+    readOnlyResources: ["parts"],
   },
   qc: {
     resources: ["daily", "tasks", "qc", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],
+    readOnlyResources: ["parts"],
   },
   cleanup: {
     resources: ["tasks", "facility", "booth", "activity", "uploads", "missed_calls"],
@@ -56,6 +59,10 @@ function hasPermission(user, resource, action) {
   const actions = config.actions || [];
   const readOnlyResources = config.readOnlyResources || [];
 
+  // Anyone assigned a QC department (e.g. an office person doing Check-In) can fill
+  // out and update QC checklists, whatever their role.
+  if (resource === "qc" && user && user.department && ["list", "create", "update"].includes(action)) return true;
+
   if (resources.includes("*") || resources.includes(resource)) {
     if (action === "delete") return (actions.includes("*") || actions.includes("update")) && user && user.canDelete !== false;
     return actions.includes("*") || actions.includes(action);
@@ -74,9 +81,9 @@ async function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active FROM users WHERE id=$1',[payload.id])).rows[0];
+    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active,department FROM users WHERE id=$1',[payload.id])).rows[0];
     if(!row||!row.active)return res.status(401).json({error:'This account is not active.'});
-    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete};
+    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete,department:row.department||null};
     next();
   } catch (err) {
     return res.status(401).json({ error: "Your session has expired. Please log in again." });

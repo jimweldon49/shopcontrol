@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 function loadClient(){
  const elements=new Map();function el(id){if(!elements.has(id))elements.set(id,{innerHTML:'',textContent:'',value:'',checked:false,dataset:{},classList:{add(){},remove(){},toggle(){}},querySelector(){return el(id+'/child');},querySelectorAll(){return [];},setAttribute(){}});return elements.get(id);}
  const context=vm.createContext({console,Date,Intl,Map,Set,URL,Blob,FormData,structuredClone,setTimeout,clearTimeout,setInterval,clearInterval,confirm:()=>true,alert(){},localStorage:{getItem:k=>k==='authUser'?JSON.stringify({id:'user',role:'admin',canDelete:true}):null},document:{getElementById:el,querySelectorAll:()=>[],addEventListener(){},querySelector:()=>null},window:{API_BASE:'/api'}});
- for(const file of ['shared.js','unified.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../../client',file),'utf8'),context,{filename:file});return {context,el,run:s=>vm.runInContext(s,context)};
+ for(const file of ['shared.js','qcChecklists.js','unified.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../../client',file),'utf8'),context,{filename:file});return {context,el,run:s=>vm.runInContext(s,context)};
 }
 test('all unified views render from the existing Shop Control job cache',()=>{
  const {run,el}=loadClient();run(`cache.daily=[{id:'job1',roNumber:'17892',customerName:'A & B <test>',vehicle:'2023 Honda Accord',onsite:true,currentStage:'Body',roAmount:'1234.56',bodyHours:3,paintHours:2,deliveryStage:'Pre-close',planningBucket:'This Week',updatedAt:'2026-09-10T00:00:00Z',version:4}];workspace.calendarDate='2026-09-10';renderUnified();`);

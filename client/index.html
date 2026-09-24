@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="unified.css" />
   <script src="shared.js"></script>
+  <script src="qcChecklists.js"></script>
   <script src="config.js"></script>
 </head>
 <body>
@@ -583,7 +584,7 @@
         <table id="qcTable">
           <thead>
             <tr>
-              <th>RO</th><th>Customer</th><th>Vehicle</th><th>QC Date</th><th>Performed By</th><th>Status</th><th>Rework</th><th>Assigned</th><th>Customer Called</th><th>Actions</th>
+              <th>RO</th><th>Customer</th><th>Vehicle</th><th>Department</th><th>QC Date</th><th>Performed By</th><th>Status</th><th>Rework</th><th>Assigned</th><th>Customer Called</th><th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -868,6 +869,16 @@
             <option value="display">Display / TV (read-only)</option>
           </select>
         </label>
+        <label>QC Department (opens their checklist in the mobile app)
+          <select id="empDepartment">
+            <option value="">None</option>
+            <option>Check-In</option>
+            <option>Body</option>
+            <option>Paint</option>
+            <option>Reassy</option>
+            <option>Final QC</option>
+          </select>
+        </label>
         <label class="checkbox-label"><input type="checkbox" id="empCanDelete" checked /> Can delete records</label>
         <div class="wide form-actions">
           <button type="submit">Add Employee</button>
@@ -876,7 +887,7 @@
 
       <div class="table-wrap">
         <table id="employeesTable">
-          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Can Delete</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>QC Department</th><th>Can Delete</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

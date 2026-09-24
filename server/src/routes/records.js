@@ -46,7 +46,7 @@ const RESOURCES = {
       "qc_electrical", "qc_calibration", "qc_interior", "qc_exterior", "qc_warning_lights",
       "qc_test_drive_needed", "qc_test_drive_completed", "qc_customer_items", "qc_rework_needed",
       "qc_rework_assigned_to", "qc_rework_due_date", "qc_customer_called", "qc_issues", "qc_delivery_notes",
-      "qc_signature_data", "qc_signed_at",
+      "qc_signature_data", "qc_signed_at", "qc_department", "qc_checklist",
     ],
     orderBy: "created_at DESC",
   },

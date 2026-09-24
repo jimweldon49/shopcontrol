@@ -2,303 +2,348 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Shop QC" />
-<meta name="theme-color" content="#0f172a" />
+<meta name="theme-color" content="#0b0f14" />
 <link rel="manifest" href="manifest.json" />
-<title>Shop QC</title>
+<title>Shop QC · Concept</title>
 <style>
   :root {
-    --bg: #f3f4f6;
-    --card: #ffffff;
-    --ink: #111827;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --accent: #2563eb;
-    --accent-ink: #ffffff;
-    --danger: #dc2626;
-    --good: #16a34a;
+    --bg: #0b0f14;
+    --surface: #131a22;
+    --surface-2: #1a2330;
+    --line: #253142;
+    --text: #eef3f8;
+    --muted: #8b9bb0;
+    --faint: #5c6b80;
+    --accent: #f97316;
+    --accent-ink: #111;
+    --good: #22c55e;
+    --danger: #f43f5e;
+    --warn: #eab308;
+    --radius: 18px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  body { padding-bottom: env(safe-area-inset-bottom); }
-  .screen { display: none; min-height: 100vh; flex-direction: column; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; overscroll-behavior-y: contain; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  input, textarea, select { font: inherit; }
+  [hidden] { display: none !important; }
+
+  .screen { display: none; min-height: 100vh; flex-direction: column; animation: enter .28s ease; }
   .screen.active { display: flex; }
-  header.topbar {
-    background: #0f172a; color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 5;
-  }
-  header.topbar h1 { font-size: 18px; margin: 0; }
-  header.topbar .sub { font-size: 12px; color: #93c5fd; }
-  header.topbar button { background: none; border: 1px solid #334155; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
-  .mobile-main { flex: 1; padding: 16px; max-width: 520px; width: 100%; margin: 0 auto; }
-  .card { background: var(--card); border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
-  h2 { font-size: 17px; margin: 0 0 4px; }
-  p.hint { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; }
-  label { display: block; font-weight: 600; font-size: 13.5px; margin: 14px 0 6px; color: #374151; }
-  label:first-child { margin-top: 0; }
-  input[type=text], input[type=password], input[type=date], select, textarea {
-    width: 100%; font-size: 16px; padding: 13px 12px; border: 1.5px solid var(--line); border-radius: 10px;
-    background: #fff; color: var(--ink); appearance: none;
-  }
-  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'><path d='M5.5 7.5l4.5 4.5 4.5-4.5' stroke='%236b7280' stroke-width='1.5' fill='none'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
-  textarea { min-height: 80px; resize: vertical; font-family: inherit; }
-  .btn { display: block; width: 100%; text-align: center; padding: 15px; border-radius: 12px; border: none; font-size: 16px; font-weight: 700; margin-top: 14px; }
-  .btn-primary { background: var(--accent); color: var(--accent-ink); }
-  .btn-secondary { background: #e5e7eb; color: #111827; }
-  .btn-danger { background: #fee2e2; color: var(--danger); }
-  .btn:disabled { opacity: 0.55; }
-  .error-box { background: #fee2e2; color: #991b1b; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 12px; display: none; }
-  .error-box.visible { display: block; }
-  .status-box { background: #dcfce7; color: #166534; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 12px; display: none; }
-  .status-box.visible { display: block; }
-  .job-option { border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
-  .job-option .ro { font-weight: 700; font-size: 15px; }
-  .job-option .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .job-option button { margin-top: 10px; }
-  .field-row { display: flex; gap: 10px; }
-  .field-row > div { flex: 1; }
-  .sig-wrap { border: 1.5px dashed var(--line); border-radius: 12px; overflow: hidden; background: #fff; touch-action: none; }
-  canvas#sigPad { display: block; width: 100%; height: 180px; touch-action: none; }
-  .sig-actions { display: flex; gap: 10px; margin-top: 10px; }
-  .sig-actions .btn { margin-top: 0; }
-  .tag { display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-bottom: 8px; }
-  .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-  .summary-row:last-child { border-bottom: none; }
-  .summary-row .k { color: var(--muted); }
-  footer.progress { display: flex; gap: 6px; padding: 10px 16px 4px; }
-  footer.progress span { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
-  footer.progress span.done { background: var(--accent); }
-  .center-note { text-align: center; color: var(--muted); font-size: 13px; margin-top: 10px; }
-  .hub-actions { display: flex; flex-direction: column; gap: 10px; }
-  .hub-actions .btn { margin-top: 0; }
-  .part-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
-  .part-row .name { font-weight: 700; font-size: 14px; }
-  .part-row .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .file-row { display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
-  .file-row img.thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #f1f5f9; }
-  .file-row .doc-icon { width: 56px; height: 56px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-  .file-row .meta { flex: 1; min-width: 0; }
-  .file-row .meta .name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-row .meta .sub { font-size: 12px; color: var(--muted); }
-  .file-row a { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; flex-shrink: 0; }
-  .muted-note { color: var(--muted); font-size: 13px; text-align: center; padding: 10px 0; }
-  .rework-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
-  .rework-row .name { font-weight: 700; font-size: 14px; }
-  .rework-row .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .rework-row .sub.overdue { color: var(--danger); font-weight: 700; }
-  .rework-row .btn { margin-top: 10px; }
+  @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* Top bar */
+  .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; padding: calc(12px + var(--safe-top)) 16px 12px; background: rgba(11,15,20,.86); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(37,49,66,.6); }
+  .bar { padding-left: max(16px, calc((100% - 560px) / 2 + 16px)); padding-right: max(16px, calc((100% - 560px) / 2 + 16px)); }
+  .bar h1 { flex: 1; margin: 0; font-size: 17px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); position: relative; flex-shrink: 0; }
+  .icon-btn:active { transform: scale(.94); }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .badge-dot { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+
+  .main { flex: 1; width: 100%; max-width: 560px; margin: 0 auto; padding: 16px 16px calc(28px + var(--safe-bottom)); }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 22px 4px 10px; }
+
+  /* Login */
+  .login-hero { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: calc(40px + var(--safe-top)) 24px 28px; background:
+      radial-gradient(120% 70% at 100% 0%, rgba(249,115,22,.35), transparent 60%),
+      radial-gradient(90% 60% at 0% 20%, rgba(56,189,248,.22), transparent 60%), var(--bg); }
+  .login-hero > * { width: 100%; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: auto; }
+  .brand-mark { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #f97316, #fb923c); color: #111; display: grid; place-items: center; font-weight: 900; font-size: 22px; box-shadow: 0 8px 24px rgba(249,115,22,.45); }
+  .brand b { display: block; letter-spacing: 3px; font-size: 14px; }
+  .brand small { color: var(--muted); letter-spacing: 2px; font-size: 11px; }
+  .login-hero h2 { font-size: 34px; line-height: 1.08; margin: 60px 0 8px; font-weight: 800; letter-spacing: -.5px; }
+  .login-hero p { color: var(--muted); margin: 0 0 26px; }
+
+  .field { display: block; margin-bottom: 12px; }
+  .field span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px 4px; }
+  .input { width: 100%; padding: 15px 16px; font-size: 16px; color: var(--text); background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+  textarea.input { min-height: 96px; resize: vertical; }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border-radius: 16px; font-size: 16px; font-weight: 800; letter-spacing: .2px; transition: transform .12s, filter .15s, opacity .15s; }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .5; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .btn-ghost { background: var(--surface); border: 1px solid var(--line); color: var(--text); }
+  .btn + .btn { margin-top: 10px; }
+
+  .alert { padding: 12px 14px; border-radius: 12px; font-size: 14px; margin-bottom: 12px; display: none; }
+  .alert.show { display: block; animation: enter .2s ease; }
+  .alert-error { background: rgba(244,63,94,.12); color: #fda4af; border: 1px solid rgba(244,63,94,.35); }
+  .alert-ok { background: rgba(34,197,94,.12); color: #86efac; border: 1px solid rgba(34,197,94,.35); }
+
+  /* Home */
+  .hello h2 { margin: 6px 4px 2px; font-size: 26px; font-weight: 800; letter-spacing: -.3px; }
+  .hello p { margin: 0 4px; color: var(--muted); }
+  .dept-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+  .search { position: relative; margin-top: 18px; }
+  .search svg { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--faint); }
+  .search .input { padding-left: 46px; }
+
+  .car { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px; margin-bottom: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); transition: transform .12s, border-color .15s; }
+  .car:active { transform: scale(.985); border-color: var(--accent); }
+  .car .ro { font-size: 12px; font-weight: 800; letter-spacing: .8px; color: var(--accent); }
+  .car .name { font-weight: 700; font-size: 16px; margin: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .car .sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .car .body { flex: 1; min-width: 0; }
+  .stage { display: inline-block; margin-top: 6px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+  .ring { --p: 0; --c: var(--accent); width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--surface-2) 0); transition: --p .5s; }
+  .ring::before { content: attr(data-label); width: 38px; height: 38px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--text); }
+  .ring.done { --c: var(--good); }
+  .empty { text-align: center; color: var(--muted); padding: 34px 12px; border: 1.5px dashed var(--line); border-radius: var(--radius); }
+  .skeleton { height: 76px; border-radius: var(--radius); margin-bottom: 10px; background: linear-gradient(90deg, var(--surface) 0, var(--surface-2) 50%, var(--surface) 100%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* Job */
+  .job-hero { padding: 20px; border-radius: 22px; background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 26%, var(--surface)) 0%, var(--surface) 60%); border: 1px solid var(--line); }
+  .job-hero .ro { font-size: 13px; font-weight: 800; letter-spacing: 1px; color: var(--accent); }
+  .job-hero h2 { margin: 4px 0 2px; font-size: 22px; line-height: 1.2; font-weight: 800; }
+  .job-hero p { margin: 0; color: var(--muted); }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .fact { background: rgba(11,15,20,.45); border-radius: 12px; padding: 10px; }
+  .fact small { display: block; font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .fact b { font-size: 14px; }
+
+  .qc-cta { display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; margin-top: 14px; padding: 18px; border-radius: 22px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .qc-cta:active { transform: scale(.985); }
+  .qc-cta .ring { --c: var(--accent-ink); background: conic-gradient(var(--c) calc(var(--p) * 1%), rgba(0,0,0,.18) 0); width: 58px; height: 58px; }
+  .qc-cta .ring::before { width: 46px; height: 46px; background: var(--accent); color: var(--accent-ink); font-size: 13px; }
+  .qc-cta b { display: block; font-size: 19px; font-weight: 900; }
+  .qc-cta span { font-size: 14px; font-weight: 600; opacity: .8; }
+  .qc-cta .arrow { margin-left: auto; font-size: 26px; font-weight: 900; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .tile { text-align: left; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+  .tile:active { transform: scale(.97); }
+  .tile svg { width: 24px; height: 24px; color: var(--accent); }
+  .tile b { display: block; margin-top: 10px; font-size: 15px; }
+  .tile small { color: var(--muted); font-size: 12.5px; }
+  .tile.alert-tile small { color: #fda4af; font-weight: 700; }
+
+  .dept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dept-btn { --accent: #888; position: relative; text-align: left; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1.5px solid var(--line); overflow: hidden; }
+  .dept-btn::after { content: ""; position: absolute; inset: auto 0 0 0; height: 4px; background: var(--accent); }
+  .dept-btn b { display: block; font-size: 16px; }
+  .dept-btn small { color: var(--muted); }
+  .dept-btn.complete small { color: var(--good); font-weight: 700; }
+  .dept-btn.mine { border-color: var(--accent); }
+
+  .row-card { padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 8px; }
+  .row-card b { display: block; font-size: 14.5px; }
+  .row-card small { color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; margin-top: 6px; background: var(--surface-2); color: var(--muted); }
+  .pill.bad { background: rgba(244,63,94,.14); color: #fda4af; }
+  .pill.ok { background: rgba(34,197,94,.14); color: #86efac; }
+
+  /* Checklist */
+  .qc-head { position: sticky; top: calc(64px + var(--safe-top)); z-index: 5; display: flex; align-items: center; gap: 14px; margin: -16px -16px 14px; padding: 16px; background: linear-gradient(180deg, var(--bg) 70%, transparent); }
+  .qc-head .ring { width: 64px; height: 64px; }
+  .qc-head .ring::before { width: 52px; height: 52px; font-size: 14px; }
+  .qc-head b { display: block; font-size: 20px; font-weight: 900; }
+  .qc-head small { color: var(--muted); }
+  .saving { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--faint); transition: color .2s; }
+  .saving.ok { color: var(--good); }
+  .saving.err { color: var(--danger); }
+  .bar-progress { height: 5px; background: var(--surface-2); border-radius: 5px; overflow: hidden; margin: 0 0 14px; }
+  .bar-progress i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 5px; transition: width .4s cubic-bezier(.2,.8,.2,1); }
+
+  .check { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 16px; margin-bottom: 8px; border-radius: 16px; background: var(--surface); border: 1.5px solid var(--line); transition: background .2s, border-color .2s, transform .1s; }
+  .check:active { transform: scale(.985); }
+  .check .box { width: 30px; height: 30px; border-radius: 10px; border: 2px solid var(--faint); flex-shrink: 0; display: grid; place-items: center; transition: all .2s cubic-bezier(.2,.8,.2,1); }
+  .check .box svg { width: 18px; height: 18px; stroke: var(--accent-ink); stroke-width: 3.2; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset .3s .05s; }
+  .check .label { flex: 1; font-size: 15.5px; font-weight: 600; }
+  .check.on { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .check.on .box { background: var(--accent); border-color: var(--accent); transform: scale(1.06); }
+  .check.on .box svg { stroke-dashoffset: 0; }
+  .check.on .label { color: var(--text); }
+  .check-extra { margin: -4px 0 10px 60px; display: flex; align-items: center; gap: 8px; }
+  .check-extra .input { width: 120px; padding: 11px 12px; }
+  .check-extra span { color: var(--muted); font-size: 14px; }
+
+  .sticky-foot { position: sticky; bottom: 0; margin: 18px -16px 0; padding: 14px 16px calc(14px + var(--safe-bottom)); background: linear-gradient(0deg, var(--bg) 70%, transparent); }
+
+  /* Signature + finish */
+  .sig { background: #f8fafc; border-radius: 16px; overflow: hidden; touch-action: none; }
+  .sig canvas { display: block; width: 100%; height: 200px; touch-action: none; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg button { padding: 13px; border-radius: 12px; background: var(--surface); border: 1.5px solid var(--line); font-weight: 700; }
+  .seg button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+
+  .done-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px 24px; position: relative; overflow: hidden; }
+  .done-wrap > .btn { max-width: 420px; }
+  .done-badge { width: 120px; height: 120px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, var(--good), #15803d); box-shadow: 0 0 0 14px rgba(34,197,94,.15), 0 0 60px rgba(34,197,94,.5); animation: pop .6s cubic-bezier(.2,1.6,.4,1); }
+  .done-badge svg { width: 60px; height: 60px; stroke: #fff; stroke-width: 3.5; fill: none; stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw .5s .35s forwards; }
+  @keyframes pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .done-wrap h2 { font-size: 28px; margin: 26px 0 6px; font-weight: 900; }
+  .done-wrap p { color: var(--muted); margin: 0 0 26px; }
+  .confetti { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; animation: fall 2.4s ease-in forwards; opacity: .9; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+
+  /* Photos */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .photo-grid a { aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--surface); display: grid; place-items: center; color: var(--muted); font-size: 12px; font-weight: 700; text-decoration: none; }
+  .photo-grid img { width: 100%; height: 100%; object-fit: cover; }
+  .big-cam { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 26px; border-radius: 22px; border: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 800; }
+  .big-cam svg { width: 38px; height: 38px; }
+
+  /* Sheet (alerts) */
+  .sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; animation: fade .2s; }
+  @keyframes fade { from { opacity: 0; } }
+  .sheet { width: 100%; max-height: 80vh; overflow: auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 18px calc(22px + var(--safe-bottom)); animation: up .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes up { from { transform: translateY(100%); } }
+  .sheet .grab { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 4px auto 14px; }
+  .sheet h3 { margin: 0 0 12px; }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); font-weight: 700; font-size: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.4); animation: enter .2s; }
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
 <section class="screen active" id="screen-login">
-  <header class="topbar"><div><h1>Shop QC</h1><div class="sub">Concept Auto Body</div></div></header>
-  <div class="mobile-main">
-    <div class="card">
-      <h2>Tech Login</h2>
-      <p class="hint">Log in with your Shop Control employee account.</p>
-      <div class="error-box" id="loginError"></div>
-      <label>Username</label>
-      <input type="text" id="loginUsername" autocomplete="username" autocapitalize="off" />
-      <label>Password</label>
-      <input type="password" id="loginPassword" autocomplete="current-password" />
-      <button class="btn btn-primary" id="loginBtn">Log In</button>
-    </div>
+  <div class="login-hero">
+    <div class="brand"><div class="brand-mark">C</div><div><b>CONCEPT</b><small>SHOP QC</small></div></div>
+    <h2>Build it right.<br>Check it off.</h2>
+    <p>Sign in with your Shop Control account.</p>
+    <div class="alert alert-error" id="loginError"></div>
+    <label class="field"><span>Username</span><input class="input" id="loginUsername" autocomplete="username" autocapitalize="off" autocorrect="off" /></label>
+    <label class="field"><span>Password</span><input class="input" type="password" id="loginPassword" autocomplete="current-password" /></label>
+    <button class="btn btn-primary" id="loginBtn">Sign in</button>
   </div>
 </section>
 
-<!-- RO LOOKUP -->
-<section class="screen" id="screen-lookup">
-  <header class="topbar">
-    <div><h1>Find Vehicle</h1><div class="sub" id="lookupUserSub"></div></div>
-    <button id="logoutBtn1">Log Out</button>
+<!-- HOME: vehicles in the shop -->
+<section class="screen" id="screen-home">
+  <header class="bar">
+    <h1>Shop QC</h1>
+    <button class="icon-btn" id="alertsBtn" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge-dot" id="alertsCount" hidden></span></button>
+    <button class="icon-btn" id="logoutBtn" aria-label="Sign out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button>
   </header>
-  <div class="mobile-main">
-    <div class="card">
-      <h2>Enter RO Number</h2>
-      <p class="hint">Type the RO number for the vehicle you're checking.</p>
-      <div class="error-box" id="lookupError"></div>
-      <input type="text" id="roInput" inputmode="text" autocapitalize="characters" placeholder="e.g. 17902" />
-      <button class="btn btn-primary" id="lookupBtn">Find Vehicle</button>
+  <div class="main">
+    <div class="hello"><h2 id="helloName">Hey there</h2><p id="helloSub"></p></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input class="input" id="searchInput" type="search" placeholder="Search RO, customer or vehicle" autocomplete="off" />
     </div>
-    <div id="lookupResults"></div>
+    <div class="eyebrow" id="listTitle">In the shop</div>
+    <div id="carList"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
   </div>
 </section>
 
-<!-- JOB HUB -->
-<section class="screen" id="screen-hub">
-  <header class="topbar">
-    <div><h1>Job Overview</h1><div class="sub" id="hubUserSub"></div></div>
-    <button id="logoutBtnHub">Log Out</button>
+<!-- JOB -->
+<section class="screen" id="screen-job">
+  <header class="bar">
+    <button class="icon-btn" data-back="home" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="jobBarTitle">Vehicle</h1>
   </header>
-  <div class="mobile-main">
-    <div class="card">
-      <span class="tag" id="hubExistingTag" style="display:none;">Continuing existing QC</span>
-      <h2 id="hubVehicleTitle">Vehicle</h2>
-      <p class="hint" id="hubVehicleSub"></p>
-      <div id="hubInfoRows"></div>
+  <div class="main">
+    <div class="job-hero">
+      <div class="ro" id="jobRo"></div>
+      <h2 id="jobVehicle"></h2>
+      <p id="jobCustomer"></p>
+      <div class="facts" id="jobFacts"></div>
     </div>
-
-    <div class="card">
-      <h2>Parts</h2>
-      <p class="hint">Parts on this RO, from the shop's parts list.</p>
-      <div id="hubParts"><div class="muted-note">Loading parts...</div></div>
+    <div id="jobQc"></div>
+    <div class="tiles">
+      <button class="tile" id="tilePhotos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg><b>Photos</b><small id="tilePhotosSub">Snap &amp; attach</small></button>
+      <button class="tile" id="tileParts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><b>Parts</b><small id="tilePartsSub">Loading…</small></button>
     </div>
-
-    <div class="card">
-      <h2>Rework Tracking</h2>
-      <p class="hint">Open rework items flagged on this RO.</p>
-      <div id="hubRework"><div class="muted-note">Loading rework items...</div></div>
-    </div>
-
-    <div class="card hub-actions">
-      <button class="btn btn-primary" id="hubQcBtn">QC Checklist</button>
-      <button class="btn btn-secondary" id="hubPhotosBtn">Photos &amp; Files</button>
-      <button class="btn btn-secondary" id="hubNewSearchBtn">New Search</button>
-    </div>
+    <div class="eyebrow">Other departments</div>
+    <div class="dept-grid" id="deptGrid"></div>
+    <div id="reworkBox"></div>
   </div>
 </section>
 
-<!-- QC FORM -->
-<section class="screen" id="screen-form">
-  <header class="topbar">
-    <div><h1>QC Checklist</h1><div class="sub" id="formRoSub"></div></div>
-    <button id="logoutBtn2">Log Out</button>
+<!-- CHECKLIST -->
+<section class="screen" id="screen-qc">
+  <header class="bar">
+    <button class="icon-btn" data-back="job" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="qcBarTitle">QC</h1>
   </header>
-  <footer class="progress"><span class="done"></span><span></span><span></span></footer>
-  <div class="mobile-main">
-    <div class="card">
-      <span class="tag" id="formExistingTag" style="display:none;">Continuing existing QC</span>
-      <h2 id="formVehicleTitle">Vehicle</h2>
-      <p class="hint" id="formVehicleSub"></p>
-
-      <label>QC Date</label>
-      <input type="date" id="qcDate" />
-      <label>QC Performed By (you)</label>
-      <input type="text" id="qcPerformedBy" />
-      <label>Final Status</label>
-      <select id="qcFinalStatus">
-        <option>Open</option><option>Passed</option><option>Failed</option><option>Needs Rework</option><option>Ready for Delivery</option>
-      </select>
-
-      <label>Body Work Checked</label>
-      <select id="qcBodyWork"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Paint Quality Checked</label>
-      <select id="qcPaintQuality"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Color Match Checked</label>
-      <select id="qcColorMatch"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Panel Alignment Checked</label>
-      <select id="qcPanelAlignment"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Lights / Electrical Checked</label>
-      <select id="qcElectrical"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>ADAS / Calibration Checked</label>
-      <select id="qcCalibration"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Interior Clean / Protected</label>
-      <select id="qcInterior"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Exterior Detail Complete</label>
-      <select id="qcExterior"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Warning Lights Checked</label>
-      <select id="qcWarningLights"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Test Drive Needed</label>
-      <select id="qcTestDriveNeeded"><option>No</option><option>Yes</option></select>
-      <label>Test Drive Completed</label>
-      <select id="qcTestDriveCompleted"><option>No</option><option>Yes</option><option>N/A</option></select>
-      <label>Customer Items / Old Parts Checked</label>
-      <select id="qcCustomerItems"><option>No</option><option>Yes</option><option>N/A</option></select>
-
-      <label>Rework Needed?</label>
-      <select id="qcReworkNeeded"><option>No</option><option>Yes</option></select>
-      <label>Rework Assigned To</label>
-      <input type="text" id="qcReworkAssignedTo" />
-      <label>Rework Due Date</label>
-      <input type="date" id="qcReworkDueDate" />
-      <label>Customer Called?</label>
-      <select id="qcCustomerCalled"><option>No</option><option>Yes</option></select>
-
-      <label>QC Issues / Rework Notes</label>
-      <textarea id="qcIssues" placeholder="List anything that failed QC or needs to be fixed before delivery."></textarea>
-      <label>Delivery Notes</label>
-      <textarea id="qcDeliveryNotes" placeholder="Final notes before customer pickup."></textarea>
-
-      <button class="btn btn-primary" id="toSignatureBtn">Continue to Signature</button>
-      <button class="btn btn-secondary" id="backToLookupBtn">Back to Job</button>
+  <div class="main">
+    <div class="qc-head">
+      <div class="ring" id="qcRing" data-label="0%"></div>
+      <div><b id="qcDeptTitle">Checklist</b><small id="qcCount"></small></div>
+      <div class="saving" id="qcSaving"></div>
     </div>
+    <div class="bar-progress"><i id="qcBar"></i></div>
+    <div id="qcItems"></div>
+    <label class="field" style="margin-top:16px"><span>Notes</span><textarea class="input" id="qcNotes" placeholder="Anything the next department should know"></textarea></label>
+    <div class="sticky-foot"><button class="btn btn-primary" id="toFinishBtn">Sign &amp; finish</button></div>
   </div>
 </section>
 
-<!-- SIGNATURE -->
-<section class="screen" id="screen-signature">
-  <header class="topbar">
-    <div><h1>Sign & Submit</h1><div class="sub" id="sigRoSub"></div></div>
-    <button id="logoutBtn3">Log Out</button>
+<!-- FINISH / SIGN -->
+<section class="screen" id="screen-finish">
+  <header class="bar">
+    <button class="icon-btn" data-back="qc" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Sign &amp; finish</h1>
   </header>
-  <footer class="progress"><span class="done"></span><span class="done"></span><span></span></footer>
-  <div class="mobile-main">
-    <div class="card">
-      <h2>Your Signature</h2>
-      <p class="hint">Sign below to confirm you personally performed this quality check.</p>
-      <div class="error-box" id="sigError"></div>
-      <div class="sig-wrap"><canvas id="sigPad"></canvas></div>
-      <div class="sig-actions">
-        <button class="btn btn-secondary" id="clearSigBtn">Clear</button>
-      </div>
-      <button class="btn btn-primary" id="submitQcBtn">Submit QC</button>
-      <button class="btn btn-secondary" id="backToFormBtn">Back to Checklist</button>
+  <div class="main">
+    <div class="alert alert-error" id="finishError"></div>
+    <div class="row-card" id="finishSummary"></div>
+    <div class="eyebrow">Anything need rework?</div>
+    <div class="seg" id="reworkSeg"><button data-v="No" class="on">No, all good</button><button data-v="Yes">Yes, needs rework</button></div>
+    <div id="reworkFields" hidden>
+      <label class="field" style="margin-top:12px"><span>What needs fixing</span><textarea class="input" id="reworkNotes"></textarea></label>
+      <label class="field"><span>Assign to</span><input class="input" id="reworkAssignedTo" placeholder="Name" /></label>
+      <label class="field"><span>Due</span><input class="input" type="date" id="reworkDue" /></label>
     </div>
-  </div>
-</section>
-
-<!-- PHOTOS & FILES -->
-<section class="screen" id="screen-photos">
-  <header class="topbar">
-    <div><h1>Photos &amp; Files</h1><div class="sub" id="photosRoSub"></div></div>
-    <button id="logoutBtnPhotos">Log Out</button>
-  </header>
-  <div class="mobile-main">
-    <div class="card">
-      <h2>Add a Photo or File</h2>
-      <p class="hint">Snap a photo with your camera, or attach an existing file (photos, estimates, procedure PDFs).</p>
-      <div class="error-box" id="photosError"></div>
-      <div class="status-box" id="photosStatus"></div>
-      <label>Caption (optional)</label>
-      <input type="text" id="photoNote" placeholder="e.g. Left rear quarter panel" />
-      <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="display:none" />
-      <input type="file" id="photoFileInput" accept="image/*,application/pdf" style="display:none" />
-      <button class="btn btn-primary" id="takePhotoBtn">Take Photo</button>
-      <button class="btn btn-secondary" id="chooseFileBtn">Choose File</button>
-    </div>
-
-    <div class="card">
-      <h2>Attached to this Job</h2>
-      <div id="photosList"><div class="muted-note">Loading...</div></div>
-    </div>
-
-    <div class="card hub-actions">
-      <button class="btn btn-secondary" id="backToHubBtn">Back to Job</button>
-    </div>
+    <div class="eyebrow">Your signature</div>
+    <div class="sig"><canvas id="sigPad"></canvas></div>
+    <button class="btn btn-ghost" id="clearSigBtn" style="margin-top:10px">Clear signature</button>
+    <div class="sticky-foot"><button class="btn btn-primary" id="submitBtn">Submit QC</button></div>
   </div>
 </section>
 
 <!-- DONE -->
 <section class="screen" id="screen-done">
-  <header class="topbar"><div><h1>Shop QC</h1></div><button id="logoutBtn4">Log Out</button></header>
-  <div class="mobile-main">
-    <div class="card">
-      <h2>QC Submitted</h2>
-      <div class="status-box visible" id="doneMessage"></div>
-      <div id="doneSummary"></div>
-      <button class="btn btn-primary" id="startAnotherBtn">Start Another QC</button>
-      <button class="btn btn-secondary" id="doneBackToHubBtn">Back to Job</button>
-    </div>
-    <p class="center-note">Concept Shop Control &middot; Mobile QC</p>
+  <div class="done-wrap" id="doneWrap">
+    <div class="done-badge"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h2 id="doneTitle">QC complete</h2>
+    <p id="doneSub"></p>
+    <button class="btn btn-primary" id="doneJobBtn">Back to vehicle</button>
+    <button class="btn btn-ghost" id="doneHomeBtn">All vehicles</button>
   </div>
 </section>
 
-<script src="mobile.js"></script><script src="notifications.js"></script><style>#mobileCoreAlerts{margin:18px;padding:18px;background:#eaf3ed;color:#254d39;border:1px solid #cdded1;border-radius:10px}#mobileCoreAlerts article{border-top:1px solid #cdded1;margin-top:12px;padding-top:12px}#mobileCoreAlerts .btn{font-size:12px}</style>
+<!-- PHOTOS -->
+<section class="screen" id="screen-photos">
+  <header class="bar">
+    <button class="icon-btn" data-back="job" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="photosTitle">Photos</h1>
+  </header>
+  <div class="main">
+    <div class="alert alert-error" id="photosError"></div>
+    <label class="field"><span>Caption (optional)</span><input class="input" id="photoNote" placeholder="e.g. Left rear quarter panel" /></label>
+    <input type="file" id="photoCameraInput" accept="image/*" capture="environment" hidden />
+    <input type="file" id="photoFileInput" accept="image/*,application/pdf" hidden />
+    <button class="big-cam" id="takePhotoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>Take a photo</button>
+    <button class="btn btn-ghost" id="chooseFileBtn" style="margin-top:10px">Choose a file</button>
+    <div class="eyebrow">On this vehicle</div>
+    <div class="photo-grid" id="photoGrid"></div>
+  </div>
+</section>
+
+<!-- PARTS -->
+<section class="screen" id="screen-parts">
+  <header class="bar">
+    <button class="icon-btn" data-back="job" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="partsTitle">Parts</h1>
+  </header>
+  <div class="main"><div id="partsList"></div></div>
+</section>
+
+<script src="../qcChecklists.js"></script>
+<script src="mobile.js"></script>
 </body>
 </html>
