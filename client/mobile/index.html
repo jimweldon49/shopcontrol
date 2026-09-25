@@ -95,6 +95,9 @@
   .car .name { font-weight: 700; font-size: 16px; margin: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .car .sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .car .body { flex: 1; min-width: 0; }
+  .car-pic { width: 84px; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; flex-shrink: 0; background: var(--surface-2); }
+  .job-pic { display: block; width: calc(100% + 40px); margin: -20px -20px 14px; aspect-ratio: 16/9; object-fit: cover; border-radius: 22px 22px 0 0; }
+  .job-hero { overflow: hidden; }
   .stage { display: inline-block; margin-top: 6px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11.5px; font-weight: 700; }
   .ring { --p: 0; --c: var(--accent); width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--surface-2) 0); transition: --p .5s; }
   .ring::before { content: attr(data-label); width: 38px; height: 38px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--text); }
@@ -247,6 +250,7 @@
   </header>
   <div class="main">
     <div class="job-hero">
+      <img class="job-pic" id="jobPic" alt="" hidden>
       <div class="ro" id="jobRo"></div>
       <h2 id="jobVehicle"></h2>
       <p id="jobCustomer"></p>
@@ -343,6 +347,7 @@
   <div class="main"><div id="partsList"></div></div>
 </section>
 
+<script src="../shared.js"></script>
 <script src="../qcChecklists.js"></script>
 <script src="mobile.js"></script>
 </body>

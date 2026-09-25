@@ -53,5 +53,54 @@
   // in server/migrations/018: first call 24h after going onsite, then every 2 days
   // (RO under ,000) or 3 days (,000+ or Structural repair).
   function customerUpdateDueAt(j){if(!j||!j.onsiteAt)return null;const onsite=new Date(j.onsiteAt).getTime(),last=j.customerUpdatedAt?new Date(j.customerUpdatedAt).getTime():null;if(last===null||last<onsite)return new Date(onsite+24*36e5);const big=Number(j.roAmount||0)>=4000||(j.boardFlags||[]).includes('Structural repair');return new Date(last+(big?3:2)*24*36e5);}
-  return {production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt};
+  // Vehicle picture library (client/img/vehicles/<type>-<color>.jpg): 12 generic body
+  // types x 10 base colors, used on production cards. A job's vehicleType/vehicleColor
+  // are picked in the job editor; until then they're guessed from the CCC vehicle text.
+  const vehicleTypes=[
+    {id:'compact-sedan',label:'Compact Sedan'},{id:'midsize-sedan',label:'Midsize Sedan'},{id:'full-size-sedan',label:'Full Size Sedan'},
+    {id:'hatchback',label:'Hatchback'},{id:'sports-coupe',label:'Sports Coupe'},{id:'station-wagon',label:'Station Wagon'},
+    {id:'compact-crossover',label:'Compact Crossover'},{id:'midsize-suv',label:'Midsize SUV'},{id:'full-size-suv',label:'Full Size SUV'},
+    {id:'crew-cab-pickup',label:'Pickup Truck'},{id:'minivan',label:'Minivan'},{id:'cargo-van',label:'Cargo Van'}];
+  const vehicleColors=[
+    {id:'white',label:'White',hex:'#f4f4f2'},{id:'black',label:'Black',hex:'#16181b'},{id:'silver',label:'Silver',hex:'#c3c7cc'},
+    {id:'gray',label:'Gray',hex:'#6b7077'},{id:'blue',label:'Blue',hex:'#2458b8'},{id:'red',label:'Red',hex:'#c3202f'},
+    {id:'green',label:'Green',hex:'#1f6b45'},{id:'brown',label:'Brown',hex:'#6b4a33'},{id:'beige',label:'Beige',hex:'#cdbd98'},
+    {id:'orange',label:'Orange',hex:'#e2701f'}];
+  // Keyword -> type, checked in order (most specific first). Matched against the
+  // year/make/model part of the vehicle text.
+  const typeHints=[
+    ['cargo-van',/\b(transit(?! connect)|promaster|sprinter|express (cargo|commercial|passenger|[0-9]{4}|van)|cutaway|bus|savana|nv[0-9]{3,4}|metris|e-?series|econoline|cargo van)\b/],
+    ['minivan',/\b(sienna|odyssey|pacifica|carnival|sedona|grand caravan|town (&|and) country|quest|voyager|minivan|transit connect)\b/],
+    ['crew-cab-pickup',/\b(pickup|f-?150|f-?250|f-?350|super duty|silverado|sierra|ram (1500|2500|3500)|tundra|tacoma|colorado|canyon|gladiator|frontier|titan|ranger|ridgeline|maverick|santa cruz|crew cab|double cab|quad cab|regular cab|extended cab|king cab|supercrew|supercab)\b/],
+    ['full-size-suv',/\b(tahoe|suburban|yukon|escalade|expedition|navigator|sequoia|armada|land cruiser|wagoneer|qx80|lx ?[0-9]{3}|gx ?[0-9]{3})\b/],
+    ['midsize-suv',/\b(explorer|highlander|pilot|4runner|durango|grand cherokee|traverse|telluride|palisade|atlas(?! cross)|ascent|pathfinder|santa fe|sorento|mdx|rx ?[0-9]{3}|xc90|model x|x5|gle|q7|blazer|edge|murano|wrangler|bronco(?! sport)|passport|acadia|enclave|cx-?9|cx-?90|aviator|grand highlander)\b/],
+    ['compact-crossover',/\b(rav4|cr-?v|escape|rogue|equinox|tucson|sportage|cx-?30|cx-?5|cx-?50|forester|crosstrek|compass|cherokee|renegade|hr-?v|kona|seltos|trax|trailblazer|encore|terrain|tiguan|taos|kicks|corolla cross|bronco sport|model y|rdx|nx ?[0-9]{3}|x3|q5|glc|ecosport|venue|niro|mach-?e|ioniq 5|c-?hr|outlander|eclipse cross|atlas cross)\b/],
+    ['station-wagon',/\b(outback|wagon|v60|v90|alltrack|sportwagen)\b/],
+    ['sports-coupe',/\b(mustang|camaro|corvette|challenger|brz|gr ?86|miata|mx-?5|supra|370z|nissan z|coupe|911|boxster|cayman|z4|tt)\b/],
+    ['hatchback',/\b(hatchback|hatch|fit|yaris|golf|gti|prius|bolt|leaf|versa note|spark|sonic|fiesta|mini cooper|veloster|i3|5-?door)\b/],
+    ['full-size-sedan',/\b(charger|chrysler 300|impala|avalon|newport|maxima|k900|cadenza|g80|g90|s-?class|7 series|a8|lacrosse|taurus|model s|xts|ct6)\b/],
+    ['midsize-sedan',/\b(camry|accord|altima|malibu|sonata|k5|optima|fusion|mazda ?6|legacy|passat|model 3|tlx|3 series|c-?class|a4|g70|es ?[0-9]{3}|mkz|continental)\b/],
+    ['compact-sedan',/\b(civic|corolla|sentra|elantra|forte|mazda ?3|jetta|impreza|cruze|focus|versa|rio|ilx|a3|cla|integra|sedan)\b/],
+  ];
+  const colorHints=[
+    ['white',/\b(white|pearl white|snow|frost|ivory|glacier|alpine|blizzard|iridescent)\b/],['black',/\b(black|ebony|onyx|obsidian|midnight black|jet)\b/],
+    ['silver',/\b(silver|platinum|sterling|ice|metallic silver)\b/],['gray',/\b(gray|grey|graphite|charcoal|gunmetal|steel|slate|magnetic|granite|lunar|meteor)\b/],
+    ['blue',/\b(blue|navy|cobalt|sapphire|indigo|azure|aqua|teal)\b/],['red',/\b(red|burgundy|maroon|crimson|ruby|cherry|delmonico|garnet|scarlet|cardinal)\b/],
+    ['green',/\b(green|olive|emerald|forest|jade|sage)\b/],['brown',/\b(brown|bronze|copper|mocha|espresso|chestnut|cocoa|walnut)\b/],
+    ['beige',/\b(beige|tan|champagne|gold|sand|cream|khaki|desert|cashmere)\b/],['orange',/\b(orange|yellow|amber|sunset|inferno)\b/],
+  ];
+  function guessVehicle(text){
+    const parts=String(text||'').toLowerCase().split(' / ');
+    const model=parts[0]||'',rest=parts.slice(1).filter(p=>!/^vin /.test(p)&&!/^plate /.test(p)).join(' ');
+    const type=(typeHints.find(([,re])=>re.test(model))||[])[0]||null;
+    const color=(colorHints.find(([,re])=>re.test(rest))||colorHints.find(([,re])=>re.test(model))||[])[0]||null;
+    return {type,color};
+  }
+  // Picture for a job, or null. Saved choices win over the guess.
+  function vehicleImage(j){
+    if(!j)return null;const g=guessVehicle(j.vehicle);
+    const type=vehicleTypes.some(t=>t.id===j.vehicleType)?j.vehicleType:g.type,color=vehicleColors.some(c=>c.id===j.vehicleColor)?j.vehicleColor:(g.color||'silver');
+    return type?{type,color,src:`img/vehicles/${type}-${color}.jpg`,guessed:!j.vehicleType||!j.vehicleColor}:null;
+  }
+  return {production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
 });

@@ -125,6 +125,12 @@ async function loadData() {
 function vehicleName(v) { return String(v || "Vehicle").split(" / ")[0]; }
 function vehicleDetail(v) { return String(v || "").split(" / ").slice(1).filter((x) => !/^VIN /.test(x)).join(" · "); }
 
+// Card picture from the shared vehicle library (see ShopModel.vehicleImage).
+function vehiclePic(j) {
+  const pic = ShopModel.vehicleImage({ vehicle: j.vehicle, vehicleType: j.vehicle_type, vehicleColor: j.vehicle_color });
+  return pic ? "../" + pic.src : null;
+}
+
 function roOf(job) { return String(job.ro_number || "").trim(); }
 
 // The most recently touched checklist for this vehicle + department.
@@ -175,7 +181,8 @@ function renderCars() {
       const done = DEPTS.filter((d) => progressFor(j, d.id).complete).length;
       ring = ringHtml({ done, total: DEPTS.length, complete: done === DEPTS.length });
     }
-    return `<button class="car" data-job="${esc(j.id)}">
+    const pic = vehiclePic(j);
+    return `<button class="car" data-job="${esc(j.id)}">${pic ? `<img class="car-pic" src="${esc(pic)}" alt="" loading="lazy">` : ""}
       <div class="body">
         <div class="ro">RO ${esc(j.ro_number || "—")}</div>
         <div class="name">${esc(vehicleName(j.vehicle))}</div>
@@ -199,6 +206,9 @@ function renderJob() {
   setAccent(deptColor(mine));
   $("jobBarTitle").textContent = `RO ${j.ro_number || ""}`;
   $("jobRo").textContent = `RO ${j.ro_number || "—"}`;
+  const pic = vehiclePic(j);
+  $("jobPic").hidden = !pic;
+  if (pic) $("jobPic").src = pic;
   $("jobVehicle").textContent = vehicleName(j.vehicle);
   $("jobCustomer").textContent = [j.customer_name, vehicleDetail(j.vehicle)].filter(Boolean).join(" · ");
   const techs = [...(j.body_techs || []), ...(j.painters || [])].join(", ");

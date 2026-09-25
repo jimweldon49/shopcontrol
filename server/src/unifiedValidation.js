@@ -1,6 +1,6 @@
 const model=require('../../client/shared');
 const qcChecklists=require('../../client/qcChecklists');
-const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial'],parts:['has_core','core_returned']};
+const allowed={daily:['onsite','insurance','pay_type','estimator','body_hours','paint_hours','other_hours','body_techs','painters','support_techs','board_flags','card_color','delivery_stage','planning_bucket','in_date','dropoff_date','pickup_date','follow_up_date','follow_up_notes','parts_status','commercial','vehicle_type','vehicle_color'],parts:['has_core','core_returned']};
 function validate(resource,body){
  if(!body||typeof body!=='object'||Array.isArray(body))throw Error('Expected an object.');
  if(resource==='daily'){
@@ -10,6 +10,8 @@ function validate(resource,body){
   for(const k of ['ro_amount','body_hours','paint_hours','other_hours'])if(body[k]!==undefined&&body[k]!==null&&body[k]!==''&&(!Number.isFinite(Number(body[k]))||Number(body[k])<0))throw Error('Value and labor hours must be nonnegative numbers.');
   for(const k of ['body_techs','painters','support_techs','board_flags'])if(body[k]!==undefined&&(!Array.isArray(body[k])||body[k].length>100||body[k].some(x=>typeof x!=='string'||x.length>120)))throw Error('Invalid staff or flag list.');
   if(body.card_color&&!/^#[0-9a-f]{6}$/i.test(body.card_color))throw Error('Choose a valid card color.');
+  if(body.vehicle_type&&!model.vehicleTypes.some(t=>t.id===body.vehicle_type))throw Error('Choose a valid vehicle type.');
+  if(body.vehicle_color&&!model.vehicleColors.some(c=>c.id===body.vehicle_color))throw Error('Choose a valid vehicle color.');
  }
  if(resource==='qc'){
   if(body.qc_department!==undefined&&body.qc_department!==null)qcChecklists.validateChecklist(body.qc_department,body.qc_checklist);
