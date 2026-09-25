@@ -19,7 +19,7 @@ async function processCoreNotifications(){
   }
   if(!smtpConfigured())return;
   const pending=(await db.query(`SELECT n.*,u.email,u.full_name FROM employee_notifications n JOIN users u ON u.id=n.user_id
-    WHERE n.email_sent_at IS NULL AND n.email_attempts<10 AND u.active=true AND u.receives_notifications=true AND u.email IS NOT NULL
+    WHERE n.event_id IS NOT NULL AND n.email_sent_at IS NULL AND n.email_attempts<10 AND u.active=true AND u.receives_notifications=true AND u.email IS NOT NULL
     AND (n.email_attempted_at IS NULL OR n.email_attempted_at<now()-interval '5 minutes') ORDER BY n.created_at LIMIT 50`)).rows;
   for(const n of pending){
    await db.query('UPDATE employee_notifications SET email_attempts=email_attempts+1,email_attempted_at=now() WHERE id=$1',[n.id]);

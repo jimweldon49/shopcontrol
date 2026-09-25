@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Shop QC" />
+<link rel="apple-touch-icon" href="../img/app-icon-192.png" />
+<link rel="icon" href="../img/app-icon-192.png" />
 <meta name="theme-color" content="#0b0f14" />
 <link rel="manifest" href="manifest.json" />
 <title>Shop QC · Concept</title>
@@ -199,6 +201,42 @@
   .big-cam { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 26px; border-radius: 22px; border: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 800; }
   .big-cam svg { width: 38px; height: 38px; }
 
+  /* Staff hub */
+  .brand-logo { width: 220px; max-width: 70%; height: auto; filter: drop-shadow(0 8px 20px rgba(0,0,0,.5)); }
+  .hub-logo { display: block; width: 240px; max-width: 70%; margin: 6px auto 18px; filter: drop-shadow(0 8px 20px rgba(0,0,0,.5)); }
+  .hub-cta { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, var(--surface-2), var(--surface)); border: 1px solid var(--line); }
+  .hub-cta b { display: block; font-size: 16px; }
+  .hub-cta small { color: var(--muted); }
+  .hub-cta .arrow { margin-left: auto; font-size: 24px; color: var(--muted); }
+  .badge-inline { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+  .hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hub-tile { text-align: left; padding: 18px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); min-height: 128px; }
+  .hub-tile:active { transform: scale(.97); }
+  .hub-tile svg { width: 28px; height: 28px; color: var(--accent); }
+  .hub-tile b { display: block; margin-top: 12px; font-size: 15px; }
+  .hub-tile small { color: var(--muted); font-size: 12.5px; }
+  .form-head { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 6px; }
+  .form-head img { width: 110px; height: auto; }
+  .form-head b { display: block; font-size: 17px; }
+  .form-head small { color: var(--muted); }
+  .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .choice { padding: 13px 12px; border-radius: 12px; background: var(--surface); border: 1.5px solid var(--line); font-weight: 700; font-size: 14px; text-align: left; }
+  .choice.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .toggle-row { display: flex; align-items: center; gap: 10px; margin: 2px 4px 14px; color: var(--muted); font-size: 14px; }
+  .toggle-row input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .mail-item { display: block; width: 100%; text-align: left; padding: 14px; margin-bottom: 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .mail-item.unread { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .mail-item .top { display: flex; justify-content: space-between; gap: 8px; }
+  .mail-item b { font-size: 15px; }
+  .mail-item.unread b::before { content: "● "; color: var(--accent); }
+  .mail-item small { color: var(--faint); font-size: 12px; white-space: nowrap; }
+  .mail-item .subj { margin-top: 3px; font-weight: 600; }
+  .mail-item .prev { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-body, .info-body { white-space: pre-wrap; line-height: 1.55; }
+  .info-card { padding: 16px; margin-bottom: 10px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+  .info-card h3 { margin: 0 0 8px; font-size: 16px; }
+
   /* Sheet (alerts) */
   .sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; animation: fade .2s; }
   @keyframes fade { from { opacity: 0; } }
@@ -214,7 +252,7 @@
 <!-- LOGIN -->
 <section class="screen active" id="screen-login">
   <div class="login-hero">
-    <div class="brand"><div class="brand-mark">C</div><div><b>CONCEPT</b><small>SHOP QC</small></div></div>
+    <div class="brand"><img class="brand-logo" src="../img/logo.png" alt="Concept Autobody"></div>
     <h2>Build it right.<br>Check it off.</h2>
     <p>Sign in with your Shop Control account.</p>
     <div class="alert alert-error" id="loginError"></div>
@@ -228,11 +266,13 @@
 <section class="screen" id="screen-home">
   <header class="bar">
     <h1>Shop QC</h1>
+    <button class="icon-btn" id="mailBtn" aria-label="Mailbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg><span class="badge-dot" id="mailCount" hidden></span></button>
     <button class="icon-btn" id="alertsBtn" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge-dot" id="alertsCount" hidden></span></button>
     <button class="icon-btn" id="logoutBtn" aria-label="Sign out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button>
   </header>
   <div class="main">
     <div class="hello"><h2 id="helloName">Hey there</h2><p id="helloSub"></p></div>
+    <button class="hub-cta" id="staffHubBtn"><div><b>Staff Hub</b><small>Time off · mailbox · company info</small></div><span class="badge-inline" id="hubCount" hidden></span><span class="arrow">›</span></button>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input class="input" id="searchInput" type="search" placeholder="Search RO, customer or vehicle" autocomplete="off" />
@@ -349,6 +389,107 @@
 
 <script src="../shared.js"></script>
 <script src="../qcChecklists.js"></script>
+
+<!-- STAFF HUB -->
+<section class="screen" id="screen-staff">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="home" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Staff Hub</h1>
+  </header>
+  <div class="main">
+    <img class="hub-logo" src="../img/logo.png" alt="Concept Autobody">
+    <div class="hub-grid">
+      <button class="hub-tile" data-staff-go="timeoff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg><b>Request time off</b><small>Sick, vacation and more</small></button>
+      <button class="hub-tile" data-staff-go="requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><b>My requests</b><small id="hubRequestsSub">Status of your requests</small></button>
+      <button class="hub-tile" data-staff-go="mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg><b>Mailbox</b><small id="hubMailSub">Messages from the office</small></button>
+      <button class="hub-tile" data-staff-go="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><b>Company info</b><small>Hours, contacts, policies</small></button>
+    </div>
+  </div>
+</section>
+
+<!-- TIME OFF FORM -->
+<section class="screen" id="screen-timeoff">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="staff" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Absence request</h1>
+  </header>
+  <div class="main">
+    <div class="form-head"><img src="../img/logo.png" alt="Concept Autobody"><div><b>Absence Request</b><small id="toName"></small></div></div>
+    <div class="alert alert-error" id="toError"></div>
+    <div class="eyebrow">Type of absence</div>
+    <div class="choice-grid" id="toTypes"></div>
+    <label class="field" id="toOtherWrap" hidden><span>Reason for absence</span><input class="input" id="toOther" maxlength="300" placeholder="Write in your reason"></label>
+    <div class="eyebrow">When</div>
+    <div class="two-col">
+      <label class="field"><span>First day</span><input class="input" type="date" id="toStart"></label>
+      <label class="field"><span>Last day</span><input class="input" type="date" id="toEnd"></label>
+    </div>
+    <label class="toggle-row"><input type="checkbox" id="toPartial"><span>Partial day (same day, set times)</span></label>
+    <div class="two-col" id="toTimes" hidden>
+      <label class="field"><span>From</span><input class="input" type="time" id="toFrom" value="08:00"></label>
+      <label class="field"><span>To</span><input class="input" type="time" id="toTo" value="12:00"></label>
+    </div>
+    <label class="field"><span>Notes (optional)</span><textarea class="input" id="toNotes" maxlength="2000" placeholder="Anything the office should know"></textarea></label>
+    <div class="sticky-foot"><button class="btn btn-primary" id="toSubmit">Submit request</button></div>
+  </div>
+</section>
+
+<!-- MY REQUESTS -->
+<section class="screen" id="screen-requests">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="staff" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>My requests</h1>
+  </header>
+  <div class="main"><div id="requestsList"></div></div>
+</section>
+
+<!-- MAILBOX -->
+<section class="screen" id="screen-mail">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="staff" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Mailbox</h1>
+    <button class="icon-btn" id="mailComposeBtn" aria-label="New message"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+  </header>
+  <div class="main"><div id="mailList"></div></div>
+</section>
+
+<!-- MESSAGE -->
+<section class="screen" id="screen-message">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="mail" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="msgBarTitle">Message</h1>
+  </header>
+  <div class="main">
+    <div class="row-card"><small id="msgMeta"></small><h2 id="msgSubject" style="margin:6px 0 10px;font-size:20px"></h2><div class="msg-body" id="msgBody"></div></div>
+    <button class="btn btn-primary" id="msgReplyBtn">Reply</button>
+  </div>
+</section>
+
+<!-- COMPOSE -->
+<section class="screen" id="screen-compose">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="mail" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="composeTitle">New message</h1>
+  </header>
+  <div class="main">
+    <div class="alert alert-error" id="composeError"></div>
+    <label class="field" id="composeToWrap"><span>To</span><select class="input" id="composeTo"></select></label>
+    <label class="field"><span>Subject</span><input class="input" id="composeSubject" maxlength="200"></label>
+    <label class="field"><span>Message</span><textarea class="input" id="composeBody" maxlength="5000" style="min-height:160px"></textarea></label>
+    <div class="sticky-foot"><button class="btn btn-primary" id="composeSend">Send</button></div>
+  </div>
+</section>
+
+<!-- COMPANY INFO -->
+<section class="screen" id="screen-info">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="staff" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Company info</h1>
+  </header>
+  <div class="main"><img class="hub-logo" src="../img/logo.png" alt="Concept Autobody"><div id="infoList"></div></div>
+</section>
+
 <script src="mobile.js"></script>
+<script src="staff.js"></script>
 </body>
 </html>

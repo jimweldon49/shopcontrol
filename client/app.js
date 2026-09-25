@@ -2005,6 +2005,7 @@ function showApp() {
   document.body.classList.toggle("kiosk-mode", kiosk);
   loadAll(true);
   loadStaffRoster();
+  if (!kiosk && typeof StaffHub !== "undefined") StaffHub.start();
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync
@@ -2029,6 +2030,7 @@ function logout(message) {
   authToken = null;
   currentUser = null;
   employeesCache = [];
+  if (typeof StaffHub !== "undefined") StaffHub.stop();
   localStorage.removeItem("authToken");
   localStorage.removeItem("authUser");
   $("employeesTabBtn").style.display = "none";

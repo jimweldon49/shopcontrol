@@ -15,6 +15,7 @@
 
   <div id="loginScreen">
     <form class="login-card" id="loginForm">
+      <img class="login-logo" src="img/logo.png" alt="Concept Autobody" />
       <h1>Concept Shop Control</h1>
       <p>Sign in with your employee login to continue.</p>
       <div class="login-error" id="loginError"></div>
@@ -59,7 +60,7 @@
   </header>
 
   <nav class="tabs" aria-label="Shop workspace">
-    <div class="nav-brand"><b>C<span>•</span></b><div>CONCEPT<small>SHOP CONTROL</small></div></div>
+    <div class="nav-brand"><img src="img/logo.png" alt="Concept Autobody" /><small>SHOP CONTROL</small></div>
     <button class="tab active" data-tab="dashboard">Dashboard</button>
     <button class="tab" data-tab="daily">Daily GO List</button>
     <button class="tab" data-tab="missedCalls">Missed Calls</button>
@@ -86,6 +87,8 @@
     <button class="tab" data-tab="cycle2">Cycle $2-4K</button>
     <button class="tab" data-tab="cycle3">Cycle $4-10K</button>
     <button class="tab" data-tab="cycle4">Cycle $10K+</button>
+    <button class="tab" data-tab="timeOff" id="timeOffTabBtn" style="display:none;">Time Off</button>
+    <button class="tab" data-tab="staffHub" id="staffHubTabBtn">Messages &amp; Info</button>
     <button class="tab" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
     <button class="tab" data-tab="photos">Photos</button>
     <button class="tab" data-tab="activity">Activity Log</button>
@@ -814,6 +817,7 @@
         <div class="metric danger-metric clickable" data-open-tab="daily" data-set-view="dailyView:supplements"><span id="metricSupplementsNeeded">0</span><label>Supplements Needed</label></div>
         <div class="metric important clickable" data-open-tab="daily" data-set-view="dailyView:management"><span id="metricManagement">0</span><label>Needs Management Help</label></div>
         <div class="metric warning clickable" data-open-tab="parts" data-set-view="partsView:problems"><span id="metricPartsProblems">0</span><label>Parts Problems (vehicles)</label></div>
+        <div class="metric warning clickable" id="metricTimeOffTile" data-open-tab="timeOff" style="display:none;"><span id="metricTimeOff">0</span><label>Time-Off Requests Pending</label></div>
         <div class="metric danger-metric clickable" data-open-tab="parts" data-set-view="partsView:late"><span id="metricPartsLate">0</span><label>Parts Not Arrived On Time</label></div>
         <div class="metric clickable" data-open-tab="parts" data-set-view="partsView:noRo"><span id="metricPartsNoRo">0</span><label>Parts — No RO Yet</label></div>
         <div class="metric danger-metric clickable" data-open-tab="parts" data-set-view="partsView:returns"><span id="metricPartsReturns">0</span><label>Parts Need Returned</label></div>
@@ -842,6 +846,9 @@
         <p class="standard">If I ask for something to be done, I should not have to ask twice. If it cannot be done, I need to know before the day is over.</p>
       </div>
     </section>
+
+    <section id="timeOff" class="tab-panel"></section>
+    <section id="staffHub" class="tab-panel"></section>
 
     <section id="employees" class="tab-panel">
       <div class="section-head">
@@ -1020,5 +1027,6 @@
 
 <script src="unified.js"></script>
 <script src="app.js"></script>
+<script src="staff.js"></script>
 </body>
 </html>

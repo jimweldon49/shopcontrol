@@ -158,6 +158,7 @@ function enterHome() {
     : "Tap a vehicle to open its QC checklists.";
   $("searchInput").value = "";
   showScreen("home");
+  if (window.refreshStaffCounts) window.refreshStaffCounts();
   $("carList").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
   loadData().then(renderCars).catch((err) => { $("carList").innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
 }
