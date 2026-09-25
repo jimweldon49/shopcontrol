@@ -1,0 +1,203 @@
+/* ShopControl "garage" dark theme, matching the employee mobile app.
+   Loaded after styles.css and unified.css and only restyles; layout and behavior
+   are unchanged. Production card background colors come from Board Settings and are
+   deliberately left alone (cards keep their dark text on their own color). */
+:root {
+  --bg: #0b0f14;
+  --surface: #131a22;
+  --surface-2: #1a2330;
+  --surface-3: #212c3b;
+  --card: var(--surface);
+  --line: #253142;
+  --line-soft: #1d2735;
+  --text: #eef3f8;
+  --muted: #8b9bb0;
+  --faint: #5c6b80;
+  --accent: #f97316;
+  --accent-ink: #111;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --good: #22c55e;
+  --danger: #f43f5e;
+  --warn: #eab308;
+  --radius: 14px;
+  color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+* { scrollbar-color: var(--surface-3) transparent; }
+
+/* ---------- Sidebar + header ---------- */
+.tabs { background: #080b10; border-right: 1px solid var(--line-soft); }
+.nav-brand { color: var(--text); }
+.nav-brand > b { background: linear-gradient(135deg, #f97316, #fb923c); color: #111; box-shadow: 0 8px 22px rgba(249,115,22,.35); }
+.nav-brand > b > span { color: #111; opacity: .6; }
+.nav-brand small { color: var(--muted); }
+.tab { color: var(--muted); }
+.tab:hover { background: var(--surface); color: var(--text); }
+.tab.active { background: var(--accent-soft); color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.mobile-link { color: var(--accent); }
+.tabs::-webkit-scrollbar-thumb { background: var(--surface-3); }
+#notificationCount:not(:empty) { background: var(--danger); color: #fff; }
+
+.app-header { background: rgba(11,15,20,.88); color: var(--text); border-bottom: 1px solid var(--line-soft); backdrop-filter: blur(12px); }
+.app-header p { color: var(--muted); }
+.header-actions button { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.header-actions button:hover { border-color: var(--accent); opacity: 1; }
+.header-actions button.danger, #logoutBtn { background: transparent; color: #fda4af; border-color: rgba(244,63,94,.4); }
+.header-actions .session-info, .session-info { color: var(--muted); }
+
+/* ---------- Type + sections ---------- */
+.section-head h2 { color: var(--text); font-weight: 800; letter-spacing: -.5px; }
+.section-head p, .board-tip, .eyebrow { color: var(--muted); }
+.eyebrow { letter-spacing: 1.8px; }
+h1, h2, h3 { color: var(--text); }
+small { color: inherit; }
+
+/* ---------- Buttons ---------- */
+button { background: var(--accent); color: var(--accent-ink); border-radius: 10px; font-weight: 700; transition: filter .15s, transform .1s; }
+button:hover { opacity: 1; filter: brightness(1.08); }
+button:active { transform: scale(.98); }
+button.quiet, .toolbar button.quiet { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+button.danger, td button.danger { background: rgba(244,63,94,.14); color: #fda4af; border: 1px solid rgba(244,63,94,.35); }
+td button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); white-space: nowrap; }
+td button:hover { border-color: var(--accent); }
+.link-button { color: var(--accent) !important; }
+
+/* ---------- Cards, tiles, tables ---------- */
+.card, .table-wrap, .modal-card, .board-summary, .zone, .shared-calendar, .login-card {
+  background: var(--surface); border: 1px solid var(--line); box-shadow: 0 1px 0 rgba(255,255,255,.02), 0 10px 30px rgba(0,0,0,.25); }
+.card, .table-wrap, .board-summary { border-radius: var(--radius); }
+
+.metric { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; transition: border-color .15s, transform .12s; position: relative; overflow: hidden; }
+.metric span { color: var(--text); }
+.metric label { color: var(--muted); }
+.metric.clickable:hover { border-color: var(--accent); transform: translateY(-1px); }
+.metric.clickable label::after { color: var(--faint); }
+.metric.important, .metric.warning, .metric.good { background: var(--surface); border-color: var(--line); }
+.metric.warning span, .metric.important span { color: var(--warn); }
+.metric.good span { color: var(--good); }
+.metric.danger-metric { background: linear-gradient(160deg, rgba(244,63,94,.12), var(--surface) 55%); border-color: rgba(244,63,94,.3); }
+.metric.danger-metric span { color: #fb7185; }
+.metric::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--line); }
+.metric.warning::before, .metric.important::before { background: var(--warn); }
+.metric.danger-metric::before { background: var(--danger); }
+.metric.good::before { background: var(--good); }
+
+.board-summary > div { border-color: var(--line); }
+.board-summary small { color: var(--muted); }
+.board-summary b { color: var(--text); }
+
+table { color: var(--text); }
+th { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
+td { border-color: var(--line-soft); }
+td small { color: var(--muted); }
+tbody tr:hover td { background: rgba(255,255,255,.025); }
+.status-bad { color: #fb7185; }
+.status-good { color: #4ade80; }
+.late { color: #fb923c; }
+
+/* ---------- Forms ---------- */
+label { color: var(--muted); }
+input, select, textarea { background: var(--bg); color: var(--text); border: 1px solid var(--line); }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select option { background: var(--surface); color: var(--text); }
+.check-label input, .checkbox-label input { accent-color: var(--accent); }
+.timestamp-box { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.editor-drawer > summary { background: var(--surface-2); color: var(--text); border-color: var(--line); }
+.board-extra { background: var(--surface-2); border-color: var(--line); color: var(--muted); }
+.staff-picker, .vehicle-picker { border-color: var(--line); }
+.staff-picker legend, .vehicle-picker legend { color: var(--muted); }
+.color-swatches .swatch { box-shadow: inset 0 0 0 2px var(--surface); border-color: rgba(255,255,255,.15); }
+.color-swatches .swatch.auto { background: var(--surface-2); color: var(--muted); }
+.import-help { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
+
+/* ---------- Pills + badges ---------- */
+.pill { background: var(--surface-2); color: var(--muted); }
+.pill-admin { background: rgba(249,115,22,.16); color: #fdba74; }
+.pill-employee { background: rgba(56,189,248,.14); color: #7dd3fc; }
+.pill-yes { background: rgba(34,197,94,.14); color: #86efac; }
+.pill-no, .pill-inactive { background: rgba(244,63,94,.12); color: #fda4af; }
+.core-badge { background: rgba(234,179,8,.16); color: #fde047; }
+.problem-badge { background: rgba(244,63,94,.16); color: #fda4af; }
+
+/* ---------- Production / delivery / planning boards ---------- */
+.production-columns { scrollbar-color: var(--surface-3) transparent; }
+.production-column { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.production-column > header { border-bottom-color: var(--line); }
+.production-column header h3 { color: var(--text); }
+.production-column header h3 span { background: var(--accent-soft); color: var(--accent); }
+.production-column header b { color: var(--text); }
+.production-column header small { color: var(--muted); }
+.production-column.drag-over { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: var(--accent); }
+.production-column.unsorted-column { background: rgba(234,179,8,.08); border-color: rgba(234,179,8,.35); }
+.column-empty { border-color: var(--line); color: var(--faint); }
+/* Cards keep their Board Settings color and their dark text; just lift them off
+   the dark column. (The theme's light text must not leak into them.) */
+.production-card, .production-card h3, .production-card p, .production-card small, .production-card strong,
+.production-card .card-ro, .production-card .card-insurer, .production-card .card-hours, .production-card .card-staff,
+.production-card .card-dates, .production-card .card-appointment { color: #13221e; }
+.production-card .card-insurer small, .production-card .card-staff small { color: #3d554d; }
+.production-card .late { color: #a2503a; }
+.production-card { border: 1px solid rgba(0,0,0,.25); border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.35); transition: transform .12s, box-shadow .15s; }
+.production-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,.45); }
+.card-vehicle { border-radius: 10px 10px 0 0; }
+.production-card.selected { outline: 3px solid var(--accent); }
+
+/* ---------- Dialogs + modals ---------- */
+.workspace-dialog { background: var(--surface); color: var(--text); border: 1px solid var(--line); box-shadow: 0 30px 100px rgba(0,0,0,.6); }
+.workspace-dialog::backdrop, .modal-backdrop { background: rgba(3,6,10,.7); backdrop-filter: blur(3px); }
+.workspace-dialog header { border-bottom-color: var(--line); }
+.workspace-dialog footer { background: var(--surface-2); border-top-color: var(--line); }
+.modal-card { color: var(--text); }
+.modal-head p { color: var(--muted); }
+.dialog-error:not(:empty), .workspace-error, .login-error.visible { background: rgba(244,63,94,.12); color: #fda4af; border-color: rgba(244,63,94,.35); }
+.qc-checklist-view li { border-color: var(--line-soft); color: var(--faint); }
+.qc-checklist-view li.done { color: var(--text); }
+.qc-checklist-view li.done span { color: var(--good); }
+
+/* ---------- Calendar ---------- */
+.calendar-cell { border-color: var(--line-soft); }
+.calendar-cell > header { color: var(--muted); }
+.calendar-cell.is-today > header b { background: var(--accent); color: var(--accent-ink); }
+.weekday { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
+.appointment-card { background: color-mix(in srgb, #38bdf8 12%, var(--surface-2)); border-left-color: #38bdf8; color: var(--text); }
+.appointment-card small { color: var(--muted); }
+
+/* ---------- Settings, notifications, floor plan ---------- */
+.setting-row { border-color: var(--line-soft); }
+.settings-layout > nav button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+.settings-import { border-color: var(--line); }
+.color-swatch { border-color: rgba(255,255,255,.15); }
+.zone { border-style: dashed; }
+.zone h3, .empty { color: var(--muted); }
+.flag-badge { color: #13221e; }
+
+/* ---------- Booth countdown ---------- */
+.booth-countdown-card { background: var(--surface); border-color: var(--line); color: var(--text); }
+.booth-countdown-card p, .booth-countdown-number label { color: var(--muted); }
+.booth-countdown-card.booth-good { border-color: rgba(34,197,94,.45); }
+.booth-countdown-card.booth-warning { border-color: rgba(234,179,8,.5); }
+.booth-countdown-card.booth-missing, .booth-countdown-card.booth-overdue { border-color: rgba(244,63,94,.55); background: linear-gradient(160deg, rgba(244,63,94,.12), var(--surface) 60%); }
+
+/* ---------- Status toast ---------- */
+.status-banner { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.status-banner.error { background: #7f1d2d; border-color: rgba(244,63,94,.5); }
+
+/* ---------- Login ---------- */
+#loginScreen { background:
+    radial-gradient(90% 60% at 100% 0%, rgba(249,115,22,.28), transparent 60%),
+    radial-gradient(70% 50% at 0% 30%, rgba(56,189,248,.16), transparent 60%), var(--bg); }
+.login-card { color: var(--text); }
+.login-card h1 { color: var(--text); }
+.login-card > p, .login-card p { color: var(--muted); }
+.login-card label { color: var(--muted); }
+.login-card button { background: var(--accent); color: var(--accent-ink); }
+
+/* ---------- TV display (kiosk) ---------- */
+body.kiosk-mode { background: var(--bg); }
+body.kiosk-mode #production h2 { color: var(--text); }
+body.kiosk-mode .production-column { background: var(--surface); border-color: var(--line); }
