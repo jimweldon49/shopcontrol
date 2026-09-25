@@ -374,6 +374,17 @@ function isStaleVehicle(r) {
   return hours >= 24;
 }
 
+// A customer update is only due once the car has been onsite for 24 hours, so a car
+// that just arrived doesn't immediately show up under Customer Updates Needed.
+const CUSTOMER_UPDATE_GRACE_HOURS = 24;
+function needsCustomerUpdate(r) {
+  if (!r || r.mergedInto || !r.onsite || r.customerUpdatedToday === "Yes") return false;
+  if (["Delivered","Total Loss"].includes(r.currentStage)) return false;
+  const since = r.onsiteAt || (r.inDate ? r.inDate + "T00:00:00" : null);
+  if (!since) return true;
+  return (Date.now() - new Date(since).getTime()) / 36e5 >= CUSTOMER_UPDATE_GRACE_HOURS;
+}
+
 function renderDaily() {
   let rows = store.get("daily");
   const view = $("dailyView")?.value || "all";
@@ -394,7 +405,7 @@ function renderDaily() {
     if (view === "estimates" && !(r.estimateNeeded === "Yes" && r.estimateCompleted !== "Yes")) return false;
     if (view === "supplements" && !(r.supplementNeeded === "Yes" && r.supplementCompleted !== "Yes")) return false;
     if (view === "management" && r.needsManagementHelp !== "Yes") return false;
-    if (view === "customerUpdate" && !(r.customerUpdatedToday !== "Yes" && !["Delivered","Total Loss"].includes(r.currentStage))) return false;
+    if (view === "customerUpdate" && !needsCustomerUpdate(r)) return false;
     if (view === "stale" && !isStaleVehicle(r)) return false;
     if (view === "supplementNotApproved" && !(r.supplementNeeded === "Yes" && r.supplementApproved !== "Yes")) return false;
     if (view === "deliveredToday" && !(r.currentStage === "Delivered" && (dateFromIsoLocal(r.deliveredAt) === today() || (!r.deliveredAt && r.actualDeliveredDate === today())))) return false;
@@ -1790,7 +1801,7 @@ function renderDashboard() {
   $("metricOverdueTasks").textContent = t.filter(r=>r.taskDueDate && r.taskDueDate < today() && r.taskStatus!=="Completed").length;
   $("metricBoothIssues").textContent = b.filter(r=>[r.intakeFilters,r.exhaustFilters,r.rearFilters].includes("Needs Changed") || r.pictureSent==="No" || r.managementVerified==="No").length;
   $("metricFacilityIssues").textContent = f.filter(r=>r.facilityStatus==="Needs Attention").length;
-  $("metricCustomerUpdates").textContent = d.filter(r=>r.customerUpdatedToday!=="Yes" && !["Delivered","Total Loss"].includes(r.currentStage)).length;
+  $("metricCustomerUpdates").textContent = d.filter(needsCustomerUpdate).length;
   $("metricStaleCars").textContent = d.filter(isStaleVehicle).length;
   $("metricMissedCallsOverdue").textContent = store.get("missedCalls").filter(isOverdueMissedCall).length;
   $("metricSuppNotApproved").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementApproved!=="Yes").length;
