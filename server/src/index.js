@@ -44,7 +44,9 @@ startMissedCallScheduler();
 startPartsAgingAlerts();
 require('./coreNotifications').startCoreNotifications();
 // The web app and employee app share this server and login origin.
-app.use(express.static(path.join(__dirname,'..','..','client')));
+// no-cache makes browsers check for a newer copy on every load (a cheap 304 when
+// unchanged), so updates show up without anyone having to force-refresh.
+app.use(express.static(path.join(__dirname,'..','..','client'),{setHeaders:res=>res.setHeader('Cache-Control','no-cache')}));
 
 // Fallback error handler for anything that slips through
 app.use((err, req, res, next) => {

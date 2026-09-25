@@ -29,3 +29,27 @@ test('anyone given a QC department can fill out QC; techs can view parts but not
   assert.equal(hasPermission({ role: 'body' }, 'parts', 'list'), true);
   assert.equal(hasPermission({ role: 'body' }, 'parts', 'update'), false);
 });
+
+test('employee edits: email and job title are validated', async () => {
+  const load2 = Module._load, calls = [];
+  const pool = { query: async (sql, args) => { calls.push({ sql, args }); if (sql.startsWith('SELECT')) return { rows: [{ id: 'u2', full_name: 'Jo', email: 'old@x.com', role: 'body', can_delete: false, active: true, department: null, job_title: null }] }; return { rows: [{ id: 'u2' }] }; } };
+  Module._load = function (name, parent, ...rest) {
+    if (/(^|\/)db$/.test(name)) return { pool };
+    if (name.endsWith('/activityLogger')) return { logActivity: async () => {} };
+    if (name === 'jsonwebtoken') return {};
+    if (name === 'bcryptjs') return { hash: async () => 'h' };
+    if (name === 'express') return { Router: () => { const r = { routes: {}, get() {}, post(p, ...h) { r.routes['POST ' + p] = h.at(-1); }, patch(p, ...h) { r.routes['PATCH ' + p] = h.at(-1); } }; return r; } };
+    return load2.call(this, name, parent, ...rest);
+  };
+  delete require.cache[require.resolve('../src/routes/users')];
+  const router = require('../src/routes/users');
+  Module._load = load2;
+  const call = async (key, body) => { let out = {}; const res = { status(c) { out.code = c; return res; }, json(b) { out.body = b; return res; } }; await router.routes[key]({ params: { id: 'u2' }, body, user: { id: 'u1' } }, res); return out; };
+  assert.equal((await call('PATCH /:id', { email: 'not-an-email' })).code, 400);
+  assert.equal((await call('PATCH /:id', { jobTitle: 'x'.repeat(81) })).code, 400);
+  calls.length = 0;
+  await call('PATCH /:id', { email: 'New@Shop.com', jobTitle: '  Body Tech ' });
+  const update = calls.find(c => c.sql.includes('UPDATE users'));
+  assert.equal(update.args[4], 'new@shop.com');
+  assert.equal(update.args[6], 'Body Tech');
+});

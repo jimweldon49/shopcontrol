@@ -1474,15 +1474,17 @@ function renderEmployees() {
   table.querySelector("tbody").innerHTML = employeesCache.map(u => {
     const isSelf = u.id === currentUser.id;
     return `<tr>
-      <td>${u.full_name}${isSelf ? " <em>(you)</em>" : ""}</td>
-      <td>${u.username}</td>
-      <td>${u.email || ""}</td>
+      <td>${escapeHtml(u.full_name)}${isSelf ? " <em>(you)</em>" : ""}</td>
+      <td>${escapeHtml(u.job_title || "")}</td>
+      <td>${escapeHtml(u.username)}</td>
+      <td>${escapeHtml(u.email || "")}</td>
       <td><span class="pill ${u.role === 'admin' ? 'pill-admin' : 'pill-employee'}">${u.role}</span></td>
       <td><select aria-label="QC department for ${escapeHtml(u.full_name)}" onchange="setEmployeeDepartment('${u.id}', this.value)"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>
       <td><span class="pill ${u.can_delete ? 'pill-yes' : 'pill-no'}">${u.can_delete ? 'Yes' : 'No'}</span></td>
       <td><span class="pill ${u.active ? 'pill-yes' : 'pill-inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
       <td>
         <div class="actions">
+          <button onclick="editEmployee('${u.id}')">Edit</button>
           <button onclick="toggleCanDelete('${u.id}', ${!u.can_delete})">${u.can_delete ? "Revoke Delete" : "Grant Delete"}</button>
           ${!isSelf ? `<button onclick="toggleActive('${u.id}', ${!u.active})">${u.active ? "Deactivate" : "Reactivate"}</button>` : ""}
           ${!isSelf ? `<button onclick="toggleRole('${u.id}', '${u.role === 'admin' ? 'employee' : 'admin'}')">${u.role === 'admin' ? "Remove Admin" : "Make Admin"}</button>` : ""}
@@ -1501,6 +1503,32 @@ async function toggleActive(id, value) {
   try { await api.patchUser(id, { active: value }); showStatus(value ? "Employee reactivated." : "Employee deactivated."); await loadEmployees(); }
   catch (err) { showStatus(err.message, true); }
 }
+const EMPLOYEE_ROLES = [["employee","Employee"],["admin","Admin / Owner"],["owner","Owner"],["manager","Manager"],["office","Office"],["estimator","Estimator"],["parts","Parts"],["paint","Paint"],["body","Body"],["qc","QC / Detail"],["cleanup","Cleanup Helper"],["display","Display / TV (read-only)"]];
+
+// Edit an employee's name, email, job title, role and QC department in one place.
+function editEmployee(id) {
+  const u = employeesCache.find(x => x.id === id);
+  if (!u) return;
+  const isSelf = u.id === currentUser.id;
+  openDialog(`Edit ${u.full_name}`, `
+    <label>Full name <input name="fullName" required maxlength="120" value="${escapeHtml(u.full_name)}"></label>
+    <label>Email <input name="email" type="email" value="${escapeHtml(u.email || "")}" placeholder="Used for self password reset"></label>
+    <label>Job title <input name="jobTitle" maxlength="80" value="${escapeHtml(u.job_title || "")}" placeholder="e.g. Body Tech, Painter, CSR"></label>
+    <label>Role <select name="role" ${isSelf ? "disabled" : ""}>${EMPLOYEE_ROLES.map(([v, l]) => `<option value="${v}" ${u.role === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    ${isSelf ? '<p class="board-tip">You can\'t change your own role.</p>' : ""}
+    <label>QC department (opens their checklist in the mobile app)
+      <select name="department"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select>
+    </label>
+    <p class="board-tip">Username <b>${escapeHtml(u.username)}</b> can't be changed. Use Reset Password to set a new password.</p>`,
+    async (form) => {
+      const patch = { fullName: form.get("fullName"), email: form.get("email"), jobTitle: form.get("jobTitle"), department: form.get("department") };
+      if (!isSelf) patch.role = form.get("role");
+      await api.patchUser(id, patch);
+      showStatus(`Saved ${patch.fullName}.`);
+      await loadEmployees();
+    });
+}
+
 async function setEmployeeDepartment(id, department) {
   try { await api.patchUser(id, { department }); showStatus(department ? `QC department set to ${department}.` : "QC department cleared."); await loadEmployees(); }
   catch (err) { showStatus(err.message, true); await loadEmployees(); }
@@ -1526,6 +1554,7 @@ async function handleCreateEmployee(e) {
     password: $("empPassword").value,
     role: $("empRole").value,
     department: $("empDepartment").value,
+    jobTitle: $("empJobTitle").value.trim(),
     canDelete: $("empCanDelete").checked,
   };
   if (payload.password.length < 8) { showStatus("Password must be at least 8 characters.", true); return; }

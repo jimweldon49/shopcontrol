@@ -8,7 +8,7 @@ const router = express.Router();
 
 const { names: QC_DEPARTMENTS } = require("../../../client/qcChecklists");
 
-const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department";
+const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department, job_title";
 const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
 
 function normalizeRole(role) {
@@ -22,6 +22,21 @@ function normalizeDepartment(value) {
   const v = String(value || "").trim();
   if (!v) return null;
   if (!QC_DEPARTMENTS.includes(v)) throw Error("Choose a valid QC department.");
+  return v;
+}
+
+function normalizeJobTitle(value) {
+  if (value === undefined) return undefined;
+  const v = String(value || "").trim();
+  if (v.length > 80) throw Error("Job title must be 80 characters or less.");
+  return v || null;
+}
+
+function normalizeEmail(value) {
+  if (value === undefined) return undefined;
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw Error("Enter a valid email address.");
   return v;
 }
 
@@ -40,30 +55,35 @@ router.get("/roster", requireAuth, async (req, res) => {
 
 // Create a new employee login
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
-  const { username, password, fullName, email, role, canDelete, department } = req.body || {};
+  const { username, password, fullName, email, role, canDelete, department, jobTitle } = req.body || {};
   if (!username || !password || !fullName) {
     return res.status(400).json({ error: "username, password, and fullName are required." });
   }
   if (password.length < 8) {
     return res.status(400).json({ error: "Password must be at least 8 characters." });
   }
-  let dept;
-  try { dept = normalizeDepartment(department) ?? null; } catch (e) { return res.status(400).json({ error: e.message }); }
+  let dept, title, mail;
+  try {
+    dept = normalizeDepartment(department) ?? null;
+    title = normalizeJobTitle(jobTitle) ?? null;
+    mail = normalizeEmail(email) ?? null;
+  } catch (e) { return res.status(400).json({ error: e.message }); }
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (username, password_hash, full_name, email, role, can_delete, department)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (username, password_hash, full_name, email, role, can_delete, department, job_title)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING ${USER_FIELDS}`,
       [
         username.trim().toLowerCase(),
         passwordHash,
         fullName,
-        email ? String(email).trim().toLowerCase() : null,
+        mail,
         normalizeRole(role),
         canDelete === false ? false : true,
         dept,
+        title,
       ]
     );
 
@@ -79,18 +99,22 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     if (err.code === "23505") {
-      return res.status(409).json({ error: "That username is already taken." });
+      return res.status(409).json({ error: "That username or email is already used by another employee." });
     }
     console.error("Create user error:", err);
     res.status(500).json({ error: "Failed to create user." });
   }
 });
 
-// Update an employee: active status, role, delete permission, full name.
+// Update an employee: active status, role, delete permission, name, email, job title, QC department.
 router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const { active, role, canDelete, fullName, email, department } = req.body || {};
-  let dept;
-  try { dept = normalizeDepartment(department); } catch (e) { return res.status(400).json({ error: e.message }); }
+  const { active, role, canDelete, fullName, email, department, jobTitle } = req.body || {};
+  let dept, title, mail;
+  try {
+    dept = normalizeDepartment(department);
+    title = normalizeJobTitle(jobTitle);
+    mail = normalizeEmail(email);
+  } catch (e) { return res.status(400).json({ error: e.message }); }
 
   const beforeResult = await pool.query(`SELECT ${USER_FIELDS} FROM users WHERE id = $1`, [req.params.id]);
   const before = beforeResult.rows[0];
@@ -107,15 +131,23 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
   const nextRole = role ? normalizeRole(role) : before.role;
   const nextCanDelete = typeof canDelete === "boolean" ? canDelete : before.can_delete;
   const nextFullName = typeof fullName === "string" && fullName.trim() ? fullName.trim() : before.full_name;
-  const nextEmail = typeof email === "string" ? (email.trim() ? email.trim().toLowerCase() : null) : before.email;
+  const nextEmail = mail === undefined ? before.email : mail;
   const nextDepartment = dept === undefined ? before.department : dept;
+  const nextJobTitle = title === undefined ? before.job_title : title;
 
-  const result = await pool.query(
-    `UPDATE users SET active = $1, role = $2, can_delete = $3, full_name = $4, email = $5, department = $6
-     WHERE id = $7
-     RETURNING ${USER_FIELDS}`,
-    [nextActive, nextRole, nextCanDelete, nextFullName, nextEmail, nextDepartment, req.params.id]
-  );
+  let result;
+  try {
+    result = await pool.query(
+      `UPDATE users SET active = $1, role = $2, can_delete = $3, full_name = $4, email = $5, department = $6, job_title = $7
+       WHERE id = $8
+       RETURNING ${USER_FIELDS}`,
+      [nextActive, nextRole, nextCanDelete, nextFullName, nextEmail, nextDepartment, nextJobTitle, req.params.id]
+    );
+  } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ error: "That email is already used by another employee." });
+    console.error("Update user error:", err);
+    return res.status(500).json({ error: "Failed to update employee." });
+  }
 
   await logActivity({
     req,

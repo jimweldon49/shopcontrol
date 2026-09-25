@@ -852,6 +852,7 @@
         <label>Full Name <input id="empFullName" required /></label>
         <label>Username <input id="empUsername" required autocomplete="off" /></label>
         <label>Email <input id="empEmail" type="email" placeholder="Used for self password reset" /></label>
+        <label>Job Title <input id="empJobTitle" maxlength="80" placeholder="e.g. Body Tech, Painter, CSR" /></label>
         <label>Temporary Password <input id="empPassword" type="text" required minlength="8" placeholder="At least 8 characters" /></label>
         <label>Role
           <select id="empRole">
@@ -887,7 +888,7 @@
 
       <div class="table-wrap">
         <table id="employeesTable">
-          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>QC Department</th><th>Can Delete</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Job Title</th><th>Username</th><th>Email</th><th>Role</th><th>QC Department</th><th>Can Delete</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
