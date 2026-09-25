@@ -43,6 +43,7 @@ startCycleAlertScheduler();
 startMissedCallScheduler();
 startPartsAgingAlerts();
 require('./coreNotifications').startCoreNotifications();
+require('./customerUpdateReminders').startCustomerUpdateReminders();
 // The web app and employee app share this server and login origin.
 // no-cache makes browsers check for a newer copy on every load (a cheap 304 when
 // unchanged), so updates show up without anyone having to force-refresh.

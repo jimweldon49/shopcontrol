@@ -49,5 +49,9 @@
   function totals(jobs){return jobs.reduce((t,j)=>({count:t.count+1,value:t.value+Number(j.roAmount||0),body:t.body+Number(j.bodyHours||0),paint:t.paint+Number(j.paintHours||0),total:t.total+Number(j.bodyHours||0)+Number(j.paintHours||0)+Number(j.otherHours||0)}),{count:0,value:0,body:0,paint:0,total:0});}
   function boardPatch(board,destination){if(board==='production'){if(!production.includes(destination))throw Error('Unknown production stage.');return {currentStage:destination,onsite:true};}if(board==='delivery'){if(!delivery.includes(destination))throw Error('Unknown delivery stage.');return {deliveryStage:destination};}if(board==='planning'){if(!planning.includes(destination))throw Error('Unknown planning week.');return {planningBucket:destination};}throw Error('Unknown board.');}
   function sameOpportunity(a,b){const norm=x=>String(x||'').trim().toLowerCase();return jobKind(a.roNumber)==='opportunity'&&jobKind(b.roNumber)==='active'&&Number(a.roAmount)>0&&Number(a.roAmount)===Number(b.roAmount)&&norm(a.customerName)!==''&&norm(a.customerName)===norm(b.customerName)&&norm(a.vehicle)!==''&&norm(a.vehicle)!=='vehicle from ccc'&&norm(a.vehicle)===norm(b.vehicle);}
-  return {production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName};
+  // When the next customer update is due. Keep in sync with customer_update_due_at()
+  // in server/migrations/018: first call 24h after going onsite, then every 2 days
+  // (RO under ,000) or 3 days (,000+ or Structural repair).
+  function customerUpdateDueAt(j){if(!j||!j.onsiteAt)return null;const onsite=new Date(j.onsiteAt).getTime(),last=j.customerUpdatedAt?new Date(j.customerUpdatedAt).getTime():null;if(last===null||last<onsite)return new Date(onsite+24*36e5);const big=Number(j.roAmount||0)>=4000||(j.boardFlags||[]).includes('Structural repair');return new Date(last+(big?3:2)*24*36e5);}
+  return {production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt};
 });

@@ -374,15 +374,21 @@ function isStaleVehicle(r) {
   return hours >= 24;
 }
 
-// A customer update is only due once the car has been onsite for 24 hours, so a car
-// that just arrived doesn't immediately show up under Customer Updates Needed.
-const CUSTOMER_UPDATE_GRACE_HOURS = 24;
+// Customer update schedule (ShopModel.customerUpdateDueAt): first call 24h after the
+// car is marked onsite, then every 2 or 3 days by job size. The server flips
+// "Customer Updated" back to No when the next one is due.
 function needsCustomerUpdate(r) {
   if (!r || r.mergedInto || !r.onsite || r.customerUpdatedToday === "Yes") return false;
   if (["Delivered","Total Loss"].includes(r.currentStage)) return false;
-  const since = r.onsiteAt || (r.inDate ? r.inDate + "T00:00:00" : null);
-  if (!since) return true;
-  return (Date.now() - new Date(since).getTime()) / 36e5 >= CUSTOMER_UPDATE_GRACE_HOURS;
+  const due = ShopModel.customerUpdateDueAt(r);
+  return !due || due.getTime() <= Date.now();
+}
+
+function customerUpdateSummary(r) {
+  if (!r || !r.onsite) return "";
+  const due = ShopModel.customerUpdateDueAt(r);
+  const last = r.customerUpdatedAt ? `last ${formatDateTime(r.customerUpdatedAt)}` : "not yet called";
+  return `Customer update: ${last}${due ? ` · next due ${formatDateTime(due.toISOString())}` : ""}`;
 }
 
 function renderDaily() {
@@ -432,7 +438,7 @@ function editDaily(id) {
   $("dailyExpectedUpdatedAt").value=r.updatedAt||""; $("dailyExpectedUpdatedAt").dataset.version=String(r.version??0);
   const box = $("dailyTimestampBox");
   if (box) {
-    box.innerHTML = `<strong>Created:</strong> ${formatDateTime(r.createdAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Last Updated:</strong> ${formatDateTime(r.updatedAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Delivered:</strong> ${formatDateTime(r.deliveredAt) || r.actualDeliveredDate || "Not delivered"}`;
+    box.innerHTML = `<strong>Created:</strong> ${formatDateTime(r.createdAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Last Updated:</strong> ${formatDateTime(r.updatedAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Delivered:</strong> ${formatDateTime(r.deliveredAt) || r.actualDeliveredDate || "Not delivered"}${r.onsite ? `<br>${escapeHtml(customerUpdateSummary(r))}` : ""}`;
   }
   document.querySelector('[data-tab="daily"]').click();
   window.scrollTo({top:0,behavior:"smooth"});

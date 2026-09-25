@@ -52,19 +52,24 @@ test('parts problems are counted per part, late ETAs get their own view, and the
  assert.equal(el('metricPartsProblems').textContent,2,'two vehicles, not 3 parts');
  assert.equal(el('metricPartsLate').textContent,1);
 });
-test('customer updates are only due after a car has been onsite for 24 hours',()=>{
+test('customer update schedule: 24h after onsite, then every 2 days (small) or 3 days (large or structural)',()=>{
  const {run,el}=loadClient();
  const out=run(`(()=>{
   const hoursAgo=h=>new Date(Date.now()-h*36e5).toISOString();
   cache.daily=[
    {id:'new',roNumber:'17990',onsite:true,currentStage:'Check-In',customerUpdatedToday:'No',onsiteAt:hoursAgo(2)},
    {id:'day',roNumber:'17991',onsite:true,currentStage:'Body',customerUpdatedToday:'No',onsiteAt:hoursAgo(25)},
-   {id:'done',roNumber:'17992',onsite:true,currentStage:'Body',customerUpdatedToday:'Yes',onsiteAt:hoursAgo(50)},
+   {id:'done',roNumber:'17992',onsite:true,currentStage:'Body',customerUpdatedToday:'Yes',onsiteAt:hoursAgo(50),customerUpdatedAt:hoursAgo(1)},
    {id:'road',roNumber:'17993',onsite:false,currentStage:'On the Road',customerUpdatedToday:'No'},
   ];
   renderDashboard();
-  return cache.daily.map(needsCustomerUpdate);
+  const due=j=>Math.round((ShopModel.customerUpdateDueAt(j).getTime()-new Date(j.customerUpdatedAt).getTime())/864e5);
+  return {needs:cache.daily.map(needsCustomerUpdate),
+   small:due({onsiteAt:hoursAgo(100),customerUpdatedAt:hoursAgo(10),roAmount:1500}),
+   large:due({onsiteAt:hoursAgo(100),customerUpdatedAt:hoursAgo(10),roAmount:8000}),
+   structural:due({onsiteAt:hoursAgo(100),customerUpdatedAt:hoursAgo(10),roAmount:900,boardFlags:['Structural repair']}),
+   beforeOnsite:ShopModel.customerUpdateDueAt({onsiteAt:hoursAgo(5),customerUpdatedAt:hoursAgo(50)}).getTime()>Date.now()};
  })()`);
- assert.deepEqual(JSON.parse(JSON.stringify(out)),[false,true,false,false]);
+ assert.deepEqual(JSON.parse(JSON.stringify(out)),{needs:[false,true,false,false],small:2,large:3,structural:3,beforeOnsite:true});
  assert.equal(el('metricCustomerUpdates').textContent,1);
 });
