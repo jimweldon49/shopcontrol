@@ -20,6 +20,17 @@ const { startPartsAgingAlerts } = require("./partsAgingAlerts");
 
 const app = express();
 
+// Requests reach us through Caddy or cloudflared on this same machine. Trusting only
+// loopback proxies makes req.ip the real client address instead of 127.0.0.1.
+app.set("trust proxy", "loopback");
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "same-origin");
+  next();
+});
+
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use(cors({ origin: corsOrigin === "*" ? true : corsOrigin.split(",").map((s) => s.trim()) }));
 app.use(express.json({ limit: "4mb" }));

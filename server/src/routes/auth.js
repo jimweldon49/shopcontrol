@@ -121,6 +121,32 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
+// Slow down password guessing: after 10 failed logins for the same username from the
+// same address within 15 minutes, refuse further attempts until the window passes.
+// Keyed on username + IP (not IP alone) because every tech in the shop shares one public IP.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 10;
+const loginFailures = new Map();
+
+function tooManyFailures(key) {
+  const entry = loginFailures.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    loginFailures.delete(key);
+    return false;
+  }
+  return entry.count >= LOGIN_MAX_FAILURES;
+}
+
+function recordFailure(key) {
+  if (loginFailures.size > 10000) loginFailures.clear();
+  const entry = loginFailures.get(key);
+  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    loginFailures.set(key, { first: Date.now(), count: 1 });
+  } else {
+    entry.count++;
+  }
+}
 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body || {};
@@ -128,10 +154,16 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Username and password are required." });
   }
 
+  const name = String(username).trim().toLowerCase();
+  const failureKey = `${name}|${req.ip}`;
+  if (tooManyFailures(failureKey)) {
+    return res.status(429).json({ error: "Too many failed login attempts. Please wait 15 minutes and try again." });
+  }
+
   try {
     const result = await pool.query(
       "SELECT id, username, password_hash, full_name, role, can_delete, active, department FROM users WHERE username = $1",
-      [username.trim().toLowerCase()]
+      [name]
     );
     const user = result.rows[0];
 
@@ -141,8 +173,10 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user ? user.password_hash : dummyHash);
 
     if (!user || !user.active || !isMatch) {
+      recordFailure(failureKey);
       return res.status(401).json({ error: "Invalid username or password." });
     }
+    loginFailures.delete(failureKey);
 
     const claims = {
       id: user.id,
