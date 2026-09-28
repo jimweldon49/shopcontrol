@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.0";
+const VERSION = "1.1";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.1", date: "September 28, 2026", text: "Employee App address is now **https://conceptautobody.app** and works on phones anywhere. Added how to put it on your phone's home screen." },
   { version: "1.0", date: "September 28, 2026", text: "First edition." },
 ];
 
@@ -23,15 +24,20 @@ const sections = [
       { p: "ShopControl is Concept Autobody's shop management system. The office uses the full program on the shop computers; technicians use the **Employee App**, a phone-friendly version built for checklists, photos, time off and messages. Both use the same login." },
       { h3: "Opening ShopControl" },
       { bullets: [
-        "**Office computers:** open **https://shopcontrol.conceptauto.local** in Chrome or Edge.",
-        "**Employee App:** click **Employee app** in the left menu of ShopControl, or go to the same address followed by **/mobile/**.",
-        "**Phones:** access from phones is being set up. Until then, use the Employee App on a shop computer. When it's ready, the office will send the new address.",
+        "**Employee App (phones):** go to **https://conceptautobody.app** in Safari or Chrome. It works anywhere you have internet, in the shop or not.",
+        "**Office computers (full program):** open **https://shopcontrol.conceptauto.local** in Chrome or Edge. This address only works on the shop network. The Employee App is also under **Employee app** in the left menu.",
+      ] },
+      { h3: "Put the app on your phone's home screen" },
+      { p: "Do this once and the app opens like any other app, with the Concept Autobody icon." },
+      { steps: [
+        "**iPhone:** open **https://conceptautobody.app** in **Safari**, tap the **Share** button (square with an arrow), then **Add to Home Screen**, then **Add**.",
+        "**Android:** open **https://conceptautobody.app** in **Chrome**, tap the **⋮** menu, then **Add to Home screen** (or **Install app**), then **Add**.",
       ] },
       { h3: "Logging in" },
       { steps: [
         "Enter the **username** and **password** the office gave you.",
-        "Click **Log In** (desktop) or **Sign in** (Employee App).",
-        "If you forget your password, click **Forgot password?** and enter your username. If your account has an email address, a reset link is emailed to you (it expires in 30 minutes). Otherwise ask an admin to reset it.",
+        "Tap **Sign in** (Employee App) or click **Log In** (office computers).",
+        "If you forget your password, click **Forgot password?** on the office login and enter your username. If your account has an email address, a reset link is emailed to you. It works from your phone and expires in 30 minutes. Otherwise ask an admin to reset it.",
       ] },
       { note: "After **10 wrong passwords in a row**, that username is locked for **15 minutes**. Wait, then try again, or ask an admin to reset your password." },
       { h3: "Staying up to date" },
@@ -328,12 +334,13 @@ const sections = [
     blocks: [
       { table: { head: ["Problem", "What to do"], rows: [
         ["The page looks old or something's missing after an update", "Press Ctrl+F5 on a computer, or close and reopen the app on a phone."],
+        ["The app won't open on my phone", "Check the address is https://conceptautobody.app and that you have internet (Wi-Fi or cell data). The shopcontrol.conceptauto.local address doesn't work on phones."],
         ["I can't log in", "Check the username. After 10 wrong tries wait 15 minutes. Use Forgot password? or ask an admin."],
         ["An estimate from CCC isn't in ShopControl", "Re-save it in CCC and wait a minute. Closed ROs are ignored on purpose."],
         ["It says the RO is already on another job", "Look up the RO in CCC. Fix the RO on the wrong job first."],
         ["A car isn't on the Production Board", "It needs a 5-digit RO and Vehicle is physically onsite checked."],
         ["A card shows the wrong vehicle picture", "Click the card and change Type and color under Vehicle picture."],
-        ["My checklist didn't save", "Look for Saved at the top. If it says Not saved, check the Wi-Fi; it keeps retrying on its own."],
+        ["My checklist didn't save", "Look for Saved at the top. If it says Not saved, check your internet connection (Wi-Fi or cell data); it keeps retrying on its own."],
         ["I need a different QC checklist", "Ask an admin to set your QC Department, or tap the department on the vehicle screen."],
       ] } },
       { p: "For anything else, message the office from the Staff Hub mailbox." },
