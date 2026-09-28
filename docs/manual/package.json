@@ -1,0 +1,6 @@
+{
+  "name": "shopcontrol-manual",
+  "private": true,
+  "description": "Builds the staff user manual (in-app page + Word copy). Run: node build.js",
+  "devDependencies": { "docx": "^9.0.0" }
+}

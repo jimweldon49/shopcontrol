@@ -212,6 +212,8 @@
   .hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .hub-tile { text-align: left; padding: 18px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); min-height: 128px; }
   .hub-tile:active { transform: scale(.97); }
+  a.hub-tile { display: block; color: inherit; text-decoration: none; }
+  .hub-tile.hub-wide { grid-column: 1 / -1; min-height: 0; }
   .hub-tile svg { width: 28px; height: 28px; color: var(--accent); }
   .hub-tile b { display: block; margin-top: 12px; font-size: 15px; }
   .hub-tile small { color: var(--muted); font-size: 12.5px; }
@@ -403,6 +405,7 @@
       <button class="hub-tile" data-staff-go="requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><b>My requests</b><small id="hubRequestsSub">Status of your requests</small></button>
       <button class="hub-tile" data-staff-go="mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg><b>Mailbox</b><small id="hubMailSub">Messages from the office</small></button>
       <button class="hub-tile" data-staff-go="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><b>Company info</b><small>Hours, contacts, policies</small></button>
+      <a class="hub-tile hub-wide" href="../manual/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg><b>User manual</b><small>How to use ShopControl and this app</small></a>
     </div>
   </div>
 </section>

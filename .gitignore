@@ -10,3 +10,4 @@ server/certs/*.key
 server/certs/*.crt
 server/certs/*.pem
 !server/certs/README.md
+docs/manual/node_modules/
