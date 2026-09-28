@@ -71,6 +71,8 @@ function hasPermission(user, resource, action) {
   return readOnlyResources.includes(resource) && action === "list";
 }
 
+const PASSWORD_CHANGE_ALLOWED=['/api/auth/me','/api/auth/change-password'];
+
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
@@ -81,9 +83,14 @@ async function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active,department FROM users WHERE id=$1',[payload.id])).rows[0];
+    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active,department,must_change_password FROM users WHERE id=$1',[payload.id])).rows[0];
     if(!row||!row.active)return res.status(401).json({error:'This account is not active.'});
-    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete,department:row.department||null};
+    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete,department:row.department||null,mustChangePassword:!!row.must_change_password};
+    // Until they pick their own password (after an admin set a temporary one), only
+    // the account check and the change-password call are allowed.
+    if(row.must_change_password&&!PASSWORD_CHANGE_ALLOWED.some(p=>(req.originalUrl||'').split('?')[0]===p)){
+      return res.status(403).json({error:'Choose a new password to continue.',mustChangePassword:true});
+    }
     next();
   } catch (err) {
     return res.status(401).json({ error: "Your session has expired. Please log in again." });

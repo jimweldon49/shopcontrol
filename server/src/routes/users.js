@@ -8,7 +8,7 @@ const router = express.Router();
 
 const { names: QC_DEPARTMENTS } = require("../../../client/qcChecklists");
 
-const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department, job_title";
+const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department, job_title, must_change_password";
 const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
 
 function normalizeRole(role) {
@@ -72,8 +72,8 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (username, password_hash, full_name, email, role, can_delete, department, job_title)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO users (username, password_hash, full_name, email, role, can_delete, department, job_title, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
        RETURNING ${USER_FIELDS}`,
       [
         username.trim().toLowerCase(),
@@ -175,7 +175,7 @@ router.post("/:id/reset-password", requireAuth, requireAdmin, async (req, res) =
 
   const passwordHash = await bcrypt.hash(password, 10);
   const result = await pool.query(
-    `UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING ${USER_FIELDS}`,
+    `UPDATE users SET password_hash = $1, must_change_password = true WHERE id = $2 RETURNING ${USER_FIELDS}`,
     [passwordHash, req.params.id]
   );
 

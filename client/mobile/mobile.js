@@ -39,6 +39,11 @@ async function apiRequest(path, options = {}) {
   }
   let data = null;
   try { data = await res.json(); } catch (_) {}
+  if (res.status === 403 && data && data.mustChangePassword && currentUser) {
+    currentUser.mustChangePassword = true;
+    localStorage.setItem("authUser", JSON.stringify(currentUser));
+    showChangePassword();
+  }
   if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
   return data;
 }
@@ -92,7 +97,9 @@ async function handleLogin() {
     currentUser = result.user;
     localStorage.setItem("authToken", authToken);
     localStorage.setItem("authUser", JSON.stringify(currentUser));
+    const typed = password;
     $("loginPassword").value = "";
+    if (currentUser.mustChangePassword) return showChangePassword(typed);
     enterHome();
     startAlerts();
   } catch (err) {
@@ -111,6 +118,40 @@ function logout() {
   stopAlerts();
   setAccent(DEFAULT_ACCENT);
   showScreen("login");
+}
+
+// Temporary password from an admin: pick your own before using the app.
+function showChangePassword(tempPassword) {
+  stopAlerts();
+  setAccent(DEFAULT_ACCENT);
+  showAlert("cpError", "");
+  $("cpCurrent").value = tempPassword || "";
+  $("cpCurrentWrap").hidden = !!tempPassword;
+  $("cpNew").value = "";
+  $("cpConfirm").value = "";
+  showScreen("changepw");
+}
+
+async function saveNewPassword() {
+  showAlert("cpError", "");
+  const currentPassword = $("cpCurrent").value, newPassword = $("cpNew").value;
+  if (!currentPassword) { $("cpCurrentWrap").hidden = false; return showAlert("cpError", "Enter your current (temporary) password."); }
+  if (newPassword.length < 8) return showAlert("cpError", "Your new password must be at least 8 characters.");
+  if (newPassword !== $("cpConfirm").value) return showAlert("cpError", "The two new passwords don't match.");
+  const btn = $("cpSave");
+  btn.disabled = true;
+  try {
+    await apiRequest("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
+    currentUser.mustChangePassword = false;
+    localStorage.setItem("authUser", JSON.stringify(currentUser));
+    $("cpCurrent").value = ""; $("cpNew").value = ""; $("cpConfirm").value = "";
+    enterHome();
+    startAlerts();
+    toast("Password saved ✓");
+  } catch (err) {
+    if (/current password/i.test(err.message)) $("cpCurrentWrap").hidden = false;
+    showAlert("cpError", err.message);
+  } finally { btn.disabled = false; }
 }
 
 // ------------------------------------------------------------------ Data
@@ -587,6 +628,9 @@ document.addEventListener("DOMContentLoaded", () => {
   $("loginBtn").onclick = handleLogin;
   $("loginPassword").addEventListener("keydown", (e) => { if (e.key === "Enter") handleLogin(); });
   $("logoutBtn").onclick = logout;
+  $("cpSave").onclick = saveNewPassword;
+  $("cpLogout").onclick = logout;
+  $("cpConfirm").addEventListener("keydown", (e) => { if (e.key === "Enter") saveNewPassword(); });
   $("alertsBtn").onclick = openAlerts;
   $("searchInput").addEventListener("input", renderCars);
 
@@ -633,7 +677,12 @@ document.addEventListener("DOMContentLoaded", () => {
     apiRequest("/auth/me").then(({ user }) => {
       currentUser = { ...currentUser, ...user };
       localStorage.setItem("authUser", JSON.stringify(currentUser));
-    }).catch(() => {}).finally(() => { if (authToken) { enterHome(); startAlerts(); } });
+    }).catch(() => {}).finally(() => {
+      if (!authToken) return;
+      if (currentUser.mustChangePassword) return showChangePassword();
+      enterHome();
+      startAlerts();
+    });
   } else {
     showScreen("login");
   }

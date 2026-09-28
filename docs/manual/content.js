@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.2";
+const VERSION = "1.3";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.3", date: "September 28, 2026", text: "New accounts and admin password resets use a temporary password; you choose your own the first time you sign in." },
   { version: "1.2", date: "September 28, 2026", text: "Added the **Help** tab in the office program and a search box in the manual." },
   { version: "1.1", date: "September 28, 2026", text: "Employee App address is now **https://conceptautobody.app** and works on phones anywhere. Added how to put it on your phone's home screen." },
   { version: "1.0", date: "September 28, 2026", text: "First edition." },
@@ -44,6 +45,7 @@ const sections = [
       { steps: [
         "Enter the **username** and **password** the office gave you.",
         "Tap **Sign in** (Employee App) or click **Log In** (office computers).",
+        "**First time signing in:** the password the office gave you is temporary. ShopControl asks you to **choose your own password** (at least 8 characters, typed twice) before you can do anything else. Pick something only you know.",
         "If you forget your password, click **Forgot password?** on the office login and enter your username. If your account has an email address, a reset link is emailed to you. It works from your phone and expires in 30 minutes. Otherwise ask an admin to reset it.",
       ] },
       { note: "After **10 wrong passwords in a row**, that username is locked for **15 minutes**. Wait, then try again, or ask an admin to reset your password." },
@@ -320,7 +322,7 @@ const sections = [
       { h3: "Adding an employee" },
       { steps: [
         "Open **Employees** (admins only) and **Add or edit employee**.",
-        "Enter full name, username, email (needed for password resets and emails), job title and a temporary password (8+ characters).",
+        "Enter full name, username, email (needed for password resets and emails), job title and a **temporary password** (8+ characters). They must choose their own the first time they sign in.",
         "Choose the **Role** (what they can access) and **QC Department** (which checklist opens in their Employee App).",
         "Click **Add Employee** and give them their username and temporary password.",
       ] },
@@ -328,7 +330,8 @@ const sections = [
       { bullets: [
         "**Edit:** change name, email, job title, role and QC department.",
         "**QC Department** dropdown in the list: change it directly.",
-        "**Reset Password**, **Grant/Revoke Delete**, **Deactivate / Reactivate**. Deactivate people who leave instead of deleting them.",
+        "**Reset Password** sets a new temporary password; the employee must choose their own at next sign-in. Anyone still on a temporary password shows **Needs new password** in the list.",
+        "**Grant/Revoke Delete**, **Deactivate / Reactivate**. Deactivate people who leave instead of deleting them.",
       ] },
       { h3: "Board Settings" },
       { p: "Admins set the shared lists used everywhere: insurance companies, technicians, estimators, pay types, locations, appointment types, flags, card colors, and who receives core-return and missed-call escalation alerts." },

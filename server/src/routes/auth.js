@@ -102,7 +102,7 @@ router.post("/reset-password", async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, reset.user_id]);
+    await pool.query("UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2", [passwordHash, reset.user_id]);
     await pool.query("UPDATE password_reset_tokens SET used_at = now() WHERE id = $1", [reset.token_id]);
 
     await logActivity({
@@ -162,7 +162,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, username, password_hash, full_name, role, can_delete, active, department FROM users WHERE username = $1",
+      "SELECT id, username, password_hash, full_name, role, can_delete, active, department, must_change_password FROM users WHERE username = $1",
       [name]
     );
     const user = result.rows[0];
@@ -195,7 +195,7 @@ router.post("/login", async (req, res) => {
 
     // Department isn't put in the token (it's re-read on every request); the app
     // just needs it up front to open the right QC checklist.
-    res.json({ token, user: { ...claims, department: user.department || null } });
+    res.json({ token, user: { ...claims, department: user.department || null, mustChangePassword: !!user.must_change_password } });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed. Please try again." });
@@ -204,6 +204,28 @@ router.post("/login", async (req, res) => {
 
 router.get("/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+// Signed-in user sets their own password (required at first sign-in after an admin
+// created the account or reset it). Needs the current password.
+router.post("/change-password", requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: "Enter your current and new password." });
+  if (String(newPassword).length < 8) return res.status(400).json({ error: "Your new password must be at least 8 characters." });
+  if (newPassword === currentPassword) return res.status(400).json({ error: "Choose a password different from the temporary one." });
+  try {
+    const row = (await pool.query("SELECT password_hash, username FROM users WHERE id = $1", [req.user.id])).rows[0];
+    if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
+      return res.status(400).json({ error: "Your current password isn't right." });
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await pool.query("UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2", [passwordHash, req.user.id]);
+    await logActivity({ req, resource: "auth", recordId: req.user.id, action: "update", after: { username: row.username, password_changed: true }, summary: `${row.username} changed their password` });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Could not change the password. Please try again." });
+  }
 });
 
 module.exports = router;

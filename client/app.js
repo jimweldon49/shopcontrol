@@ -86,6 +86,11 @@ async function apiRequest(path, options = {}) {
   let data = null;
   try { data = await res.json(); } catch (_) { /* no body */ }
 
+  if (res.status === 403 && data && data.mustChangePassword && currentUser) {
+    currentUser.mustChangePassword = true;
+    localStorage.setItem("authUser", JSON.stringify(currentUser));
+    showChangePassword();
+  }
   if (!res.ok) {
     throw new Error((data && data.error) || `Request failed (${res.status})`);
   }
@@ -1498,7 +1503,7 @@ function renderEmployees() {
       <td><span class="pill ${u.role === 'admin' ? 'pill-admin' : 'pill-employee'}">${u.role}</span></td>
       <td><select aria-label="QC department for ${escapeHtml(u.full_name)}" onchange="setEmployeeDepartment('${u.id}', this.value)"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>
       <td><span class="pill ${u.can_delete ? 'pill-yes' : 'pill-no'}">${u.can_delete ? 'Yes' : 'No'}</span></td>
-      <td><span class="pill ${u.active ? 'pill-yes' : 'pill-inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
+      <td><span class="pill ${u.active ? 'pill-yes' : 'pill-inactive'}">${u.active ? 'Active' : 'Deactivated'}</span>${u.must_change_password ? '<br><span class="pill pill-admin" title="Still using a temporary password">Needs new password</span>' : ''}</td>
       <td>
         <div class="actions">
           <button onclick="editEmployee('${u.id}')">Edit</button>
@@ -1866,8 +1871,48 @@ function showResetPassword(token) {
   $("resetPasswordMessage").classList.remove("visible");
 }
 
+// Temporary password from an admin: pick your own before using ShopControl.
+function showChangePassword(tempPassword) {
+  clearInterval(pollTimer);
+  $("appRoot").classList.remove("visible");
+  $("loginScreen").style.display = "flex";
+  for (const id of ["loginForm", "forgotPasswordForm", "resetPasswordForm"]) $(id).style.display = "none";
+  $("changePasswordForm").style.display = "";
+  $("changePasswordMessage").classList.remove("visible");
+  $("currentPassword").value = tempPassword || "";
+  $("currentPasswordLabel").style.display = tempPassword ? "none" : "";
+  $("newPassword").value = ""; $("confirmNewPassword").value = "";
+  setTimeout(() => $(tempPassword ? "newPassword" : "currentPassword").focus(), 50);
+}
+
+async function handleChangePasswordSubmit(e) {
+  e.preventDefault();
+  const msg = $("changePasswordMessage");
+  msg.classList.remove("visible");
+  const currentPassword = $("currentPassword").value, newPassword = $("newPassword").value;
+  const fail = (text) => { msg.textContent = text; msg.classList.add("visible"); };
+  if (!currentPassword) { $("currentPasswordLabel").style.display = ""; return fail("Enter your current (temporary) password."); }
+  if (newPassword.length < 8) return fail("Your new password must be at least 8 characters.");
+  if (newPassword !== $("confirmNewPassword").value) return fail("The two new passwords don't match.");
+  const btn = $("changePasswordSubmitBtn");
+  btn.disabled = true;
+  try {
+    await apiRequest("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
+    currentUser.mustChangePassword = false;
+    localStorage.setItem("authUser", JSON.stringify(currentUser));
+    $("changePasswordForm").style.display = "none";
+    $("currentPassword").value = ""; $("newPassword").value = ""; $("confirmNewPassword").value = "";
+    showApp();
+    showStatus("Password saved. Welcome!");
+  } catch (err) {
+    if (/current password/i.test(err.message)) $("currentPasswordLabel").style.display = "";
+    fail(err.message);
+  } finally { btn.disabled = false; }
+}
+
 function showLoginFormOnly() {
   pendingResetToken = null;
+  $("changePasswordForm").style.display = "none";
   $("forgotPasswordForm").style.display = "none";
   $("resetPasswordForm").style.display = "none";
   $("loginForm").style.display = "";
@@ -2057,7 +2102,8 @@ async function handleLoginSubmit(e) {
     currentUser = data.user;
     localStorage.setItem("authToken", authToken);
     localStorage.setItem("authUser", JSON.stringify(currentUser));
-    showApp();
+    if (currentUser.mustChangePassword) showChangePassword(password);
+    else showApp();
   } catch (ex) {
     err.textContent = ex.message || "Login failed.";
     err.classList.add("visible");
@@ -2092,6 +2138,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("showForgotPasswordBtn").onclick = showForgotPassword;
   $("backToLoginBtn").onclick = showLoginFormOnly;
   $("cancelResetPasswordBtn").onclick = showLoginFormOnly;
+  $("changePasswordForm").addEventListener("submit", handleChangePasswordSubmit);
+  $("cancelChangePasswordBtn").onclick = () => logout();
   $("logoutBtn").onclick = () => logout();
   $("refreshBtn").onclick = () => loadAll(false);
 
@@ -2172,7 +2220,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   if (authToken && currentUser) {
-    showApp();
+    if (currentUser.mustChangePassword) showChangePassword();
+    else showApp();
   } else {
     showLogin();
   }

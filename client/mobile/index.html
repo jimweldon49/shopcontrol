@@ -264,6 +264,21 @@
   </div>
 </section>
 
+<!-- CHOOSE YOUR PASSWORD (temporary password from an admin) -->
+<section class="screen" id="screen-changepw">
+  <div class="login-hero">
+    <div class="brand"><img class="brand-logo" src="../img/logo.png" alt="Concept Autobody"></div>
+    <h2>Choose your<br>password.</h2>
+    <p>You signed in with a temporary password. Pick your own to continue (at least 8 characters).</p>
+    <div class="alert alert-error" id="cpError"></div>
+    <label class="field" id="cpCurrentWrap"><span>Current (temporary) password</span><input class="input" type="password" id="cpCurrent" autocomplete="current-password" /></label>
+    <label class="field"><span>New password</span><input class="input" type="password" id="cpNew" autocomplete="new-password" /></label>
+    <label class="field"><span>Confirm new password</span><input class="input" type="password" id="cpConfirm" autocomplete="new-password" /></label>
+    <button class="btn btn-primary" id="cpSave">Save password</button>
+    <button class="btn btn-ghost" id="cpLogout">Sign out</button>
+  </div>
+</section>
+
 <!-- HOME: vehicles in the shop -->
 <section class="screen" id="screen-home">
   <header class="bar">
