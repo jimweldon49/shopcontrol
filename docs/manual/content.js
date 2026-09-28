@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.1";
+const VERSION = "1.2";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.2", date: "September 28, 2026", text: "Added the **Help** tab in the office program and a search box in the manual." },
   { version: "1.1", date: "September 28, 2026", text: "Employee App address is now **https://conceptautobody.app** and works on phones anywhere. Added how to put it on your phone's home screen." },
   { version: "1.0", date: "September 28, 2026", text: "First edition." },
 ];
@@ -26,6 +27,12 @@ const sections = [
       { bullets: [
         "**Employee App (phones):** go to **https://conceptautobody.app** in Safari or Chrome. It works anywhere you have internet, in the shop or not.",
         "**Office computers (full program):** open **https://shopcontrol.conceptauto.local** in Chrome or Edge. This address only works on the shop network. The Employee App is also under **Employee app** in the left menu.",
+      ] },
+      { h3: "Finding help" },
+      { bullets: [
+        "**Office computers:** click **Help** in the left menu to read this manual inside ShopControl. Use **Download Word copy** to print it.",
+        "**Employee App:** Staff Hub → **User manual**.",
+        "Type a word or two about what you need in the **search box** at the top of the manual to see just the sections that cover it.",
       ] },
       { h3: "Put the app on your phone's home screen" },
       { p: "Do this once and the app opens like any other app, with the Concept Autobody icon." },

@@ -72,7 +72,7 @@
     <button class="tab" data-tab="workspaceSettings">Board Settings</button>
     <button class="tab" data-tab="notifications">Notifications <span id="notificationCount"></span></button>
     <a class="mobile-link" href="mobile/">Employee app ↗</a>
-    <a class="mobile-link" href="manual/?from=desktop" target="_blank" rel="noopener">User manual ↗</a>
+    <button class="tab" data-tab="help" id="helpTabBtn">Help</button>
     <a class="mobile-link" href="?kiosk=1" target="_blank" rel="noopener">TV display ↗</a>
     <button class="tab" data-tab="tasks">Tasks</button>
     <button class="tab" data-tab="parts">Parts</button>
@@ -848,6 +848,11 @@
       </div>
     </section>
 
+    <section id="help" class="tab-panel">
+      <div class="section-head heading-row"><div><div class="eyebrow">HELP</div><h2>User manual</h2><p>How to use ShopControl and the Employee App. Search it, or print it for the shop.</p></div>
+        <div class="toolbar"><a class="button-link quiet" href="manual/?from=desktop" target="_blank" rel="noopener">Open in new tab ↗</a><a class="button-link" href="manual/ShopControl-User-Manual.docx" download>Download Word copy</a></div></div>
+      <iframe class="help-frame" src="manual/?embed=1" title="ShopControl user manual" loading="lazy"></iframe>
+    </section>
     <section id="timeOff" class="tab-panel"></section>
     <section id="staffHub" class="tab-panel"></section>
 

@@ -1,5 +1,5 @@
 // Builds the staff user manual from content.js into:
-//   client/manual/index.html          (in the app: Staff Hub -> User manual, desktop sidebar)
+//   client/manual/index.html          (in the app: Staff Hub -> User manual, desktop Help tab)
 //   client/manual/ShopControl-User-Manual.docx (Word copy for printing, linked from the page)
 // Usage (one-time: cd docs/manual && npm install):  node docs/manual/build.js
 const fs = require("fs");
@@ -80,9 +80,17 @@ function buildHtml() {
   td:first-child { font-weight: 700; color: var(--text); }
   a.top { display: inline-block; margin-top: 12px; color: var(--muted); font-size: 13px; text-decoration: none; }
   .changes { margin-top: 44px; color: var(--muted); font-size: 14px; }
+  .search { position: relative; margin: 22px 0 0; }
+  .search input { width: 100%; font: inherit; font-size: 16px; color: var(--text); background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 14px 13px 44px; outline: none; }
+  .search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249,115,22,.2); }
+  .search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--muted); }
+  .search-status { color: var(--muted); font-size: 14px; margin: 8px 4px 0; min-height: 20px; }
+  mark { background: rgba(249,115,22,.35); color: var(--text); border-radius: 3px; padding: 0 1px; }
+  body.searching .cover, body.searching .toc, body.searching .changes, body.searching a.top { display: none; }
+  body.embed #backLink, body.embed .bar a[download] { display: none; }
   @media print {
     :root { --bg:#fff; --surface:#fff; --surface-2:#f1f3f5; --line:#d0d5db; --text:#111; --muted:#555; }
-    body { font-size: 11pt; } p, li, td { color: #222; } .bar, a.top { display: none; }
+    body { font-size: 11pt; } p, li, td { color: #222; } .bar, a.top, .search, .search-status { display: none; }
     .cover img { filter: none; } section { break-inside: auto; } h2 { break-after: avoid; } ol.steps li, .callout, tr { break-inside: avoid; }
   }
 </style>
@@ -91,13 +99,51 @@ function buildHtml() {
 <div class="bar"><a href="../mobile/" id="backLink">‹ Back</a><div class="title">User Manual</div><a href="ShopControl-User-Manual.docx" download>Word copy</a><button onclick="window.print()">Print</button></div>
 <main>
   <div class="cover"><img src="../img/logo.png" alt="Concept Autobody"><h1>ShopControl User Manual</h1><p>Version ${esc(VERSION)} · Updated ${esc(UPDATED)}</p></div>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="manualSearch" type="search" placeholder="Search the manual, e.g. time off, mirror match, password" aria-label="Search the manual" autocomplete="off"></div>
+  <div class="search-status" id="searchStatus" role="status"></div>
   <nav class="toc"><h2>Contents</h2><ol>${toc}</ol></nav>
   ${body}
   <div class="changes"><h3>Manual versions</h3><div class="table-wrap"><table><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>${changes}</tbody></table></div></div>
 </main>
 <script>
-  // Opened from the desktop (?from=desktop) the back button returns to ShopControl.
-  if (new URLSearchParams(location.search).get("from") === "desktop") { var b = document.getElementById("backLink"); b.href = "../"; }
+  var params = new URLSearchParams(location.search);
+  // Opened from the desktop (?from=desktop) the back button returns to ShopControl;
+  // inside the desktop Help tab (?embed=1) there's nothing to go back to.
+  if (params.get("from") === "desktop") document.getElementById("backLink").href = "../";
+  if (params.get("embed") === "1") document.body.classList.add("embed");
+
+  // Search: show only the sections that mention every word typed, with matches highlighted.
+  (function () {
+    var input = document.getElementById("manualSearch"), status = document.getElementById("searchStatus");
+    var sections = Array.prototype.slice.call(document.querySelectorAll("main section"));
+    var original = sections.map(function (s) { return s.innerHTML; });
+    function highlight(root, words) {
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [], n;
+      while ((n = walker.nextNode())) nodes.push(n);
+      var re = new RegExp("(" + words.map(function (w) { return w.replace(/[.*+?^\${}()|[\\]\\\\]/g, "\\\\$&"); }).join("|") + ")", "gi");
+      nodes.forEach(function (node) {
+        if (!re.test(node.nodeValue)) return; re.lastIndex = 0;
+        var span = document.createElement("span");
+        span.innerHTML = node.nodeValue.replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }).replace(re, "<mark>$1</mark>");
+        node.parentNode.replaceChild(span, node);
+      });
+    }
+    function run() {
+      var q = input.value.trim().toLowerCase(), words = q.split(/\\s+/).filter(Boolean);
+      document.body.classList.toggle("searching", !!words.length);
+      var shown = 0;
+      sections.forEach(function (s, i) {
+        s.innerHTML = original[i];
+        var text = s.textContent.toLowerCase();
+        var match = !words.length || words.every(function (w) { return text.indexOf(w) !== -1; });
+        s.hidden = !match;
+        if (match && words.length) { shown++; highlight(s, words); }
+      });
+      status.textContent = words.length ? (shown ? shown + " section" + (shown === 1 ? "" : "s") + " found" : "Nothing found. Try a different word.") : "";
+    }
+    var timer; input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(run, 150); });
+    var q = params.get("q"); if (q) { input.value = q; run(); }
+  })();
 </script>
 </body>
 </html>

@@ -50,9 +50,17 @@
   td:first-child { font-weight: 700; color: var(--text); }
   a.top { display: inline-block; margin-top: 12px; color: var(--muted); font-size: 13px; text-decoration: none; }
   .changes { margin-top: 44px; color: var(--muted); font-size: 14px; }
+  .search { position: relative; margin: 22px 0 0; }
+  .search input { width: 100%; font: inherit; font-size: 16px; color: var(--text); background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 14px 13px 44px; outline: none; }
+  .search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249,115,22,.2); }
+  .search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--muted); }
+  .search-status { color: var(--muted); font-size: 14px; margin: 8px 4px 0; min-height: 20px; }
+  mark { background: rgba(249,115,22,.35); color: var(--text); border-radius: 3px; padding: 0 1px; }
+  body.searching .cover, body.searching .toc, body.searching .changes, body.searching a.top { display: none; }
+  body.embed #backLink, body.embed .bar a[download] { display: none; }
   @media print {
     :root { --bg:#fff; --surface:#fff; --surface-2:#f1f3f5; --line:#d0d5db; --text:#111; --muted:#555; }
-    body { font-size: 11pt; } p, li, td { color: #222; } .bar, a.top { display: none; }
+    body { font-size: 11pt; } p, li, td { color: #222; } .bar, a.top, .search, .search-status { display: none; }
     .cover img { filter: none; } section { break-inside: auto; } h2 { break-after: avoid; } ol.steps li, .callout, tr { break-inside: avoid; }
   }
 </style>
@@ -60,11 +68,15 @@
 <body id="top">
 <div class="bar"><a href="../mobile/" id="backLink">‹ Back</a><div class="title">User Manual</div><a href="ShopControl-User-Manual.docx" download>Word copy</a><button onclick="window.print()">Print</button></div>
 <main>
-  <div class="cover"><img src="../img/logo.png" alt="Concept Autobody"><h1>ShopControl User Manual</h1><p>Version 1.1 · Updated September 28, 2026</p></div>
+  <div class="cover"><img src="../img/logo.png" alt="Concept Autobody"><h1>ShopControl User Manual</h1><p>Version 1.2 · Updated September 28, 2026</p></div>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="manualSearch" type="search" placeholder="Search the manual, e.g. time off, mirror match, password" aria-label="Search the manual" autocomplete="off"></div>
+  <div class="search-status" id="searchStatus" role="status"></div>
   <nav class="toc"><h2>Contents</h2><ol><li><a href="#start"><span>1</span>Getting started</a></li><li><a href="#app"><span>2</span>The Employee App (technicians)</a></li><li><a href="#hub"><span>3</span>Staff Hub: time off, mailbox and company info</a></li><li><a href="#dashboard"><span>4</span>Dashboard</a></li><li><a href="#jobs"><span>5</span>Jobs and the Daily GO List</a></li><li><a href="#boards"><span>6</span>Production, Delivery and Planning boards</a></li><li><a href="#ccc"><span>7</span>CCC estimates coming into ShopControl</a></li><li><a href="#parts"><span>8</span>Parts</a></li><li><a href="#qc"><span>9</span>Vehicle QC (office view)</a></li><li><a href="#office"><span>10</span>Office tools</a></li><li><a href="#staffdesk"><span>11</span>Time off and messages (office and admins)</a></li><li><a href="#admin"><span>12</span>Admin: employees and settings</a></li><li><a href="#help"><span>13</span>Quick answers</a></li></ol></nav>
   <section id="start"><h2><span class="num">1</span>Getting started</h2><p>ShopControl is Concept Autobody&#39;s shop management system. The office uses the full program on the shop computers; technicians use the <b>Employee App</b>, a phone-friendly version built for checklists, photos, time off and messages. Both use the same login.</p>
 <h3>Opening ShopControl</h3>
 <ul><li><b>Employee App (phones):</b> go to <b>https://conceptautobody.app</b> in Safari or Chrome. It works anywhere you have internet, in the shop or not.</li><li><b>Office computers (full program):</b> open <b>https://shopcontrol.conceptauto.local</b> in Chrome or Edge. This address only works on the shop network. The Employee App is also under <b>Employee app</b> in the left menu.</li></ul>
+<h3>Finding help</h3>
+<ul><li><b>Office computers:</b> click <b>Help</b> in the left menu to read this manual inside ShopControl. Use <b>Download Word copy</b> to print it.</li><li><b>Employee App:</b> Staff Hub → <b>User manual</b>.</li><li>Type a word or two about what you need in the <b>search box</b> at the top of the manual to see just the sections that cover it.</li></ul>
 <h3>Put the app on your phone&#39;s home screen</h3>
 <p>Do this once and the app opens like any other app, with the Concept Autobody icon.</p>
 <ol class="steps"><li><b>iPhone:</b> open <b>https://conceptautobody.app</b> in <b>Safari</b>, tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>, then <b>Add</b>.</li><li><b>Android:</b> open <b>https://conceptautobody.app</b> in <b>Chrome</b>, tap the <b>⋮</b> menu, then <b>Add to Home screen</b> (or <b>Install app</b>), then <b>Add</b>.</li></ol>
@@ -163,11 +175,47 @@
 <p>Admins set the shared lists used everywhere: insurance companies, technicians, estimators, pay types, locations, appointment types, flags, card colors, and who receives core-return and missed-call escalation alerts.</p><a class="top" href="#top">Back to top ↑</a></section>
 <section id="help"><h2><span class="num">13</span>Quick answers</h2><div class="table-wrap"><table><thead><tr><th>Problem</th><th>What to do</th></tr></thead><tbody><tr><td>The page looks old or something&#39;s missing after an update</td><td>Press Ctrl+F5 on a computer, or close and reopen the app on a phone.</td></tr><tr><td>The app won&#39;t open on my phone</td><td>Check the address is https://conceptautobody.app and that you have internet (Wi-Fi or cell data). The shopcontrol.conceptauto.local address doesn&#39;t work on phones.</td></tr><tr><td>I can&#39;t log in</td><td>Check the username. After 10 wrong tries wait 15 minutes. Use Forgot password? or ask an admin.</td></tr><tr><td>An estimate from CCC isn&#39;t in ShopControl</td><td>Re-save it in CCC and wait a minute. Closed ROs are ignored on purpose.</td></tr><tr><td>It says the RO is already on another job</td><td>Look up the RO in CCC. Fix the RO on the wrong job first.</td></tr><tr><td>A car isn&#39;t on the Production Board</td><td>It needs a 5-digit RO and Vehicle is physically onsite checked.</td></tr><tr><td>A card shows the wrong vehicle picture</td><td>Click the card and change Type and color under Vehicle picture.</td></tr><tr><td>My checklist didn&#39;t save</td><td>Look for Saved at the top. If it says Not saved, check your internet connection (Wi-Fi or cell data); it keeps retrying on its own.</td></tr><tr><td>I need a different QC checklist</td><td>Ask an admin to set your QC Department, or tap the department on the vehicle screen.</td></tr></tbody></table></div>
 <p>For anything else, message the office from the Staff Hub mailbox.</p><a class="top" href="#top">Back to top ↑</a></section>
-  <div class="changes"><h3>Manual versions</h3><div class="table-wrap"><table><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody><tr><td>1.1</td><td>September 28, 2026</td><td>Employee App address is now <b>https://conceptautobody.app</b> and works on phones anywhere. Added how to put it on your phone&#39;s home screen.</td></tr><tr><td>1.0</td><td>September 28, 2026</td><td>First edition.</td></tr></tbody></table></div></div>
+  <div class="changes"><h3>Manual versions</h3><div class="table-wrap"><table><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody><tr><td>1.2</td><td>September 28, 2026</td><td>Added the <b>Help</b> tab in the office program and a search box in the manual.</td></tr><tr><td>1.1</td><td>September 28, 2026</td><td>Employee App address is now <b>https://conceptautobody.app</b> and works on phones anywhere. Added how to put it on your phone&#39;s home screen.</td></tr><tr><td>1.0</td><td>September 28, 2026</td><td>First edition.</td></tr></tbody></table></div></div>
 </main>
 <script>
-  // Opened from the desktop (?from=desktop) the back button returns to ShopControl.
-  if (new URLSearchParams(location.search).get("from") === "desktop") { var b = document.getElementById("backLink"); b.href = "../"; }
+  var params = new URLSearchParams(location.search);
+  // Opened from the desktop (?from=desktop) the back button returns to ShopControl;
+  // inside the desktop Help tab (?embed=1) there's nothing to go back to.
+  if (params.get("from") === "desktop") document.getElementById("backLink").href = "../";
+  if (params.get("embed") === "1") document.body.classList.add("embed");
+
+  // Search: show only the sections that mention every word typed, with matches highlighted.
+  (function () {
+    var input = document.getElementById("manualSearch"), status = document.getElementById("searchStatus");
+    var sections = Array.prototype.slice.call(document.querySelectorAll("main section"));
+    var original = sections.map(function (s) { return s.innerHTML; });
+    function highlight(root, words) {
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [], n;
+      while ((n = walker.nextNode())) nodes.push(n);
+      var re = new RegExp("(" + words.map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|") + ")", "gi");
+      nodes.forEach(function (node) {
+        if (!re.test(node.nodeValue)) return; re.lastIndex = 0;
+        var span = document.createElement("span");
+        span.innerHTML = node.nodeValue.replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }).replace(re, "<mark>$1</mark>");
+        node.parentNode.replaceChild(span, node);
+      });
+    }
+    function run() {
+      var q = input.value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+      document.body.classList.toggle("searching", !!words.length);
+      var shown = 0;
+      sections.forEach(function (s, i) {
+        s.innerHTML = original[i];
+        var text = s.textContent.toLowerCase();
+        var match = !words.length || words.every(function (w) { return text.indexOf(w) !== -1; });
+        s.hidden = !match;
+        if (match && words.length) { shown++; highlight(s, words); }
+      });
+      status.textContent = words.length ? (shown ? shown + " section" + (shown === 1 ? "" : "s") + " found" : "Nothing found. Try a different word.") : "";
+    }
+    var timer; input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(run, 150); });
+    var q = params.get("q"); if (q) { input.value = q; run(); }
+  })();
 </script>
 </body>
 </html>
