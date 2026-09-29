@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.7";
+const VERSION = "1.8";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.8", date: "September 28, 2026", text: "New **Completed Jobs** tab with each finished job's full file (production timeline, parts, QC, photos, every change). Only an admin can delete a delivered job or its parts." },
   { version: "1.7", date: "September 28, 2026", text: "The Employee App now shows **where each part is**: the car's parts cart, and the cart shelf or storage spot for every part." },
   { version: "1.6", date: "September 28, 2026", text: "Whoever does **Check-In** automatically gets the **Final QC** checklist too. New **QC report** for each car: all five checklists with signatures on one printable page." },
   { version: "1.5", date: "September 28, 2026", text: "Body technicians automatically get the **Reassy** checklist too." },
@@ -277,6 +278,27 @@ const sections = [
       { p: "Every checklist is saved in ShopControl under the car's RO number, so nothing is lost when the car is delivered. To see everything for one car on a single page, click **Car report** on any of its rows in the **Vehicle QC** tab, or open the car on the **Production Board** and click **QC report**." },
       { p: "The report opens in a new tab and shows all five checklists in shop order: every item, values like the A/C vent temperature, notes, rework, who did it and when, and their signature. Departments nobody has started say **Not started**. Click **Print / Save as PDF** to print it or keep a PDF copy for the file." },
       { p: "The five checklists are **Check-In, Body, Paint, Reassy** and **Final QC**, taken from the shop's QC sheet. No vehicle should be delivered until Final QC is complete and signed." },
+    ],
+  },
+
+  {
+    id: "completed",
+    title: "Completed Jobs (job records)",
+    blocks: [
+      { p: "When a car is delivered (or marked Total Loss) it leaves the boards, but nothing about it is lost. The **Completed Jobs** tab (left menu, under Delivery Board) lists every finished job with when it came in, when it was delivered, days in the shop, repair value, how many parts it had and how many QC checklists were done. Search by RO, customer, vehicle or insurance, or filter by delivered date." },
+      { p: "Click a job to open its **job file**:" },
+      { bullets: [
+        "**Job details:** customer, vehicle, value, insurance, estimator, the techs and painters on it, in / on-site / delivered dates, days in shop and hours.",
+        "**Production timeline:** every stage move with the date, time and who moved it, and how long the car sat in each stage.",
+        "**Parts:** every part with vendor, estimated cost, status, ordered / ETA / received dates and where it was stored. Parts removed from the job along the way are listed separately with who removed them and when.",
+        "**Quality control:** all five checklists with who did them and when they were signed. Click **Open full QC report with signatures** for the complete checklists.",
+        "**Photos and files, appointments, core returns and notes.**",
+        "**Every change:** each edit to the job (supplement amounts, estimator, techs, dates and so on), who made it and when, including updates from CCC.",
+      ] },
+      { p: "Click **Print / Save as PDF** to print the job file or keep a PDF copy, for example for an insurance question or a comeback." },
+      { h3: "Deleted jobs" },
+      { p: "Tick **Show deleted jobs** to see jobs someone deleted. ShopControl keeps a copy of every deleted job, so its file can still be opened (it shows who deleted it and when)." },
+      { note: "Delivered and total-loss jobs are the shop's record of the repair. Only an **admin or owner** can delete them or the parts on them; anyone else gets a message instead." },
     ],
   },
 

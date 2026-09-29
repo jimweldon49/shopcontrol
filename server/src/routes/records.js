@@ -4,6 +4,7 @@ const { requireAuth, requirePermission } = require("../middleware/auth");
 const { logActivity } = require("../activityLogger");
 const { sendAssignmentEmail } = require("../taskEmails");
 const { assertCartAssignment } = require("../inventoryRules");
+const { completedJobGuard } = require("../completedJobs");
 
 const RESOURCES = {
   daily: {
@@ -234,6 +235,9 @@ function buildRouterFor(resourceKey, config) {
       if (!before) {
         return res.status(404).json({ error: "Record not found." });
       }
+
+      const blocked = await completedJobGuard(pool, req.user, resourceKey, [before]);
+      if (blocked) return res.status(403).json({ error: blocked });
 
       const result = await pool.query(`DELETE FROM ${table} WHERE id = $1 RETURNING id`, [req.params.id]);
 

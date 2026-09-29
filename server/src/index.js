@@ -47,6 +47,7 @@ app.use('/api/workspace',require('./routes/workspace'));
 app.use('/api/missedCalls', require('./routes/missedCalls'));
 app.use('/api/inventoryLocations', require('./routes/inventory'));
 app.use('/api/staff', require('./routes/staff'));
+app.use('/api/jobHistory', require('./routes/jobHistory'));
 mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc, /api/booth, /api/facility
 
 startEmsWatcher();
