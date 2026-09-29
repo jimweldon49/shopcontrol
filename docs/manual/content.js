@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.5";
+const VERSION = "1.6";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.6", date: "September 28, 2026", text: "Whoever does **Check-In** automatically gets the **Final QC** checklist too. New **QC report** for each car: all five checklists with signatures on one printable page." },
   { version: "1.5", date: "September 28, 2026", text: "Body technicians automatically get the **Reassy** checklist too." },
   { version: "1.4", date: "September 28, 2026", text: "Employees can be set to **also do** other checklists (for example a body tech who reassembles also gets the Reassy checklist)." },
   { version: "1.3", date: "September 28, 2026", text: "New accounts and admin password resets use a temporary password; you choose your own the first time you sign in." },
@@ -93,7 +94,7 @@ const sections = [
         "Tap **Sign & finish** when you're done.",
       ] },
       { tip: "Every tap saves automatically (you'll see **Saved** at the top). If your phone locks or you walk away, nothing is lost. Come back to the car and pick up where you left off." },
-      { p: "**Body technicians** reassemble the cars they work on, so every body tech automatically gets two big buttons on every car: **Body QC** and **Reassy QC**. If you cover another department too, the office can add that checklist to your account and it shows as another button." },
+      { p: "**Body technicians** reassemble the cars they work on, so every body tech automatically gets two big buttons on every car: **Body QC** and **Reassy QC**. The same goes for **Check-In**: whoever checks cars in often does the final QC too, so they get **Check-In QC** and **Final QC**. If you cover another department too, the office can add that checklist to your account and it shows as another button." },
       { h3: "Signing and rework" },
       { steps: [
         "The finish screen shows any items still unchecked.",
@@ -270,6 +271,9 @@ const sections = [
     title: "Vehicle QC (office view)",
     blocks: [
       { p: "Technicians fill out QC checklists in the Employee App. The **Vehicle QC** tab shows every checklist with its department and progress (for example 8/10 checked). Click **Checklist** to see each item, the notes and the signature." },
+      { h3: "Pulling up a car's QC report" },
+      { p: "Every checklist is saved in ShopControl under the car's RO number, so nothing is lost when the car is delivered. To see everything for one car on a single page, click **Car report** on any of its rows in the **Vehicle QC** tab, or open the car on the **Production Board** and click **QC report**." },
+      { p: "The report opens in a new tab and shows all five checklists in shop order: every item, values like the A/C vent temperature, notes, rework, who did it and when, and their signature. Departments nobody has started say **Not started**. Click **Print / Save as PDF** to print it or keep a PDF copy for the file." },
       { p: "The five checklists are **Check-In, Body, Paint, Reassy** and **Final QC**, taken from the shop's QC sheet. No vehicle should be delivered until Final QC is complete and signed." },
     ],
   },
@@ -331,7 +335,7 @@ const sections = [
       ] },
       { h3: "Changing an employee" },
       { bullets: [
-        "**Edit:** change name, email, job title, role and QC department. Setting someone's QC department to **Body** automatically gives them the **Reassy** checklist too. Use **Also does these checklists** for anyone else who covers more than one department (for example a painter who also does Final QC). The list shows everything extra under their QC department.",
+        "**Edit:** change name, email, job title, role and QC department. Setting someone's QC department to **Body** automatically gives them the **Reassy** checklist too, and **Check-In** automatically gives them **Final QC**. Use **Also does these checklists** for anyone else who covers more than one department (for example a painter who also does Final QC). The list shows everything extra under their QC department.",
         "**QC Department** dropdown in the list: change it directly.",
         "**Reset Password** sets a new temporary password; the employee must choose their own at next sign-in. Anyone still on a temporary password shows **Needs new password** in the list.",
         "**Grant/Revoke Delete**, **Deactivate / Reactivate**. Deactivate people who leave instead of deleting them.",

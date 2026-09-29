@@ -9,7 +9,8 @@
 })(typeof self !== "undefined" ? self : this, function () {
   const departments = [
     {
-      id: "Check-In", color: "#38bdf8", icon: "clipboard",
+      // Whoever checks the vehicle in often does its final QC too, so Check-In comes with Final QC.
+      id: "Check-In", color: "#38bdf8", icon: "clipboard", alsoDoes: ["Final QC"],
       items: [
         { id: "auth_signed", label: "Authorizations signed" },
         { id: "deductible_aware", label: "Customer aware of deductible" },
@@ -95,7 +96,7 @@
   const byId = Object.fromEntries(departments.map(d => [d.id, d]));
 
   // Every checklist a person does: their main department, what that department always
-  // comes with (Body -> Reassy), then any extras set on their account.
+  // comes with (Body -> Reassy, Check-In -> Final QC), then any extras set on their account.
   function departmentsFor(main, extras) {
     const list = [main, ...((byId[main] && byId[main].alsoDoes) || []), ...(extras || [])];
     return list.filter((d, i) => d && byId[d] && list.indexOf(d) === i);

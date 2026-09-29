@@ -827,7 +827,7 @@ function renderQc() {
       <td>${r.qcDate || ""}</td><td>${r.qcPerformedBy || ""}</td>
       <td class="${bad ? "status-bad" : (["Passed","Ready for Delivery"].includes(r.qcFinalStatus) ? "status-good" : "")}">${r.qcFinalStatus || ""}</td>
       <td>${r.qcReworkNeeded || ""}</td><td>${r.qcReworkAssignedTo || ""}</td><td>${r.qcCustomerCalled || ""}</td>
-      <td><div class="actions">${prog ? `<button onclick="viewQcChecklist('${r.id}')">Checklist</button>` : ""}<button onclick="editQc('${r.id}')">Edit</button>${deleteBtn('qc', r.id)}</div></td>
+      <td><div class="actions">${r.qcRoNumber ? `<button onclick="openQcReport(decodeURIComponent('${encodeURIComponent(r.qcRoNumber).replace(/'/g,'%27')}'))">Car report</button>` : ""}${prog ? `<button class="quiet" onclick="viewQcChecklist('${r.id}')">Checklist</button>` : ""}<button class="quiet" onclick="editQc('${r.id}')">Edit</button>${deleteBtn('qc', r.id)}</div></td>
     </tr>`;
   }).join("");
 }
@@ -850,6 +850,64 @@ function viewQcChecklist(id) {
   const dialog = openDialog(`${dept.id} QC`, html, async () => {});
   dialog.querySelector("[type=submit]").remove();
 }
+// Everything QC for one car on a single printable page: each department's checklist
+// (latest record), notes, rework, who did it and their signature. Opens in a new tab;
+// use Print or "Save as PDF" there.
+function openQcReport(ro) {
+  const key = String(ro || "").trim();
+  if (!key) return showStatus("This job has no RO number yet.", true);
+  const records = store.get("qc").filter(r => String(r.qcRoNumber || "").trim() === key && r.qcDepartment);
+  const job = store.get("daily").find(j => String(j.roNumber || "").trim() === key) || {};
+  const first = records[0] || {};
+  const e = escapeHtml;
+  const sigOk = (s) => typeof s === "string" && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s);
+  const sections = QcChecklists.departments.map(dept => {
+    const r = records.filter(x => x.qcDepartment === dept.id).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+    if (!r) return `<section class="dept"><h2 style="--c:${dept.color}">${e(dept.id)}</h2><p class="none">Not started.</p></section>`;
+    const items = (r.qcChecklist && r.qcChecklist.items) || {};
+    const prog = QcChecklists.progress(dept.id, r.qcChecklist);
+    const status = r.qcReworkNeeded === "Yes" ? "Needs rework" : prog.complete ? "Complete" : `${prog.done} of ${prog.total} checked`;
+    return `<section class="dept"><h2 style="--c:${dept.color}">${e(dept.id)} <span class="status ${prog.complete && r.qcReworkNeeded !== "Yes" ? "ok" : "open"}">${e(status)}</span></h2>
+      <p class="meta">${e(r.qcPerformedBy || "")}${r.qcDate ? ` · ${e(r.qcDate)}` : ""}${r.qcSignedAt ? ` · signed ${e(formatDateTime(r.qcSignedAt))}` : " · not signed yet"}</p>
+      <ul>${dept.items.map(i => { const v = items[i.id] || {}; return `<li class="${v.done ? "done" : ""}"><span>${v.done ? "✔" : "○"}</span>${e(i.label)}${i.input && v.value ? ` — ${e(i.input.label)}: <b>${e(v.value)}${e(i.input.suffix || "")}</b>` : ""}</li>`; }).join("")}</ul>
+      ${r.qcChecklist && r.qcChecklist.notes ? `<p><b>Notes:</b> ${e(r.qcChecklist.notes)}</p>` : ""}
+      ${r.qcReworkNeeded === "Yes" ? `<p class="rework"><b>Rework:</b> ${e(r.qcIssues || "")}${r.qcReworkAssignedTo ? ` · assigned to ${e(r.qcReworkAssignedTo)}` : ""}${r.qcReworkDueDate ? ` · due ${e(r.qcReworkDueDate)}` : ""}</p>` : ""}
+      ${sigOk(r.qcSignatureData) ? `<div class="sig"><img alt="Signature of ${e(r.qcPerformedBy || "")}" src="${r.qcSignatureData}"><small>${e(r.qcPerformedBy || "")}</small></div>` : ""}
+    </section>`;
+  }).join("");
+  const done = QcChecklists.departments.filter(d => records.some(r => r.qcDepartment === d.id && QcChecklists.progress(d.id, r.qcChecklist).complete)).length;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>QC Report · RO ${e(key)}</title>
+<style>
+  body { font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1f2933; margin: 0; background: #f4f5f7; }
+  .page { max-width: 820px; margin: 0 auto; padding: 28px; background: #fff; }
+  header { display: flex; align-items: center; gap: 20px; border-bottom: 3px solid #f97316; padding-bottom: 14px; }
+  header img { height: 70px; } header h1 { margin: 0; font-size: 24px; } header p { margin: 2px 0 0; color: #5b6776; }
+  .summary { display: flex; gap: 24px; flex-wrap: wrap; margin: 16px 0 6px; color: #5b6776; } .summary b { color: #1f2933; }
+  .dept { border: 1px solid #d0d5db; border-radius: 10px; padding: 14px 16px; margin: 14px 0; break-inside: avoid; }
+  .dept h2 { margin: 0 0 4px; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+  .dept h2::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
+  .status { margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .status.ok { background: #dcfce7; color: #166534; } .status.open { background: #fef3c7; color: #92400e; }
+  .meta, .none { color: #5b6776; margin: 0 0 8px; }
+  ul { list-style: none; padding: 0; margin: 0; columns: 2 300px; } li { padding: 3px 0; color: #8a94a3; break-inside: avoid; } li.done { color: #1f2933; }
+  li span { display: inline-block; width: 20px; font-weight: 700; } li.done span { color: #15803d; }
+  .rework { background: #fff1f2; border-left: 3px solid #e11d48; padding: 6px 10px; }
+  .sig { margin-top: 10px; } .sig img { height: 70px; border-bottom: 1px solid #1f2933; display: block; } .sig small { color: #5b6776; }
+  .actions { text-align: right; margin-bottom: 10px; } .actions button { font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 0; background: #f97316; color: #111; cursor: pointer; }
+  footer { margin-top: 20px; color: #8a94a3; font-size: 12px; text-align: center; }
+  @media print { body { background: #fff; } .page { padding: 0; } .actions { display: none; } }
+</style></head><body><div class="page">
+<div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>
+<header><img src="${location.origin}/img/logo.png" alt="Concept Autobody"><div><h1>Vehicle QC Report · RO ${e(key)}</h1><p>${e(job.vehicle || first.qcVehicle || "")}</p></div></header>
+<div class="summary"><span>Customer: <b>${e(job.customerName || first.qcCustomerName || "")}</b></span><span>Stage: <b>${e(job.currentStage || "—")}</b></span><span>Checklists complete: <b>${done} of ${QcChecklists.departments.length}</b></span></div>
+${sections}
+<footer>Printed ${e(new Date().toLocaleString())} from ShopControl</footer>
+</div></body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) return showStatus("Allow pop-ups for ShopControl to open the QC report.", true);
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 function editQc(id){
   const r = store.get("qc").find(x => x.id === id); if (!r) return;
   Object.keys(r).forEach(k => { const el = $(k); if (el) el.value = r[k] ?? ""; });

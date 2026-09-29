@@ -77,7 +77,8 @@ test('extra checklists: body techs who also reassemble can fill out Reassy', asy
   assert.deepEqual(update.args[8], ['Reassy'], 'the main department and duplicates are dropped');
 });
 
-test('Body always comes with Reassy; other departments only get what is set on the account', () => {
+test('Body always comes with Reassy and Check-In with Final QC; others only get what is set on the account', () => {
+  assert.deepEqual(qc.departmentsFor('Check-In', []), ['Check-In', 'Final QC']);
   assert.deepEqual(qc.departmentsFor('Body', []), ['Body', 'Reassy']);
   assert.deepEqual(qc.departmentsFor('Body', ['Reassy', 'Final QC']), ['Body', 'Reassy', 'Final QC']);
   assert.deepEqual(qc.departmentsFor('Paint', []), ['Paint']);
