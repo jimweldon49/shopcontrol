@@ -63,6 +63,11 @@
       <h1>Concept Shop Control</h1>
       <p>Daily GO List • Parts • QC • Booth Filters • Facility • Employees</p>
     </div>
+    <div class="global-search" role="search">
+      <input id="globalSearch" type="search" autocomplete="off" placeholder="Find a vehicle: RO, customer, vehicle, VIN, plate, claim #" aria-label="Find a vehicle" aria-controls="globalSearchResults" />
+      <kbd>/</kbd>
+      <div id="globalSearchResults" class="search-results" hidden></div>
+    </div>
     <div class="header-actions">
       <span class="session-info" id="sessionInfo"></span>
       <button id="refreshBtn">Refresh Data</button>
@@ -1049,5 +1054,6 @@
 <script src="app.js"></script>
 <script src="staff.js"></script>
 <script src="completed.js"></script>
+<script src="search.js"></script>
 </body>
 </html>

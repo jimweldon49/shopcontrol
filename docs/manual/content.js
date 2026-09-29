@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.8";
+const VERSION = "1.9";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.9", date: "September 28, 2026", text: "New **Find a vehicle** search at the top of the office program. It finds any car, at any stage or finished, by RO, customer, vehicle, VIN, plate or claim number." },
   { version: "1.8", date: "September 28, 2026", text: "New **Completed Jobs** tab with each finished job's full file (production timeline, parts, QC, photos, every change). Only an admin can delete a delivered job or its parts." },
   { version: "1.7", date: "September 28, 2026", text: "The Employee App now shows **where each part is**: the car's parts cart, and the cart shelf or storage spot for every part." },
   { version: "1.6", date: "September 28, 2026", text: "Whoever does **Check-In** automatically gets the **Final QC** checklist too. New **QC report** for each car: all five checklists with signatures on one printable page." },
@@ -139,6 +140,22 @@ const sections = [
       ] },
       { h3: "Company info and this manual" },
       { p: "**Company info** holds shop information the office posts (hours, contacts, policies). **User manual** opens this guide." },
+    ],
+  },
+
+  {
+    id: "search",
+    title: "Finding a vehicle",
+    blocks: [
+      { p: "The **Find a vehicle** box at the top of every office screen finds any car ShopControl has ever had: opportunities, cars in production, and delivered or total-loss jobs. Click it (or press **/** or **Ctrl+K** from anywhere) and start typing." },
+      { bullets: [
+        "Search by **RO or estimate number, customer name, year / make / model, color, VIN (even just the last 6), license plate, claim number, insurance company or estimator**.",
+        "Type more than one word to narrow it down, for example **camry silver** or **toyota lopez**.",
+        "Cars still in the shop are listed first, each with its stage (for example **Paint · on site**). Opportunities are marked **Opportunity**. Finished cars show **Delivered** with the date.",
+        "Click a result, or use the arrow keys and press **Enter**. A car in the shop opens its job window (with **Open full Shop Control job** and **QC report**). A finished car opens its file in **Completed Jobs**.",
+        "Press **Esc** to clear the search.",
+      ] },
+      { note: "Jobs someone deleted don't show here. Find them under **Completed Jobs → Show deleted jobs**." },
     ],
   },
 
