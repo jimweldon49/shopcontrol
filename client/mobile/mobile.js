@@ -80,11 +80,10 @@ function ringHtml(progress, extraClass = "") {
   return `<div class="ring ${progress.complete ? "done" : ""} ${extraClass}" style="--p:${p}" data-label="${progress.complete ? "✓" : p + "%"}"></div>`;
 }
 
-// Main department first, then any extra checklists this person also does.
+// Main department first, then what it always comes with (Body -> Reassy), then any
+// extra checklists set on this person's account.
 function myDepartments() {
-  const main = currentUser && currentUser.department;
-  const extras = (currentUser && currentUser.extraDepartments) || [];
-  return [main, ...extras].filter((d, i, all) => d && QcChecklists.byId[d] && all.indexOf(d) === i);
+  return QcChecklists.departmentsFor(currentUser && currentUser.department, currentUser && currentUser.extraDepartments);
 }
 
 function deptColor(id) { return (QcChecklists.byId[id] || {}).color || DEFAULT_ACCENT; }

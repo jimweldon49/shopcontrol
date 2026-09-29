@@ -76,3 +76,11 @@ test('extra checklists: body techs who also reassemble can fill out Reassy', asy
   const update = calls.find(c => c.sql.includes('UPDATE users'));
   assert.deepEqual(update.args[8], ['Reassy'], 'the main department and duplicates are dropped');
 });
+
+test('Body always comes with Reassy; other departments only get what is set on the account', () => {
+  assert.deepEqual(qc.departmentsFor('Body', []), ['Body', 'Reassy']);
+  assert.deepEqual(qc.departmentsFor('Body', ['Reassy', 'Final QC']), ['Body', 'Reassy', 'Final QC']);
+  assert.deepEqual(qc.departmentsFor('Paint', []), ['Paint']);
+  assert.deepEqual(qc.departmentsFor(null, ['Check-In']), ['Check-In']);
+  assert.deepEqual(qc.departmentsFor(null, []), []);
+});

@@ -25,7 +25,8 @@
       ],
     },
     {
-      id: "Body", color: "#f97316", icon: "hammer",
+      // Body techs reassemble the cars they work on, so Body always comes with Reassy.
+      id: "Body", color: "#f97316", icon: "hammer", alsoDoes: ["Reassy"],
       items: [
         { id: "tech_slot", label: "Shop Control tech slot assigned" },
         { id: "estimate_reviewed", label: "Estimate reviewed" },
@@ -93,6 +94,13 @@
   const names = departments.map(d => d.id);
   const byId = Object.fromEntries(departments.map(d => [d.id, d]));
 
+  // Every checklist a person does: their main department, what that department always
+  // comes with (Body -> Reassy), then any extras set on their account.
+  function departmentsFor(main, extras) {
+    const list = [main, ...((byId[main] && byId[main].alsoDoes) || []), ...(extras || [])];
+    return list.filter((d, i) => d && byId[d] && list.indexOf(d) === i);
+  }
+
   // Progress for a saved checklist: { done, total, complete }.
   function progress(departmentId, checklist) {
     const dept = byId[departmentId];
@@ -119,5 +127,5 @@
     if (checklist.notes !== undefined && (typeof checklist.notes !== "string" || checklist.notes.length > 4000)) throw Error("QC notes are too long.");
   }
 
-  return { departments, names, byId, progress, validateChecklist };
+  return { departments, names, byId, progress, validateChecklist, departmentsFor };
 });

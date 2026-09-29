@@ -1501,7 +1501,7 @@ function renderEmployees() {
       <td>${escapeHtml(u.username)}</td>
       <td>${escapeHtml(u.email || "")}</td>
       <td><span class="pill ${u.role === 'admin' ? 'pill-admin' : 'pill-employee'}">${u.role}</span></td>
-      <td><select aria-label="QC department for ${escapeHtml(u.full_name)}" onchange="setEmployeeDepartment('${u.id}', this.value)"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select>${(u.extra_departments || []).length ? `<small>Also: ${escapeHtml(u.extra_departments.join(", "))}</small>` : ""}</td>
+      <td><select aria-label="QC department for ${escapeHtml(u.full_name)}" onchange="setEmployeeDepartment('${u.id}', this.value)"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select>${QcChecklists.departmentsFor(u.department, u.extra_departments).length > 1 ? `<small>Also: ${escapeHtml(QcChecklists.departmentsFor(u.department, u.extra_departments).slice(1).join(", "))}</small>` : ""}</td>
       <td><span class="pill ${u.can_delete ? 'pill-yes' : 'pill-no'}">${u.can_delete ? 'Yes' : 'No'}</span></td>
       <td><span class="pill ${u.active ? 'pill-yes' : 'pill-inactive'}">${u.active ? 'Active' : 'Deactivated'}</span>${u.must_change_password ? '<br><span class="pill pill-admin" title="Still using a temporary password">Needs new password</span>' : ''}</td>
       <td>
@@ -1541,7 +1541,7 @@ function editEmployee(id) {
     <label>QC department (opens their checklist in the mobile app)
       <select name="department"><option value="">None</option>${QcChecklists.names.map(n => `<option ${u.department === n ? "selected" : ""}>${n}</option>`).join("")}</select>
     </label>
-    <fieldset class="staff-picker"><legend>Also does these checklists (e.g. a body tech who also reassembles)</legend>${QcChecklists.names.map(n => `<label class="check-label"><input type="checkbox" name="extraDepartments" value="${n}" ${(u.extra_departments || []).includes(n) ? "checked" : ""}>${n}</label>`).join("")}</fieldset>
+    <fieldset class="staff-picker"><legend>Also does these checklists (Body always includes Reassy)</legend>${QcChecklists.names.map(n => `<label class="check-label"><input type="checkbox" name="extraDepartments" value="${n}" ${(u.extra_departments || []).includes(n) ? "checked" : ""}>${n}</label>`).join("")}</fieldset>
     <p class="board-tip">Username <b>${escapeHtml(u.username)}</b> can't be changed. Use Reset Password to set a new password.</p>`,
     async (form) => {
       const patch = { fullName: form.get("fullName"), email: form.get("email"), jobTitle: form.get("jobTitle"), department: form.get("department"), extraDepartments: form.getAll("extraDepartments").filter(d => d !== form.get("department")) };
