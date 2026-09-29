@@ -120,6 +120,7 @@
 
   .qc-cta { display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; margin-top: 14px; padding: 18px; border-radius: 22px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 40%, transparent); }
   .qc-cta:active { transform: scale(.985); }
+  .qc-cta + .qc-cta { margin-top: 10px; }
   .qc-cta .ring { --c: var(--accent-ink); background: conic-gradient(var(--c) calc(var(--p) * 1%), rgba(0,0,0,.18) 0); width: 58px; height: 58px; }
   .qc-cta .ring::before { width: 46px; height: 46px; background: var(--accent); color: var(--accent-ink); font-size: 13px; }
   .qc-cta b { display: block; font-size: 19px; font-weight: 900; }
@@ -318,7 +319,7 @@
       <button class="tile" id="tilePhotos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg><b>Photos</b><small id="tilePhotosSub">Snap &amp; attach</small></button>
       <button class="tile" id="tileParts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><b>Parts</b><small id="tilePartsSub">Loading…</small></button>
     </div>
-    <div class="eyebrow">Other departments</div>
+    <div class="eyebrow">Other departments · tap to view or help out</div>
     <div class="dept-grid" id="deptGrid"></div>
     <div id="reworkBox"></div>
   </div>

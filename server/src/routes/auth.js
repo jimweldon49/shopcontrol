@@ -162,7 +162,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, username, password_hash, full_name, role, can_delete, active, department, must_change_password FROM users WHERE username = $1",
+      "SELECT id, username, password_hash, full_name, role, can_delete, active, department, must_change_password, extra_departments FROM users WHERE username = $1",
       [name]
     );
     const user = result.rows[0];
@@ -195,7 +195,7 @@ router.post("/login", async (req, res) => {
 
     // Department isn't put in the token (it's re-read on every request); the app
     // just needs it up front to open the right QC checklist.
-    res.json({ token, user: { ...claims, department: user.department || null, mustChangePassword: !!user.must_change_password } });
+    res.json({ token, user: { ...claims, department: user.department || null, extraDepartments: user.extra_departments || [], mustChangePassword: !!user.must_change_password } });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed. Please try again." });

@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.3";
+const VERSION = "1.4";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.4", date: "September 28, 2026", text: "Employees can be set to **also do** other checklists (for example a body tech who reassembles also gets the Reassy checklist)." },
   { version: "1.3", date: "September 28, 2026", text: "New accounts and admin password resets use a temporary password; you choose your own the first time you sign in." },
   { version: "1.2", date: "September 28, 2026", text: "Added the **Help** tab in the office program and a search box in the manual." },
   { version: "1.1", date: "September 28, 2026", text: "Employee App address is now **https://conceptautobody.app** and works on phones anywhere. Added how to put it on your phone's home screen." },
@@ -91,6 +92,7 @@ const sections = [
         "Tap **Sign & finish** when you're done.",
       ] },
       { tip: "Every tap saves automatically (you'll see **Saved** at the top). If your phone locks or you walk away, nothing is lost. Come back to the car and pick up where you left off." },
+      { p: "**Doing more than one department?** If you also reassemble the cars you work on (or cover another department), the office can add that checklist to your account. It then shows as a second big button under your main one on every car. For example, a body tech sees both **Body QC** and **Reassy QC**." },
       { h3: "Signing and rework" },
       { steps: [
         "The finish screen shows any items still unchecked.",
@@ -100,7 +102,7 @@ const sections = [
       ] },
       { p: "Open rework shows on the vehicle screen for everyone. When the fix is done, tap **Mark rework done**." },
       { h3: "Other departments' checklists" },
-      { p: "On the vehicle screen, **Other departments** shows each department's progress on that car. Tap one to view or fill it out if you're helping cover that department." },
+      { p: "On the vehicle screen, **Other departments** shows each department's progress on that car. Tap one to view it, or to fill it out if you're helping cover that department." },
       { h3: "Photos and parts" },
       { bullets: [
         "**Photos:** tap **Take a photo** to use the camera, or **Choose a file** for pictures and PDFs. Add a caption first if you like. Photos attach to the job and the office sees them in ShopControl.",
@@ -328,7 +330,7 @@ const sections = [
       ] },
       { h3: "Changing an employee" },
       { bullets: [
-        "**Edit:** change name, email, job title, role and QC department.",
+        "**Edit:** change name, email, job title, role and QC department. Use **Also does these checklists** for people who do more than one department (for example a body tech who also reassembles: main department **Body**, also does **Reassy**). The list shows the extras under their QC department.",
         "**QC Department** dropdown in the list: change it directly.",
         "**Reset Password** sets a new temporary password; the employee must choose their own at next sign-in. Anyone still on a temporary password shows **Needs new password** in the list.",
         "**Grant/Revoke Delete**, **Deactivate / Reactivate**. Deactivate people who leave instead of deleting them.",

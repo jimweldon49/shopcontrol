@@ -53,3 +53,26 @@ test('employee edits: email and job title are validated', async () => {
   assert.equal(update.args[4], 'new@shop.com');
   assert.equal(update.args[6], 'Body Tech');
 });
+
+test('extra checklists: body techs who also reassemble can fill out Reassy', async () => {
+  assert.equal(hasPermission({ role: 'office', extraDepartments: ['Reassy'] }, 'qc', 'create'), true);
+  const load3 = Module._load, calls = [];
+  const pool = { query: async (sql, args) => { calls.push({ sql, args }); if (sql.startsWith('SELECT')) return { rows: [{ id: 'u3', full_name: 'Tech', email: null, role: 'body', can_delete: false, active: true, department: 'Body', job_title: null, extra_departments: [] }] }; return { rows: [{ id: 'u3' }] }; } };
+  Module._load = function (name, parent, ...rest) {
+    if (/(^|\/)db$/.test(name)) return { pool };
+    if (name.endsWith('/activityLogger')) return { logActivity: async () => {} };
+    if (name === 'jsonwebtoken') return {};
+    if (name === 'bcryptjs') return { hash: async () => 'h' };
+    if (name === 'express') return { Router: () => { const r = { routes: {}, get() {}, post() {}, patch(p, ...h) { r.routes['PATCH ' + p] = h.at(-1); } }; return r; } };
+    return load3.call(this, name, parent, ...rest);
+  };
+  delete require.cache[require.resolve('../src/routes/users')];
+  const router = require('../src/routes/users');
+  Module._load = load3;
+  const call = async (body) => { const out = {}; const res = { status(c) { out.code = c; return res; }, json(b) { out.body = b; return res; } }; await router.routes['PATCH /:id']({ params: { id: 'u3' }, body, user: { id: 'admin' } }, res); return out; };
+  assert.equal((await call({ extraDepartments: ['Detail'] })).code, 400);
+  calls.length = 0;
+  await call({ extraDepartments: ['Reassy', 'Body', 'Reassy'] });
+  const update = calls.find(c => c.sql.includes('UPDATE users'));
+  assert.deepEqual(update.args[8], ['Reassy'], 'the main department and duplicates are dropped');
+});

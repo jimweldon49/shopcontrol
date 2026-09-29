@@ -61,7 +61,7 @@ function hasPermission(user, resource, action) {
 
   // Anyone assigned a QC department (e.g. an office person doing Check-In) can fill
   // out and update QC checklists, whatever their role.
-  if (resource === "qc" && user && user.department && ["list", "create", "update"].includes(action)) return true;
+  if (resource === "qc" && user && (user.department || (user.extraDepartments && user.extraDepartments.length)) && ["list", "create", "update"].includes(action)) return true;
 
   if (resources.includes("*") || resources.includes(resource)) {
     if (action === "delete") return (actions.includes("*") || actions.includes("update")) && user && user.canDelete !== false;
@@ -83,9 +83,9 @@ async function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active,department,must_change_password FROM users WHERE id=$1',[payload.id])).rows[0];
+    const row=(await pool.query('SELECT id,username,full_name,role,can_delete,active,department,must_change_password,extra_departments FROM users WHERE id=$1',[payload.id])).rows[0];
     if(!row||!row.active)return res.status(401).json({error:'This account is not active.'});
-    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete,department:row.department||null,mustChangePassword:!!row.must_change_password};
+    req.user={id:row.id,username:row.username,fullName:row.full_name,role:row.role,canDelete:row.can_delete,department:row.department||null,extraDepartments:row.extra_departments||[],mustChangePassword:!!row.must_change_password};
     // Until they pick their own password (after an admin set a temporary one), only
     // the account check and the change-password call are allowed.
     if(row.must_change_password&&!PASSWORD_CHANGE_ALLOWED.some(p=>(req.originalUrl||'').split('?')[0]===p)){

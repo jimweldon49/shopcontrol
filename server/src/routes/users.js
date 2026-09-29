@@ -8,7 +8,7 @@ const router = express.Router();
 
 const { names: QC_DEPARTMENTS } = require("../../../client/qcChecklists");
 
-const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department, job_title, must_change_password";
+const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department, job_title, must_change_password, extra_departments";
 const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
 
 function normalizeRole(role) {
@@ -38,6 +38,15 @@ function normalizeEmail(value) {
   if (!v) return null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw Error("Enter a valid email address.");
   return v;
+}
+
+// Extra QC checklists this person also does (besides their main department).
+function normalizeExtraDepartments(value, main) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw Error("Choose the extra checklists from the list.");
+  const list = [...new Set(value.map((v) => String(v || "").trim()).filter(Boolean))];
+  if (list.some((v) => !QC_DEPARTMENTS.includes(v))) throw Error("Choose a valid QC department.");
+  return list.filter((v) => v !== main);
 }
 
 // List employees (no password hashes returned)
@@ -108,12 +117,13 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
 
 // Update an employee: active status, role, delete permission, name, email, job title, QC department.
 router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const { active, role, canDelete, fullName, email, department, jobTitle } = req.body || {};
-  let dept, title, mail;
+  const { active, role, canDelete, fullName, email, department, jobTitle, extraDepartments } = req.body || {};
+  let dept, title, mail, extras;
   try {
     dept = normalizeDepartment(department);
     title = normalizeJobTitle(jobTitle);
     mail = normalizeEmail(email);
+    extras = normalizeExtraDepartments(extraDepartments, dept);
   } catch (e) { return res.status(400).json({ error: e.message }); }
 
   const beforeResult = await pool.query(`SELECT ${USER_FIELDS} FROM users WHERE id = $1`, [req.params.id]);
@@ -134,14 +144,16 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
   const nextEmail = mail === undefined ? before.email : mail;
   const nextDepartment = dept === undefined ? before.department : dept;
   const nextJobTitle = title === undefined ? before.job_title : title;
+  // Never list the main department again as an "extra" one.
+  const nextExtras = (extras === undefined ? (before.extra_departments || []) : extras).filter((d) => d !== nextDepartment);
 
   let result;
   try {
     result = await pool.query(
-      `UPDATE users SET active = $1, role = $2, can_delete = $3, full_name = $4, email = $5, department = $6, job_title = $7
+      `UPDATE users SET active = $1, role = $2, can_delete = $3, full_name = $4, email = $5, department = $6, job_title = $7, extra_departments = $9
        WHERE id = $8
        RETURNING ${USER_FIELDS}`,
-      [nextActive, nextRole, nextCanDelete, nextFullName, nextEmail, nextDepartment, nextJobTitle, req.params.id]
+      [nextActive, nextRole, nextCanDelete, nextFullName, nextEmail, nextDepartment, nextJobTitle, req.params.id, nextExtras]
     );
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "That email is already used by another employee." });

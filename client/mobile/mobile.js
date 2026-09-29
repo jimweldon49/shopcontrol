@@ -80,6 +80,13 @@ function ringHtml(progress, extraClass = "") {
   return `<div class="ring ${progress.complete ? "done" : ""} ${extraClass}" style="--p:${p}" data-label="${progress.complete ? "✓" : p + "%"}"></div>`;
 }
 
+// Main department first, then any extra checklists this person also does.
+function myDepartments() {
+  const main = currentUser && currentUser.department;
+  const extras = (currentUser && currentUser.extraDepartments) || [];
+  return [main, ...extras].filter((d, i, all) => d && QcChecklists.byId[d] && all.indexOf(d) === i);
+}
+
 function deptColor(id) { return (QcChecklists.byId[id] || {}).color || DEFAULT_ACCENT; }
 
 // ------------------------------------------------------------------ Auth
@@ -260,18 +267,23 @@ function renderJob() {
     ["Techs", techs || "—"],
   ].map(([k, v]) => `<div class="fact"><small>${k}</small><b>${esc(v)}</b></div>`).join("");
 
-  if (mine && QcChecklists.byId[mine]) {
-    const p = progressFor(j, mine);
-    const rec = recordFor(j, mine);
-    const sub = p.complete && rec && rec.qc_signed_at
-      ? `Done · signed by ${rec.qc_performed_by || "?"}`
-      : p.done ? `${p.done} of ${p.total} checked · keep going` : `${p.total} items · tap to start`;
-    $("jobQc").innerHTML = `<button class="qc-cta" data-dept="${esc(mine)}">${ringHtml(p)}<div><b>${esc(mine)} QC</b><span>${esc(sub)}</span></div><div class="arrow">›</div></button>`;
+  // Their main department plus any extra checklists they also do (set in Employees),
+  // e.g. a body tech who also reassembles gets a Reassy button too.
+  const myDepts = myDepartments();
+  if (myDepts.length) {
+    $("jobQc").innerHTML = myDepts.map((id) => {
+      const p = progressFor(j, id);
+      const rec = recordFor(j, id);
+      const sub = p.complete && rec && rec.qc_signed_at
+        ? `Done · signed by ${rec.qc_performed_by || "?"}`
+        : p.done ? `${p.done} of ${p.total} checked · keep going` : `${p.total} items · tap to start`;
+      return `<button class="qc-cta" style="--accent:${deptColor(id)}" data-dept="${esc(id)}">${ringHtml(p)}<div><b>${esc(id)} QC</b><span>${esc(sub)}</span></div><div class="arrow">›</div></button>`;
+    }).join("");
   } else {
     $("jobQc").innerHTML = `<div class="eyebrow">Pick a checklist</div>`;
   }
 
-  $("deptGrid").innerHTML = DEPTS.filter((d) => d.id !== mine).map((d) => {
+  $("deptGrid").innerHTML = DEPTS.filter((d) => !myDepts.includes(d.id)).map((d) => {
     const p = progressFor(j, d.id);
     const rec = recordFor(j, d.id);
     const label = p.complete ? `✓ ${rec && rec.qc_performed_by ? rec.qc_performed_by.split(" ")[0] : "Done"}` : p.done ? `${p.done}/${p.total} checked` : "Not started";
