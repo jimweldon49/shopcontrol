@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.6";
+const VERSION = "1.7";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "1.7", date: "September 28, 2026", text: "The Employee App now shows **where each part is**: the car's parts cart, and the cart shelf or storage spot for every part." },
   { version: "1.6", date: "September 28, 2026", text: "Whoever does **Check-In** automatically gets the **Final QC** checklist too. New **QC report** for each car: all five checklists with signatures on one printable page." },
   { version: "1.5", date: "September 28, 2026", text: "Body technicians automatically get the **Reassy** checklist too." },
   { version: "1.4", date: "September 28, 2026", text: "Employees can be set to **also do** other checklists (for example a body tech who reassembles also gets the Reassy checklist)." },
@@ -108,7 +109,7 @@ const sections = [
       { h3: "Photos and parts" },
       { bullets: [
         "**Photos:** tap **Take a photo** to use the camera, or **Choose a file** for pictures and PDFs. Add a caption first if you like. Photos attach to the job and the office sees them in ShopControl.",
-        "**Parts:** every part on the RO with its status. Parts that need attention (late, backordered, wrong part, return needed) are marked in red.",
+        "**Parts:** every part on the RO with its status and **where it is**. The car's parts cart shows at the top (and on the Parts button, for example **Cart #13 · 4/5 here**). Each part shows its spot with a 📍, like **Cart #13 · Shelf 2**, **#3 A · Black Shelves Wall** or **Receiving Bumpers · Bumper Racks**. A part that has arrived but hasn't been put away yet says **Here, not put away yet · ask parts**. Parts that need attention (late, backordered, wrong part, return needed) are marked in red.",
       ] },
     ],
   },
@@ -256,6 +257,7 @@ const sections = [
         "In **Carts & Shelves**, click the cart and drag each part onto its shelf. Parts without a shelf wait in the **Needs a shelf** column.",
       ] },
       { note: "One vehicle per cart. A cart belongs to the first RO placed on it until it's cleared." },
+      { p: "Technicians see these spots in the Employee App under **Parts**, so always record where a part was put (cart and shelf, or storage spot). A part that is received but not placed shows as **not put away yet**." },
       { h3: "Other parts screens" },
       { bullets: [
         "**Shop Floor Plan:** carts and storage locations by zone.",

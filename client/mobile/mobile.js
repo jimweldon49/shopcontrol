@@ -313,6 +313,16 @@ async function markReworkDone(id) {
 
 // ------------------------------------------------------------------ Parts
 let jobParts = [];
+let partLocations = [];
+
+// Where a part physically is: a cart shelf ("Cart #13 · Shelf 2") or a storage spot
+// ("#3 A · Black Shelves Wall"). Returns "" when it hasn't been put away yet.
+function partWhere(p) {
+  const loc = partLocations.find((l) => l.id === p.part_location);
+  if (!loc) return "";
+  if (loc.kind === "cart") return `Cart ${loc.name}${p.part_shelf ? " · " + (p.part_shelf === "Top" ? "Top" : "Shelf " + p.part_shelf) : ""}`;
+  return `${loc.name} · ${loc.zone}`;
+}
 function partProblem(p) {
   if (p.part_status === "Complete") return null;
   if (p.part_eta && String(p.part_eta).slice(0, 10) < today() && !["Received", "Complete", "Returned"].includes(p.part_status)) return "Late";
@@ -323,11 +333,14 @@ function partProblem(p) {
 async function loadPartsSummary() {
   const ro = roOf(activeJob), est = String(activeJob.ccc_estfile_id || "").trim();
   try {
-    const parts = await apiRequest("/parts");
+    const [parts, locations] = await Promise.all([apiRequest("/parts"), apiRequest("/inventoryLocations").catch(() => [])]);
+    partLocations = Array.isArray(locations) ? locations : [];
     jobParts = parts.filter((p) => { const r = String(p.parts_ro_number || "").trim(); return r && (r === ro || (est && r === est)); });
     const bad = jobParts.filter(partProblem).length;
     const here = jobParts.filter((p) => ["Received", "Complete"].includes(p.part_status)).length;
-    $("tilePartsSub").textContent = jobParts.length ? (bad ? `${bad} need attention` : `${here}/${jobParts.length} here`) : "None on file";
+    const cart = partLocations.filter((l) => l.kind === "cart" && (l.ros || []).map(String).includes(ro)).map((l) => l.name).join(" + ");
+    const summary = jobParts.length ? (bad ? `${bad} need attention` : `${here}/${jobParts.length} here`) : "None on file";
+    $("tilePartsSub").textContent = cart ? `Cart ${cart} · ${summary}` : summary;
     $("tileParts").classList.toggle("alert-tile", bad > 0);
   } catch (_) {
     jobParts = null;
@@ -338,15 +351,25 @@ async function loadPartsSummary() {
 function openParts() {
   $("partsTitle").textContent = `Parts · RO ${activeJob.ro_number || ""}`;
   const list = jobParts || [];
+  const ro = roOf(activeJob);
+  const carts = partLocations.filter((l) => l.kind === "cart" && (l.ros || []).map(String).includes(ro));
+  const cartBanner = carts.length
+    ? `<div class="where-banner"><span>Parts cart</span><b>${carts.map((c) => esc(c.name)).join(" + ")}</b><small>${esc(carts[0].zone)}</small></div>`
+    : "";
   $("partsList").innerHTML = jobParts === null
     ? `<div class="empty">Your account can't view parts.</div>`
-    : list.length ? list.map((p) => {
+    : list.length ? cartBanner + list.map((p) => {
         const prob = partProblem(p);
         const ok = ["Received", "Complete"].includes(p.part_status);
+        const where = partWhere(p);
+        const whereLine = p.part_status === "Complete" ? ""
+          : where ? `<div class="where">📍 ${esc(where)}</div>`
+          : p.part_status === "Received" ? `<div class="where none">📍 Here, not put away yet · ask parts</div>`
+          : "";
         return `<div class="row-card"><b>${esc(p.part_description || "Part")}</b>
-          <small>${esc([p.part_vendor, p.part_eta ? "ETA " + String(p.part_eta).slice(0, 10) : ""].filter(Boolean).join(" · "))}</small><br>
+          <small>${esc([p.part_vendor, p.part_eta ? "ETA " + String(p.part_eta).slice(0, 10) : ""].filter(Boolean).join(" · "))}</small>${whereLine}
           <span class="pill ${prob ? "bad" : ok ? "ok" : ""}">${esc(prob || p.part_status || "")}</span></div>`;
-      }).join("") : `<div class="empty">No parts on file for this RO.</div>`;
+      }).join("") : cartBanner + `<div class="empty">No parts on file for this RO.</div>`;
   showScreen("parts");
 }
 
