@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.0";
+const VERSION = "2.1";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "2.1", date: "September 30, 2026", text: "New **shop touch board**: technicians move cars to their next stage by tapping the car, the stage and their name." },
   { version: "2.0", date: "September 30, 2026", text: "The Employee App can be switched to **Spanish** with the **Español** button. Reports and the office program stay in English." },
   { version: "1.9", date: "September 28, 2026", text: "New **Find a vehicle** search at the top of the office program. It finds any car, at any stage or finished, by RO, customer, vehicle, VIN, plate or claim number." },
   { version: "1.8", date: "September 28, 2026", text: "New **Completed Jobs** tab with each finished job's full file (production timeline, parts, QC, photos, every change). Only an admin can delete a delivered job or its parts." },
@@ -69,6 +70,7 @@ const sections = [
         ["Body / Paint / QC", "Jobs, tasks, QC checklists, photos; can view (not change) parts. Paint also has the booth log."],
         ["Cleanup Helper", "Tasks, facility checklist, booth log."],
         ["Display / TV", "View only. Used for the TV in the shop."],
+        ["Shop board", "The touch screen in the shop. Sees the Production Board and can only move cars between production stages."],
       ] } },
       { p: "Separately, each employee can have a **QC Department** (Check-In, Body, Paint, Reassy or Final QC). That decides which checklist opens for them in the Employee App, and it lets anyone with a department fill out QC checklists." },
     ],
@@ -237,6 +239,23 @@ const sections = [
       ] },
       { h3: "TV display" },
       { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. To open it on a computer, click **TV display** in the left menu." },
+      { h3: "Shop touch board" },
+      { p: "The touch screen in the shop shows the same Production Board as the TV, and technicians use it to move cars to their next stage:" },
+      { steps: [
+        "Tap the car.",
+        "Tap the big orange button to move it to its usual next stage (for example **Move to Paint**), or tap any other stage.",
+        "Tap your name. Names of the techs assigned to the car are at the top.",
+        "The car moves and a green banner confirms it. Tapped the wrong thing? Tap **Undo** on the banner within 15 seconds.",
+      ] },
+      { p: "Every move is saved under the name that was tapped, for example **Luis S (shop board)**, and shows in the car's production timeline in **Completed Jobs**. The board holds still for 90 seconds after anyone touches it, then goes back to paging through the columns. If nobody finishes a move, the move screen closes by itself after a minute." },
+      { note: "The shop board can only move cars between production stages. It can't mark a car Delivered, edit a job, or delete anything. Only tap your own name: the move is recorded as yours." },
+      { h3: "Setting up the shop touch board (admins)" },
+      { steps: [
+        "In **Employees**, add an account (for example username **shopboard**, name **Shop Board**) with the role **Shop board (touch screen: moves cars only)**.",
+        "On the touch screen, open ShopControl (https://shopcontrol.conceptauto.local on the shop network, or https://conceptautobody.app/index.html) and sign in with that account. It opens straight to the Production Board, full screen.",
+        "It stays signed in, refreshes every 20 seconds and reloads every 3 hours, just like the TV.",
+      ] },
+      { tip: "To try it from an office computer, click **Shop touch board** in the left menu. Moves you make there are recorded under the name you tap." },
     ],
   },
 

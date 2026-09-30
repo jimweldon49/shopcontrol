@@ -190,7 +190,7 @@ router.post("/login", async (req, res) => {
     // browser's storage rather than someone re-typing a password, so it
     // gets a much longer session than a normal employee login.
     const token = jwt.sign(claims, process.env.JWT_SECRET, {
-      expiresIn: user.role === "display" ? (process.env.KIOSK_JWT_EXPIRES_IN || "365d") : (process.env.JWT_EXPIRES_IN || "12h"),
+      expiresIn: ["display", "shopboard"].includes(user.role) ? (process.env.KIOSK_JWT_EXPIRES_IN || "365d") : (process.env.JWT_EXPIRES_IN || "12h"),
     });
 
     // Department isn't put in the token (it's re-read on every request); the app

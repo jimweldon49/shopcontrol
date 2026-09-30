@@ -1583,7 +1583,7 @@ async function toggleActive(id, value) {
   try { await api.patchUser(id, { active: value }); showStatus(value ? "Employee reactivated." : "Employee deactivated."); await loadEmployees(); }
   catch (err) { showStatus(err.message, true); }
 }
-const EMPLOYEE_ROLES = [["employee","Employee"],["admin","Admin / Owner"],["owner","Owner"],["manager","Manager"],["office","Office"],["estimator","Estimator"],["parts","Parts"],["paint","Paint"],["body","Body"],["qc","QC / Detail"],["cleanup","Cleanup Helper"],["display","Display / TV (read-only)"]];
+const EMPLOYEE_ROLES = [["employee","Employee"],["admin","Admin / Owner"],["owner","Owner"],["manager","Manager"],["office","Office"],["estimator","Estimator"],["parts","Parts"],["paint","Paint"],["body","Body"],["qc","QC / Detail"],["cleanup","Cleanup Helper"],["display","Display / TV (read-only)"],["shopboard","Shop board (touch screen: moves cars only)"]];
 
 // Edit an employee's name, email, job title, role and QC department in one place.
 function editEmployee(id) {
@@ -2049,7 +2049,8 @@ let kioskReloadTimer = null;
 const KIOSK_RELOAD_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 function isKioskMode() {
-  return String(currentUser?.role || "").toLowerCase() === "display" || new URLSearchParams(location.search).has("kiosk");
+  const q = new URLSearchParams(location.search);
+  return ["display", "shopboard"].includes(String(currentUser?.role || "").toLowerCase()) || q.has("kiosk") || q.has("shopboard");
 }
 
 const KIOSK_PAGE_HOLD_MS = 11000;
@@ -2062,6 +2063,8 @@ const KIOSK_PAGE_HOLD_MS = 11000;
 // refresh, or when the tab regains visibility - it snaps straight to the
 // correct page instead of drifting or just getting stuck.
 function syncKioskBoardPage() {
+  // The shop touch board holds still for a while after someone touches it.
+  if (window.kioskPausedUntil && Date.now() < window.kioskPausedUntil) return;
   const el = document.querySelector("#production .production-columns");
   const col = el?.querySelector(".production-column");
   if (!el || !col) return;
@@ -2115,6 +2118,7 @@ function showApp() {
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync
   if (kiosk) { switchView("production"); startKioskAutoScroll(); startKioskAutoReload(); }
   else { clearInterval(kioskScrollTimer); clearTimeout(kioskReloadTimer); }
+  if (typeof ShopBoard !== "undefined") { if (ShopBoard.active()) ShopBoard.start(); else ShopBoard.stop(); }
 }
 
 function showLogin() {
@@ -2122,6 +2126,7 @@ function showLogin() {
   clearInterval(kioskScrollTimer);
   clearTimeout(kioskReloadTimer);
   document.body.classList.remove("kiosk-mode");
+  if (typeof ShopBoard !== "undefined") ShopBoard.stop();
   $("appRoot").classList.remove("visible");
   $("loginScreen").style.display = "flex";
   $("loginPassword").value = "";
@@ -2229,7 +2234,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("cccImportForm")) $("cccImportForm").addEventListener("submit", handleCccImport);
   $("employeeForm").addEventListener("submit", handleCreateEmployee);
   $("empRole").addEventListener("change", () => {
-    const isDisplay = $("empRole").value === "display";
+    const isDisplay = ["display", "shopboard"].includes($("empRole").value);
     if (isDisplay) $("empCanDelete").checked = false;
     $("empCanDelete").disabled = isDisplay;
   });

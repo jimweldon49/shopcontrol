@@ -154,7 +154,7 @@ router.post("/time-off/:id/decision", async (req, res) => {
 router.get("/recipients", async (req, res) => {
   try {
     res.json((await pool.query(
-      "SELECT id, full_name, role, department, job_title FROM users WHERE active=true AND role <> 'display' ORDER BY full_name")).rows);
+      "SELECT id, full_name, role, department, job_title FROM users WHERE active=true AND role NOT IN ('display', 'shopboard') ORDER BY full_name")).rows);
   } catch (e) { fail(res, e); }
 });
 
@@ -199,7 +199,7 @@ router.post("/messages", async (req, res) => {
     const b = req.body || {};
     const subject = clean(b.subject, 200), body = clean(b.body, 5000);
     if (!body) throw Error("Write a message.");
-    const active = "active=true AND role <> 'display'";
+    const active = "active=true AND role NOT IN ('display', 'shopboard')";
     let recipients = [], audience = null, replyTo = null;
 
     if (b.reply_to) {

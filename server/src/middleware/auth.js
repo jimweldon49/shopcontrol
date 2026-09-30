@@ -42,6 +42,12 @@ const ROLE_PERMISSIONS = {
     resources: ["*"],
     actions: ["list"],
   },
+  // Touch screen in the shop: sees everything, and moves cars between production
+  // stages only through /api/shopBoard/move (which logs the technician who tapped).
+  shopboard: {
+    resources: ["*"],
+    actions: ["list"],
+  },
   employee: {
     resources: ["daily", "tasks", "parts", "qc", "booth", "facility", "activity", "uploads", "missed_calls"],
     actions: ["list", "create", "update", "upload"],

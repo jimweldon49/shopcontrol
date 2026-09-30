@@ -9,7 +9,7 @@ const router = express.Router();
 const { names: QC_DEPARTMENTS } = require("../../../client/qcChecklists");
 
 const USER_FIELDS = "id, username, full_name, email, role, can_delete, active, created_at, department, job_title, must_change_password, extra_departments";
-const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "employee"];
+const ALLOWED_ROLES = ["admin", "owner", "manager", "office", "estimator", "parts", "paint", "body", "qc", "cleanup", "display", "shopboard", "employee"];
 
 function normalizeRole(role) {
   const value = String(role || "employee").toLowerCase();

@@ -297,3 +297,37 @@ body.kiosk-mode .board-logo { height: 96px; }
 .search-more { padding: 10px 12px; color: var(--muted); font-size: 12px; }
 @media (max-width: 1100px) { .global-search { margin: 12px 0; max-width: none; width: 100%; } }
 @media (max-width: 760px) { .search-hit { grid-template-columns: 60px 1fr; } .search-stage { grid-column: 2; justify-self: start; } .global-search kbd { display: none; } }
+
+/* Shop touch board (interactive Production Board in the shop) */
+body.shopboard-mode .production-card { cursor: pointer; touch-action: manipulation; }
+body.shopboard-mode .production-card:active { transform: scale(.98); }
+body.shopboard-mode .production-columns { touch-action: pan-x pan-y; }
+.sb-hint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 40; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 20px; padding: 12px 26px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,.45); pointer-events: none; }
+.sb-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.sb-panel { width: min(1100px, 100%); max-height: 100%; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 28px; box-shadow: 0 30px 90px rgba(0,0,0,.6); }
+.sb-car { display: flex; gap: 24px; align-items: center; margin-bottom: 22px; }
+.sb-car img { width: 220px; height: 130px; object-fit: contain; background: var(--surface-2); border-radius: 16px; }
+.sb-ro { color: var(--accent); font-weight: 800; font-size: 18px; }
+.sb-car h2 { margin: 4px 0; font-size: 32px; }
+.sb-car p { margin: 0 0 10px; color: var(--muted); font-size: 20px; }
+.sb-now { display: inline-block; background: var(--surface-3); padding: 6px 14px; border-radius: 999px; font-size: 16px; color: var(--muted); }
+.sb-now b { color: var(--text); }
+.sb-next { display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; padding: 26px; font-size: 30px; font-weight: 700; border-radius: 18px; background: var(--accent); color: var(--accent-ink); border: 0; margin-bottom: 20px; }
+.sb-next b { font-weight: 900; } .sb-next span { font-size: 36px; }
+.sb-label { color: var(--muted); font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin: 6px 0 12px; }
+.sb-stages, .sb-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.sb-stages button, .sb-people button { min-height: 76px; padding: 14px; font-size: 20px; font-weight: 700; border-radius: 14px; background: var(--surface-2); color: var(--text); border: 1.5px solid var(--line); }
+.sb-stages button:active, .sb-people button:active { background: var(--accent-soft); border-color: var(--accent); }
+.sb-stages button:disabled { opacity: .35; }
+.sb-people-mine { margin-bottom: 12px; }
+.sb-people-mine button { border-color: var(--accent); background: var(--accent-soft); }
+.sb-people button.sb-busy { background: var(--accent); color: var(--accent-ink); }
+.sb-moving { font-size: 26px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sb-moving span { color: var(--accent); } .sb-moving b { color: var(--accent); }
+.sb-link { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 16px; }
+.sb-cancel { display: block; width: 100%; margin-top: 22px; padding: 20px; font-size: 20px; font-weight: 700; border-radius: 14px; background: transparent; color: var(--muted); border: 1.5px solid var(--line); }
+.sb-empty { color: var(--muted); font-size: 18px; }
+.sb-toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 250; display: flex; align-items: center; gap: 18px; background: #14532d; color: #dcfce7; border: 1px solid #22c55e; font-size: 22px; font-weight: 700; padding: 16px 18px 16px 26px; border-radius: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+.sb-toast-error { background: #4c0519; color: #ffe4e6; border-color: #f43f5e; padding-right: 26px; }
+.sb-toast button { font-size: 20px; font-weight: 800; padding: 12px 22px; border-radius: 12px; background: #dcfce7; color: #14532d; border: 0; }
+@media (max-width: 800px) { .sb-car img { width: 140px; height: 90px; } .sb-car h2 { font-size: 24px; } .sb-next { font-size: 24px; } }
