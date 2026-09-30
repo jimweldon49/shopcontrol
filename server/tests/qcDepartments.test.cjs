@@ -85,3 +85,10 @@ test('Body always comes with Reassy and Check-In with Final QC; others only get 
   assert.deepEqual(qc.departmentsFor(null, ['Check-In']), ['Check-In']);
   assert.deepEqual(qc.departmentsFor(null, []), []);
 });
+
+test('every checklist item has Spanish wording for the employee app (records keep the item ids)', () => {
+  for (const d of qc.departments) {
+    assert.ok(d.es, `${d.id} has a Spanish name`);
+    for (const i of d.items) assert.ok(i.es && i.es !== i.label, `${d.id} / ${i.id} has Spanish wording`);
+  }
+});

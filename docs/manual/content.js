@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "1.9";
+const VERSION = "2.0";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "2.0", date: "September 30, 2026", text: "The Employee App can be switched to **Spanish** with the **Español** button. Reports and the office program stay in English." },
   { version: "1.9", date: "September 28, 2026", text: "New **Find a vehicle** search at the top of the office program. It finds any car, at any stage or finished, by RO, customer, vehicle, VIN, plate or claim number." },
   { version: "1.8", date: "September 28, 2026", text: "New **Completed Jobs** tab with each finished job's full file (production timeline, parts, QC, photos, every change). Only an admin can delete a delivered job or its parts." },
   { version: "1.7", date: "September 28, 2026", text: "The Employee App now shows **where each part is**: the car's parts cart, and the cart shelf or storage spot for every part." },
@@ -86,7 +87,12 @@ const sections = [
         "**Envelope icon:** your mailbox. A red number means unread messages.",
         "**Bell icon:** parts and core-return alerts.",
         "**Exit icon** (top right): sign out.",
+        "**Español / English** button (top of the screen): switches the app between English and Spanish.",
       ] },
+      { h3: "Spanish (Español)" },
+      { p: "Tap **Español** at the top of the sign-in screen, the home screen or the Staff Hub to switch the whole app to Spanish: menus, buttons, messages, every QC checklist item, part statuses, production stages and the time-off form. Tap **English** to switch back. Each phone remembers its choice." },
+      { p: "Everything is still **saved in English**. Checklists save which items were checked, not the words on screen, so the office program, the QC report and Completed Jobs always show the English checklist, whichever language the tech used. Time-off types, rework choices and stages also save in English." },
+      { note: "What someone **types** is saved exactly as typed. If a tech writes notes or a rework description in Spanish, that note shows in Spanish in the office program and on reports. Messages and company info from the office are not translated either. The user manual is in English." },
       { h3: "Doing your QC checklist" },
       { steps: [
         "Tap a vehicle on the home screen.",

@@ -293,7 +293,7 @@ function renderJob() {
   $("reworkBox").innerHTML = rework.length ? `<div class="eyebrow">Open rework</div>${rework.map((r) => `
     <div class="row-card">
       <b>${esc(r.qc_rework_assigned_to || "Unassigned")}${r.qc_department ? ` · from ${esc(r.qc_department)}` : ""}</b>
-      <small>${esc(r.qc_issues || "")}</small><br>
+      <small translate="no">${esc(r.qc_issues || "")}</small><br>
       <span class="pill ${r.qc_rework_due_date && r.qc_rework_due_date < today() ? "bad" : ""}">${r.qc_rework_due_date ? "Due " + esc(r.qc_rework_due_date) : "No due date"}</span>
       <button class="btn btn-ghost" style="margin-top:10px;padding:12px" data-rework="${esc(r.id)}">Mark rework done</button>
     </div>`).join("")}` : "";

@@ -14,10 +14,10 @@
   const when = (iso) => {
     const d = new Date(iso), now = new Date();
     return d.toDateString() === now.toDateString()
-      ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-      : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      ? d.toLocaleTimeString(I18n.locale(), { hour: "numeric", minute: "2-digit" })
+      : d.toLocaleDateString(I18n.locale(), { month: "short", day: "numeric" });
   };
-  const fmtDay = (d) => new Date(String(d).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const fmtDay = (d) => new Date(String(d).slice(0, 10) + "T12:00:00").toLocaleDateString(I18n.locale(), { weekday: "short", month: "short", day: "numeric" });
   function dates(r) {
     const s = String(r.start_date).slice(0, 10), e = String(r.end_date).slice(0, 10);
     let out = s === e ? fmtDay(s) : `${fmtDay(s)} – ${fmtDay(e)}`;
@@ -127,7 +127,7 @@
       list.innerHTML = inbox.length ? inbox.map((m) => `
         <button class="mail-item ${m.read_at ? "" : "unread"}" data-msg="${esc(m.id)}">
           <div class="top"><b>${esc(m.sender_name)}</b><small>${esc(when(m.created_at))}</small></div>
-          <div class="subj">${esc(m.subject)}</div><div class="prev">${esc(m.body)}</div>
+          <div class="subj" translate="no">${esc(m.subject)}</div><div class="prev" translate="no">${esc(m.body)}</div>
         </button>`).join("") : '<div class="empty">No messages yet.</div>';
       refreshCounts();
     } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
@@ -137,7 +137,7 @@
     openMsg = inbox.find((m) => m.id === id);
     if (!openMsg) return;
     $("msgBarTitle").textContent = openMsg.sender_name;
-    $("msgMeta").textContent = `From ${openMsg.sender_name}${openMsg.audience ? ` · to ${openMsg.audience}` : ""} · ${new Date(openMsg.created_at).toLocaleString()}`;
+    $("msgMeta").textContent = `From ${openMsg.sender_name}${openMsg.audience ? ` · to ${openMsg.audience}` : ""} · ${new Date(openMsg.created_at).toLocaleString(I18n.locale())}`;
     $("msgSubject").textContent = openMsg.subject;
     $("msgBody").textContent = openMsg.body;
     $("msgReplyBtn").hidden = !openMsg.sender_id;
@@ -195,7 +195,7 @@
     try {
       const rows = await apiRequest("/staff/company-info");
       list.innerHTML = rows.length
-        ? rows.map((s) => `<div class="info-card"><h3>${esc(s.title)}</h3><div class="info-body">${esc(s.body)}</div></div>`).join("")
+        ? rows.map((s) => `<div class="info-card"><h3 translate="no">${esc(s.title)}</h3><div class="info-body" translate="no">${esc(s.body)}</div></div>`).join("")
         : '<div class="empty">Nothing here yet. The office will add shop info soon.</div>';
     } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
   }
