@@ -331,3 +331,7 @@ body.shopboard-mode .production-columns { touch-action: pan-x pan-y; }
 .sb-toast-error { background: #4c0519; color: #ffe4e6; border-color: #f43f5e; padding-right: 26px; }
 .sb-toast button { font-size: 20px; font-weight: 800; padding: 12px 22px; border-radius: 12px; background: #dcfce7; color: #14532d; border: 0; }
 @media (max-width: 800px) { .sb-car img { width: 140px; height: 90px; } .sb-car h2 { font-size: 24px; } .sb-next { font-size: 24px; } }
+body.shopboard-mode .production-card { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.production-card.sb-dragging { opacity: .3; }
+.sb-ghost { position: fixed; left: 0; top: 0; z-index: 300; pointer-events: none; margin: 0; opacity: .95; box-shadow: 0 24px 60px rgba(0,0,0,.6); outline: 3px solid var(--accent); }
+body.shopboard-mode .production-column.drag-over { background: var(--accent-soft); border-color: var(--accent); outline: 3px dashed var(--accent); outline-offset: -3px; }

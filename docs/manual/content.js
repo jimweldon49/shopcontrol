@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.1";
+const VERSION = "2.2";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "2.2", date: "September 30, 2026", text: "On the shop touch board, technicians can **drag** a car to its next stage with a finger (tapping still works)." },
   { version: "2.1", date: "September 30, 2026", text: "New **shop touch board**: technicians move cars to their next stage by tapping the car, the stage and their name." },
   { version: "2.0", date: "September 30, 2026", text: "The Employee App can be switched to **Spanish** with the **Español** button. Reports and the office program stay in English." },
   { version: "1.9", date: "September 28, 2026", text: "New **Find a vehicle** search at the top of the office program. It finds any car, at any stage or finished, by RO, customer, vehicle, VIN, plate or claim number." },
@@ -240,7 +241,16 @@ const sections = [
       { h3: "TV display" },
       { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. To open it on a computer, click **TV display** in the left menu." },
       { h3: "Shop touch board" },
-      { p: "The touch screen in the shop shows the same Production Board as the TV, and technicians use it to move cars to their next stage:" },
+      { p: "The touch screen in the shop shows the same Production Board as the TV, and technicians use it to move cars to their next stage. There are two ways:" },
+      { h3: "Drag it" },
+      { steps: [
+        "Press and hold the car for a moment until it lifts off the board.",
+        "Drag it onto the stage column it's moving to (the column lights up orange) and let go. To reach a column that's off screen, hold the car near the left or right edge and the board slides over.",
+        "Tap your name. Names of the techs assigned to the car are at the top.",
+        "The car moves and a green banner confirms it.",
+      ] },
+      { tip: "A quick swipe (without holding first) just scrolls the board, so you won't move a car by accident." },
+      { h3: "Or tap it" },
       { steps: [
         "Tap the car.",
         "Tap the big orange button to move it to its usual next stage (for example **Move to Paint**), or tap any other stage.",
