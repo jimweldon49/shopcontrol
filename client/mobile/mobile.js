@@ -660,33 +660,31 @@ function openAlerts() {
 // ------------------------------------------------------------------ Keyboard
 // Safari scrolls the field being typed in above the iPhone keyboard; Chrome on iPhone
 // (and the home-screen app) does not, and won't scroll past the end of a short page.
-// While typing on a phone: the sticky Submit bar sits in normal flow, body.typing adds
-// room below the page, and the field is scrolled to just under the sticky header.
+// With Chrome's address bar, the keyboard and iOS's autofill bar, only a thin strip of
+// the page may be left. While typing on a phone, body.typing unpins the headers and the
+// Submit bar and adds room below the page; the field is scrolled to the top of the
+// visible strip, and a notes box is shrunk to fit it (it then scrolls inside itself).
 const isPhone = window.matchMedia("(pointer: coarse)").matches;
 
 function isTextField(el) {
   return el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !["checkbox", "radio", "file", "date", "time", "button", "submit"].includes(el.type)));
 }
 
-function stickyTop() {
-  let top = 12;
-  document.querySelectorAll(".screen.active .bar, .screen.active .qc-head").forEach((el) => {
-    top = Math.max(top, el.getBoundingClientRect().bottom + 8);
-  });
-  return top;
-}
-
 function keepFieldVisible() {
   const el = document.activeElement;
   if (!isTextField(el)) return;
   const vv = window.visualViewport;
-  const rect = el.getBoundingClientRect();
-  const top = (vv ? vv.offsetTop : 0) + stickyTop();
   // The visible area above the keyboard; if the browser doesn't report the keyboard,
   // assume it covers the bottom half of the screen.
   const shrunk = vv && window.innerHeight - vv.height > 120;
-  const bottom = shrunk ? vv.offsetTop + vv.height - 12 : window.innerHeight * 0.5;
-  if (rect.top < top || rect.bottom > bottom) window.scrollTo(0, window.scrollY + rect.top - top);
+  const top = (vv ? vv.offsetTop : 0) + 8;
+  const height = (shrunk ? vv.height : window.innerHeight * 0.5) - 16;
+  if (el.tagName === "TEXTAREA") {
+    el.style.minHeight = "0";
+    el.style.maxHeight = `${Math.max(56, height)}px`;
+  }
+  const rect = el.getBoundingClientRect();
+  if (rect.top < top || rect.bottom > top + height) window.scrollTo(0, window.scrollY + rect.top - top);
 }
 
 function initKeyboardFix() {
@@ -700,7 +698,8 @@ function initKeyboardFix() {
     setTimeout(keepFieldVisible, 300);
     setTimeout(keepFieldVisible, 700);
   });
-  document.addEventListener("focusout", () => {
+  document.addEventListener("focusout", (e) => {
+    if (e.target.tagName === "TEXTAREA") { e.target.style.minHeight = ""; e.target.style.maxHeight = ""; }
     setTimeout(() => { if (!isTextField(document.activeElement)) document.body.classList.remove("typing"); }, 50);
   });
   if (window.visualViewport) window.visualViewport.addEventListener("resize", () => later(80));
