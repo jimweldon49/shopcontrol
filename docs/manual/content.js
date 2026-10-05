@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.2";
+const VERSION = "2.3";
 const UPDATED = "September 28, 2026";
 
 const CHANGES = [
+  { version: "2.3", date: "October 5, 2026", text: "Estimates without an RO are now **capture opportunities**: instead of cycle time emails, the office gets up to 3 reminders to call the customer. Log each call with **Log call** under **Opportunities**." },
   { version: "2.2", date: "September 30, 2026", text: "On the shop touch board, technicians can **drag** a car to its next stage with a finger (tapping still works)." },
   { version: "2.1", date: "September 30, 2026", text: "New **shop touch board**: technicians move cars to their next stage by tapping the car, the stage and their name." },
   { version: "2.0", date: "September 30, 2026", text: "The Employee App can be switched to **Spanish** with the **Español** button. Reports and the office program stay in English." },
@@ -238,6 +239,15 @@ const sections = [
         "**Opportunities:** estimates without an RO. Follow up, assign an RO, then schedule arrival.",
         "**Calendar:** appointments (drop-offs, pickups, etc.) linked to jobs, by day, week, month or list.",
       ] },
+      { h3: "Calling capture opportunities" },
+      { p: "An estimate without an RO is a **capture opportunity**: a customer to call so the repair gets booked. Office staff (owners, admins, managers and office) get an email for each one, with a subject like **CAPTURE OPPORTUNITY (call 1 of 3): Jane Doe - 2019 Honda Civic**." },
+      { bullets: [
+        "The first reminder comes **2 days** after the estimate, then every 2 days, **3 reminders at most**. After the 3rd, ShopControl stops emailing about that opportunity.",
+        "**Log every call.** Under **Opportunities**, click **Log call** on the customer's row, choose how it went and add notes. Logging a call pushes the next reminder 2 days out.",
+        "Choosing **Customer declined** stops the reminders right away.",
+        "The **Customer calls** column shows the last call, who made it, and how many reminders have gone out.",
+        "Reminders stop on their own once the job gets a 5-digit RO, or is marked No Show, Delivered or Total Loss.",
+      ] },
       { h3: "TV display" },
       { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. To open it on a computer, click **TV display** in the left menu." },
       { h3: "Shop touch board" },
@@ -368,6 +378,7 @@ const sections = [
       { bullets: [
         "**AR Balances:** open balances by RO, who owes it and when it's due.",
         "**Cycle time tabs:** active jobs by dollar range with target days in the shop: under $2,000 = 2 days, $2,000–4,000 = 4 days, $4,000–10,000 = 8 days, $10,000+ = 15 days.",
+        "Cycle time emails (due tomorrow, past due) are only sent for jobs with an RO. Estimates without one get capture opportunity reminders instead.",
       ] },
       { h3: "Photos and Activity Log" },
       { bullets: [

@@ -73,3 +73,13 @@ test('customer update schedule: 24h after onsite, then every 2 days (small) or 3
  assert.deepEqual(JSON.parse(JSON.stringify(out)),{needs:[false,true,false,false],small:2,large:3,structural:3,beforeOnsite:true});
  assert.equal(el('metricCustomerUpdates').textContent,1);
 });
+test('opportunities show logged customer calls and how many reminders went out',()=>{
+ const {run,el}=loadClient();
+ run(`cache.daily=[{id:'opp1',roNumber:'EST-7',customerName:'Jane <Doe>',vehicle:'2019 Civic',currentStage:'Check-In',roAmount:'900'},{id:'opp2',roNumber:'',customerName:'No Calls',vehicle:'2018 F-150',currentStage:'Check-In'}];
+  workspace.capture=[{jobId:'opp1',alertsSent:2,maxAlerts:3,calls:[{calledAt:'2026-10-05T17:00:00Z',calledBy:'Ana',outcome:'No answer',notes:''},{calledAt:'2026-10-03T17:00:00Z',calledBy:'Ana',outcome:'Left voicemail',notes:''}]}];renderUnified();`);
+ const html=el('opportunities').innerHTML;
+ assert.match(html,/Customer calls/);assert.match(html,/Jane &lt;Doe&gt;/);assert.match(html,/Ana<small>No answer · 2 calls/);assert.match(html,/Reminders sent: 2 of 3/);
+ assert.match(html,/No calls logged<small>Reminders sent: 0 of 3/);assert.match(html,/logCaptureCall\('opp2'\)/);
+ run(`workspace.capture[0].calls.unshift({calledAt:'2026-10-06T17:00:00Z',calledBy:'Ana',outcome:'Customer declined'});renderUnified();`);
+ assert.match(el('opportunities').innerHTML,/Reminders stopped \(declined\)/);
+});

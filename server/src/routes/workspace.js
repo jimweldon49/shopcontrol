@@ -59,4 +59,13 @@ router.post('/import-board',requireAdmin,async(req,res)=>{
   await db.query('COMMIT');res.json({create,update,appointments:prepared.appointments.length});
  }catch(e){if(db)await db.query('ROLLBACK');fail(res,e);}finally{if(db)db.release();}
 });
+// Capture opportunities (jobs without an RO): reminder count and logged calls per job. See src/captureOpportunityAlerts.js.
+const {CALL_OUTCOMES,MAX_ALERTS}=require('../captureOpportunityAlerts');
+router.get('/capture',requirePermission('daily','list'),async(req,res)=>{try{res.json((await pool.query(`SELECT d.id AS job_id,coalesce(s.alerts_sent,0) AS alerts_sent,s.last_alert_at,$1::int AS max_alerts,
+ coalesce((SELECT json_agg(json_build_object('calledAt',c.called_at,'calledBy',c.called_by,'outcome',c.outcome,'notes',c.notes) ORDER BY c.called_at DESC) FROM capture_calls c WHERE c.job_id=d.id),'[]') AS calls
+ FROM daily_go_list d LEFT JOIN capture_alert_state s ON s.job_id=d.id WHERE d.job_kind='opportunity' AND d.merged_into IS NULL`,[MAX_ALERTS])).rows);}catch(e){fail(res,e);}});
+router.post('/capture/:jobId/calls',requirePermission('daily','update'),async(req,res)=>{try{const outcome=String(req.body.outcome||''),notes=String(req.body.notes||'').trim();if(!CALL_OUTCOMES.includes(outcome))throw Error('Choose how the call went.');if(notes.length>2000)throw Error('Notes are limited to 2,000 characters.');
+ const job=(await pool.query("SELECT id,customer_name,ro_number FROM daily_go_list WHERE id=$1 AND job_kind='opportunity'",[req.params.jobId])).rows[0];if(!job)throw Object.assign(Error('Opportunity not found.'),{status:404});
+ const who=req.user.fullName||req.user.username;const r=await pool.query('INSERT INTO capture_calls(job_id,called_by,outcome,notes) VALUES($1,$2,$3,$4) RETURNING *',[job.id,who,outcome,notes||null]);
+ await logActivity({req,resource:'daily',recordId:job.id,action:'capture_call',after:r.rows[0],summary:`Logged call to ${job.customer_name||'customer'} (${job.ro_number||'opportunity'}): ${outcome}`});res.status(201).json(r.rows[0]);}catch(e){fail(res,e);}});
 module.exports=router;

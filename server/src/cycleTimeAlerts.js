@@ -1,5 +1,6 @@
 const { pool } = require("./db");
 const { sendTaskEmail } = require("./mailer");
+const { checkCaptureOpportunityAlerts } = require("./captureOpportunityAlerts");
 
 const EXCLUDED_STAGES = new Set(["delivered", "total loss"]);
 
@@ -69,6 +70,7 @@ async function checkCycleTimeAlerts() {
     `SELECT * FROM daily_go_list
      WHERE lower(coalesce(current_stage, '')) NOT IN ('delivered', 'total loss')
        AND ro_amount IS NOT NULL
+       AND job_kind = 'active' AND merged_into IS NULL -- no RO yet: capture opportunity, not cycle time
      ORDER BY created_at ASC
      LIMIT 500`
   );
@@ -133,11 +135,13 @@ function startCycleAlertScheduler() {
   }
 
   const intervalMs = Number(process.env.CYCLE_ALERT_SCAN_MS || 900000);
-  console.log(`Cycle time alert scheduler enabled. Interval: ${intervalMs}ms`);
-  checkCycleTimeAlerts().catch(err => console.error("Initial cycle time alert check failed:", err));
-  cycleAlertTimer = setInterval(() => {
+  console.log(`Cycle time and capture opportunity alerts enabled. Interval: ${intervalMs}ms`);
+  const run = () => {
     checkCycleTimeAlerts().catch(err => console.error("Cycle time alert check failed:", err));
-  }, intervalMs);
+    checkCaptureOpportunityAlerts().catch(err => console.error("Capture opportunity alert check failed:", err));
+  };
+  run();
+  cycleAlertTimer = setInterval(run, intervalMs);
 }
 
 function stopCycleAlertScheduler() {
