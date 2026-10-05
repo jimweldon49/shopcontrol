@@ -657,8 +657,43 @@ function openAlerts() {
   document.body.append(back);
 }
 
+// ------------------------------------------------------------------ Keyboard
+// Safari scrolls the field being typed in above the iPhone keyboard; Chrome on iPhone
+// does not, and the sticky Submit bar slides up over notes boxes. While the keyboard
+// is open, let the bar sit in normal flow and keep the focused field in view.
+function isTextField(el) {
+  return el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !["checkbox", "radio", "file", "date", "time", "button", "submit"].includes(el.type)));
+}
+
+function keepFieldVisible() {
+  const el = document.activeElement;
+  const vv = window.visualViewport;
+  if (!isTextField(el) || !vv) return;
+  const rect = el.getBoundingClientRect();
+  const top = vv.offsetTop + 80; // below the sticky header
+  const bottom = vv.offsetTop + vv.height - 12;
+  if (rect.bottom > bottom) window.scrollBy(0, Math.min(rect.bottom - bottom, rect.top - top));
+  else if (rect.top < top) window.scrollBy(0, rect.top - top);
+}
+
+function initKeyboardFix() {
+  let timer = null;
+  const later = () => { clearTimeout(timer); timer = setTimeout(keepFieldVisible, 60); };
+  document.addEventListener("focusin", (e) => {
+    if (!isTextField(e.target)) return;
+    document.body.classList.add("typing");
+    setTimeout(keepFieldVisible, 350); // after the keyboard finishes opening
+  });
+  document.addEventListener("focusout", () => {
+    setTimeout(() => { if (!isTextField(document.activeElement)) document.body.classList.remove("typing"); }, 50);
+  });
+  document.addEventListener("input", (e) => { if (e.target.tagName === "TEXTAREA") later(); });
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", later);
+}
+
 // ------------------------------------------------------------------ Wiring
 document.addEventListener("DOMContentLoaded", () => {
+  initKeyboardFix();
   $("loginBtn").onclick = handleLogin;
   $("loginPassword").addEventListener("keydown", (e) => { if (e.key === "Enter") handleLogin(); });
   $("logoutBtn").onclick = logout;
