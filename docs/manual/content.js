@@ -139,7 +139,7 @@ const sections = [
         "For part of one day (for example leaving at 2 PM), check **Partial day** and enter the from and to times.",
         "Add notes if the office should know anything, then tap **Submit request**.",
       ] },
-      { p: "The office and admins are emailed right away. **Only an admin can approve or deny** a request. You'll get a message in your mailbox (and an email if your account has one) when it's decided." },
+      { p: "The office and admins are emailed right away. **Only an admin can approve or deny** a request. You'll get a message in your mailbox (and an email if your account has one) when it's decided. The subject says **APPROVED** or **DENIED**." },
       { h3: "Checking your requests" },
       { p: "**My requests** shows each request as **Waiting for approval**, **Approved** or **Denied**, with the admin's note. You can cancel a request while it's still waiting." },
       { h3: "Mailbox" },
@@ -397,7 +397,7 @@ const sections = [
       { steps: [
         "Open **Time Off** (the tab shows a red number when requests are waiting).",
         "Admins: click **Approve** or **Deny**, add an optional note, and confirm.",
-        "The employee gets a mailbox message and an email with the decision.",
+        "The employee gets a mailbox message and an email with the decision. The office and admins also get an email, with **APPROVED** or **DENIED** and the employee's name in the subject (for example \"Time-off request APPROVED · Jane Doe\").",
       ] },
       { note: "Only **admins and owners** can approve or deny. Managers and office staff can see requests but not decide them." },
       { h3: "Messages & Info tab" },

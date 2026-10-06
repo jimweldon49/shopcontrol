@@ -133,18 +133,24 @@ router.post("/time-off/:id/decision", async (req, res) => {
        WHERE id=$4 AND status='Pending' RETURNING *`, [decision, note, who(req), req.params.id])).rows[0];
     if (!row) throw httpError(409, "This request was already decided or cancelled. Refresh and check.");
     const requester = (await db.query("SELECT id, email, full_name FROM users WHERE id=$1", [row.user_id])).rows[0];
-    const subject = `Time off ${decision.toLowerCase()}: ${typeLabel(row)}`;
+    const subject = `Time off ${decision.toUpperCase()}: ${typeLabel(row)}`;
     const body = `Your time-off request (${typeLabel(row)}, ${describeDates(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
     if (requester) {
       await db.query(
         `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body) VALUES($1,$2,$3,'Time Off',$4,$5)`,
         [req.user.id, who(req), requester.id, subject, body]);
     }
+    // The office hears about every decision too; the requester gets their own email below, so skip them here.
+    const office = (await db.query(
+      `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, row.user_id])).rows;
     await db.query("COMMIT");
     await logActivity({ req, resource: "timeOff", recordId: row.id, action: "update", after: row, summary: `${decision} time off for ${row.full_name}` });
-    if (requester) emailUsers([requester], subject, `Your time off was ${decision.toLowerCase()}`, [
+    const details = [
       `Type: ${typeLabel(row)}`, `Dates: ${describeDates(row)}`, `Decided by: ${who(req)}`, note ? `Note: ${note}` : "",
-    ].filter(Boolean));
+    ].filter(Boolean);
+    if (requester) emailUsers([requester], subject, `Your time off was ${decision.toLowerCase()}`, details);
+    emailUsers(office, `Time-off request ${decision.toUpperCase()} · ${row.full_name}`,
+      `Time off ${decision.toLowerCase()} for ${row.full_name}`, [`Employee: ${row.full_name}`, ...details]);
     res.json(row);
   } catch (e) { await db.query("ROLLBACK").catch(() => {}); fail(res, e); }
   finally { db.release(); }

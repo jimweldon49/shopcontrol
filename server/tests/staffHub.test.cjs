@@ -80,7 +80,7 @@ test('"Other" needs a written reason, and bad dates are rejected', async () => {
   assert.equal((await call('POST /time-off', tech, { request_type: 'Nap', start_date: '2026-10-05', end_date: '2026-10-05' })).code, 400);
 });
 
-test('only admins can approve; the employee gets a message and an email', async () => {
+test('only admins can approve; the employee gets a message and an email, and the office is emailed', async () => {
   await call('POST /time-off', tech, { request_type: 'Sick', start_date: '2026-10-05', end_date: '2026-10-05' });
   emails.length = 0;
   assert.equal((await call('POST /time-off/:id/decision', office, { decision: 'Approved' }, { id: 't1' })).code, 403);
@@ -90,9 +90,25 @@ test('only admins can approve; the employee gets a message and an email', async 
   assert.equal(requests[0].status, 'Approved');
   assert.equal(messages.length, 1);
   assert.equal(messages[0].args[2], 'u-tech');
-  assert.equal(emails.length, 1);
+  assert.match(messages[0].args[3], /^Time off APPROVED: Sick/);
+  assert.equal(emails.length, 2);
   assert.equal(emails[0].to, 'tech@x.com');
+  assert.match(emails[0].subject, /APPROVED/);
+  assert.match(emails[1].to, /office@x\.com/);
+  assert.match(emails[1].to, /admin@x\.com/);
+  assert.doesNotMatch(emails[1].to, /tech@x\.com/);
+  assert.equal(emails[1].subject, 'Time-off request APPROVED · Travis Tech');
   assert.equal((await call('POST /time-off/:id/decision', admin, { decision: 'Denied' }, { id: 't1' })).code, 409, 'already decided');
+});
+
+test('a denied request says DENIED in the office and employee subjects', async () => {
+  await call('POST /time-off', tech, { request_type: 'Vacation', start_date: '2026-10-05', end_date: '2026-10-06' });
+  emails.length = 0;
+  assert.equal((await call('POST /time-off/:id/decision', admin, { decision: 'Denied', note: 'Short staffed' }, { id: 't1' })).code, 200);
+  assert.equal(emails.length, 2);
+  assert.equal(emails[0].subject, 'Time off DENIED: Vacation');
+  assert.equal(emails[1].subject, 'Time-off request DENIED · Travis Tech');
+  assert.ok(emails[1].bodyLines.includes('Note: Short staffed'));
 });
 
 test('techs can message the office but not each other or everyone; office can message anyone', async () => {
