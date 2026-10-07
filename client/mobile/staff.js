@@ -3,6 +3,8 @@
 (() => {
   const TYPES = ["Sick", "Vacation", "Bereavement", "Time off without pay", "Military", "Jury duty", "Maternity/Paternity", "Other"];
   const OFFICE_ROLES = ["office", "manager", "admin", "owner"];
+  // Only these can approve or deny time off (matches APPROVER_ROLES in server/src/routes/staff.js).
+  const APPROVER_ROLES = ["admin", "owner"];
   let chosenType = null;
   let inbox = [];
   let openMsg = null;
@@ -11,6 +13,8 @@
   let pollTimer = null;
 
   const isOffice = () => OFFICE_ROLES.includes(String((currentUser && currentUser.role) || "").toLowerCase());
+  const isApprover = () => APPROVER_ROLES.includes(String((currentUser && currentUser.role) || "").toLowerCase());
+  const typeLabel = (r) => (r.request_type === "Other" ? `Other: ${r.other_reason}` : r.request_type);
   const when = (iso) => {
     const d = new Date(iso), now = new Date();
     return d.toDateString() === now.toDateString()
@@ -30,21 +34,33 @@
     if (name === "staff") { refreshCounts(); showScreen("staff"); }
     if (name === "timeoff") openTimeOff();
     if (name === "requests") openRequests();
+    if (name === "approve") openApprove();
     if (name === "mail") openMail();
     if (name === "info") openInfo();
   }
 
   // ---------------------------------------------------------------- Counts
+  function setBadge(id, count) {
+    const el = $(id);
+    if (!el) return;
+    el.hidden = !count;
+    el.textContent = count > 9 ? "9+" : String(count);
+  }
+
   async function refreshCounts() {
     if (!authToken) return;
+    $("hubApproveTile").hidden = !isApprover();
     try {
       const { count } = await apiRequest("/staff/messages/unread-count");
-      for (const id of ["mailCount", "hubCount"]) {
-        const el = $(id);
-        if (!el) continue;
-        el.hidden = !count;
-        el.textContent = count > 9 ? "9+" : String(count);
+      let waiting = 0;
+      if (isApprover()) {
+        waiting = (await apiRequest("/staff/time-off?status=Pending").catch(() => [])).length;
+        const sub = $("hubApproveSub");
+        sub.textContent = waiting ? `${waiting} waiting` : "Requests from staff";
+        sub.classList.toggle("waiting", !!waiting);
       }
+      setBadge("mailCount", count);
+      setBadge("hubCount", count + waiting);
       $("hubMailSub").textContent = count ? `${count} unread` : "Messages from the office";
     } catch (_) {}
   }
@@ -115,6 +131,63 @@
   async function cancelRequest(id) {
     try { await apiRequest(`/staff/time-off/${id}/cancel`, { method: "POST" }); toast("Request cancelled"); openRequests(); }
     catch (err) { toast(err.message); }
+  }
+
+  // ---------------------------------------------------------------- Approve time off (admins)
+  let approveRows = [];
+
+  async function openApprove() {
+    showScreen("approve");
+    const list = $("approveList");
+    list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+    try {
+      approveRows = await apiRequest("/staff/time-off");
+      const pending = approveRows.filter((r) => r.status === "Pending");
+      const decided = approveRows.filter((r) => r.status === "Approved" || r.status === "Denied")
+        .sort((a, b) => String(b.decided_at || b.updated_at).localeCompare(String(a.decided_at || a.updated_at))).slice(0, 15);
+      const card = (r, buttons) => `
+        <div class="row-card">
+          <b translate="no">${esc(r.full_name)}</b>
+          <small>${esc(typeLabel(r))} · ${esc(dates(r))}</small>
+          ${r.notes ? `<small style="display:block;margin-top:6px" translate="no">${esc(r.notes)}</small>` : ""}
+          ${buttons ? `<div class="decide-row">
+            <button class="btn btn-approve" data-decide="Approved" data-req="${esc(r.id)}">Approve</button>
+            <button class="btn btn-deny" data-decide="Denied" data-req="${esc(r.id)}">Deny</button></div>`
+          : `<span class="pill ${r.status === "Approved" ? "ok" : "bad"}">${esc(r.status)}</span>
+             <small style="display:block;margin-top:6px">${esc(r.status)} by ${esc(r.decided_by || "")}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}</small>`}
+        </div>`;
+      list.innerHTML = `<div class="eyebrow">Waiting for approval</div>
+        ${pending.length ? pending.map((r) => card(r, true)).join("") : '<div class="empty">No requests are waiting.</div>'}
+        ${decided.length ? `<div class="eyebrow" style="margin-top:18px">Recently decided</div>${decided.map((r) => card(r, false)).join("")}` : ""}`;
+      refreshCounts();
+    } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+  }
+
+  function openDecision(id, decision) {
+    const r = approveRows.find((x) => x.id === id);
+    if (!r) return;
+    const approve = decision === "Approved";
+    const back = document.createElement("div");
+    back.className = "sheet-backdrop";
+    back.innerHTML = `<div class="sheet"><div class="grab"></div>
+      <h3>${approve ? "Approve" : "Deny"} time off?</h3>
+      <div class="row-card"><b translate="no">${esc(r.full_name)}</b><small>${esc(typeLabel(r))} · ${esc(dates(r))}</small></div>
+      <label class="field"><span>Note to the employee (optional)</span><textarea class="input" id="decideNote" maxlength="1000"></textarea></label>
+      <button class="btn ${approve ? "btn-approve" : "btn-deny"}" data-confirm>${approve ? "Approve" : "Deny"}</button>
+      <button class="btn btn-ghost" data-close>Cancel</button></div>`;
+    back.onclick = async (e) => {
+      if (e.target === back || e.target.closest("[data-close]")) return back.remove();
+      const btn = e.target.closest("[data-confirm]");
+      if (!btn || btn.disabled) return;
+      btn.disabled = true;
+      try {
+        await apiRequest(`/staff/time-off/${id}/decision`, { method: "POST", body: JSON.stringify({ decision, note: $("decideNote").value.trim() }) });
+        back.remove();
+        toast(approve ? "Approved ✓ The employee and office were notified" : "Denied ✓ The employee and office were notified");
+        openApprove();
+      } catch (err) { btn.disabled = false; toast(err.message); }
+    };
+    document.body.append(back);
   }
 
   // ---------------------------------------------------------------- Mailbox
@@ -209,6 +282,8 @@
       if (go) return open(go.dataset.staffGo);
       const back = e.target.closest("[data-staff-back]");
       if (back) return back.dataset.staffBack === "home" ? enterHome() : open(back.dataset.staffBack);
+      const decide = e.target.closest("[data-decide]");
+      if (decide) return openDecision(decide.dataset.req, decide.dataset.decide);
       const cancel = e.target.closest("[data-cancel]");
       if (cancel) return cancelRequest(cancel.dataset.cancel);
       const msg = e.target.closest("[data-msg]");

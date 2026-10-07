@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.3";
-const UPDATED = "September 28, 2026";
+const VERSION = "2.4";
+const UPDATED = "October 6, 2026";
 
 const CHANGES = [
+  { version: "2.4", date: "October 6, 2026", text: "Admins can **approve or deny time off in the Employee App** (Staff Hub → Approve time off), and the office is emailed every decision. The TV and shop touch board show when they last updated and catch up by themselves if they fall behind." },
   { version: "2.3", date: "October 5, 2026", text: "Estimates without an RO are now **capture opportunities**: instead of cycle time emails, the office gets up to 3 reminders to call the customer. Log each call with **Log call** under **Opportunities**." },
   { version: "2.2", date: "September 30, 2026", text: "On the shop touch board, technicians can **drag** a car to its next stage with a finger (tapping still works)." },
   { version: "2.1", date: "September 30, 2026", text: "New **shop touch board**: technicians move cars to their next stage by tapping the car, the stage and their name." },
@@ -140,6 +141,12 @@ const sections = [
         "Add notes if the office should know anything, then tap **Submit request**.",
       ] },
       { p: "The office and admins are emailed right away. **Only an admin can approve or deny** a request. You'll get a message in your mailbox (and an email if your account has one) when it's decided. The subject says **APPROVED** or **DENIED**." },
+      { h3: "Approving time off on your phone (admins and owners)" },
+      { steps: [
+        "Open **Staff Hub** → **Approve time off**. The tile, and the Staff Hub button, show how many requests are waiting.",
+        "Tap **Approve** or **Deny** on a request, add an optional note to the employee, and confirm.",
+        "The employee gets a mailbox message and an email, and the office gets an email with **APPROVED** or **DENIED** in the subject. **Recently decided** below shows the last decisions.",
+      ] },
       { h3: "Checking your requests" },
       { p: "**My requests** shows each request as **Waiting for approval**, **Approved** or **Denied**, with the admin's note. You can cancel a request while it's still waiting." },
       { h3: "Mailbox" },
@@ -249,7 +256,7 @@ const sections = [
         "Reminders stop on their own once the job gets a 5-digit RO, or is marked No Show, Delivered or Total Loss.",
       ] },
       { h3: "TV display" },
-      { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. To open it on a computer, click **TV display** in the left menu." },
+      { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. **Updated 2:41 PM** in the bottom-right corner shows when the board last got fresh data (it refreshes every 20 seconds). If it can't reach the server, the corner turns red and says **reconnecting**; it catches up on its own once the connection is back. To open it on a computer, click **TV display** in the left menu." },
       { h3: "Shop touch board" },
       { p: "The touch screen in the shop shows the same Production Board as the TV, and technicians use it to move cars to their next stage. There are two ways:" },
       { h3: "Drag it" },
@@ -399,7 +406,7 @@ const sections = [
         "Admins: click **Approve** or **Deny**, add an optional note, and confirm.",
         "The employee gets a mailbox message and an email with the decision. The office and admins also get an email, with **APPROVED** or **DENIED** and the employee's name in the subject (for example \"Time-off request APPROVED · Jane Doe\").",
       ] },
-      { note: "Only **admins and owners** can approve or deny. Managers and office staff can see requests but not decide them." },
+      { note: "Only **admins and owners** can approve or deny, here or in the Employee App (Staff Hub → **Approve time off**). Managers and office staff can see requests but not decide them." },
       { h3: "Messages & Info tab" },
       { bullets: [
         "**Inbox:** your messages. Click one to read it and **Reply**.",

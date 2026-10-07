@@ -208,7 +208,13 @@ const store = {
   get(key) { return cache[key] || []; },
 };
 
+let lastDataAt = 0;    // when the last full refresh succeeded (the shop board watchdog checks this)
+let loadingAll = false;
 async function loadAll(silent) {
+  loadingAll = true;
+  try { await loadAllNow(silent); } finally { loadingAll = false; }
+}
+async function loadAllNow(silent) {
   const results = await Promise.allSettled(RESOURCE_KEYS.map((k) => api.list(k)));
   let sessionExpired = false;
   let firstError = null;
@@ -226,7 +232,8 @@ async function loadAll(silent) {
   try { cache.activity = (await api.activity()).map(objToCamel); } catch (_) {}
   await loadWorkspace();
   renderAll();
-  if (isKioskMode()) syncKioskBoardPage();
+  if (!sessionExpired && !firstError) lastDataAt = Date.now();
+  if (isKioskMode()) { syncKioskBoardPage(); showBoardFreshness(); }
   if (sessionExpired) return;
   if (firstError) showStatus(`Could not load data: ${firstError.message}`, true);
   else if (!silent) showStatus("Data refreshed.");
@@ -2085,7 +2092,7 @@ function syncKioskBoardPage() {
 function startKioskAutoScroll() {
   clearInterval(kioskScrollTimer);
   syncKioskBoardPage();
-  kioskScrollTimer = setInterval(syncKioskBoardPage, 2000);
+  kioskScrollTimer = setInterval(() => { syncKioskBoardPage(); kioskWatchdog(); }, 2000);
   document.addEventListener("visibilitychange", syncKioskBoardPage);
   // Best-effort: Chrome exempts a genuinely fullscreen tab from background
   // timer throttling, and a wake lock keeps the display from sleeping.
@@ -2094,13 +2101,54 @@ function startKioskAutoScroll() {
   navigator.wakeLock?.request("screen").catch(() => {});
 }
 
-// Board data already refreshes every 20s via pollTimer. This is a coarser
-// full-page reload so a TV left running for days also picks up deployed
-// code changes and clears any accumulated browser state, without ever
-// firing for a regular logged-in user mid-edit (kiosk mode only).
+// Board data refreshes every 20s via pollTimer, but Chrome on the shop
+// computers can stall that timer (see syncKioskBoardPage), leaving the board
+// showing old data. The watchdog compares wall-clock time with the last good
+// refresh and reloads the data whenever it's overdue. It runs from a Web
+// Worker tick (workers aren't throttled like the page's own timers), the
+// page-turn interval, and any touch, focus, wake or reconnect. It also does
+// the coarser full-page reload, so a board left running for days picks up
+// deployed code changes and clears accumulated browser state. Kiosk mode only,
+// so it never fires for a regular user mid-edit.
+const KIOSK_STALE_MS = 20000;
+const pageOpenedAt = Date.now();
+let kioskTicker = null;
+function kioskWatchdog() {
+  if (!isKioskMode() || !authToken) return;
+  const now = Date.now();
+  const idle = !(window.kioskPausedUntil && now < window.kioskPausedUntil) && !document.getElementById("shopBoardSheet");
+  if (now - pageOpenedAt > KIOSK_RELOAD_MS && idle) return location.reload();
+  if (!loadingAll && now - lastDataAt > KIOSK_STALE_MS) loadAll(true);
+  showBoardFreshness();
+}
+// "Updated 2:41 PM" in the corner, so anyone can see the board is current.
+function showBoardFreshness() {
+  let el = document.getElementById("boardFreshness");
+  if (!isKioskMode()) return el && el.remove();
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "boardFreshness";
+    el.className = "board-freshness";
+    document.body.append(el);
+  }
+  if (!lastDataAt) { el.textContent = "Loading…"; return; }
+  const time = new Date(lastDataAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const stale = Date.now() - lastDataAt > 90000;
+  el.classList.toggle("stale", stale);
+  el.textContent = stale ? `Not updated since ${time} · reconnecting…` : `Updated ${time}`;
+}
 function startKioskAutoReload() {
   clearTimeout(kioskReloadTimer);
-  kioskReloadTimer = setTimeout(() => location.reload(), KIOSK_RELOAD_MS);
+  kioskReloadTimer = setTimeout(kioskWatchdog, KIOSK_RELOAD_MS);
+  if (!kioskTicker) {
+    try {
+      kioskTicker = new Worker(URL.createObjectURL(new Blob(["setInterval(() => postMessage(0), 5000);"], { type: "text/javascript" })));
+      kioskTicker.onmessage = kioskWatchdog;
+    } catch (_) { kioskTicker = null; }
+    for (const ev of ["visibilitychange", "focus", "online", "pageshow", "pointerdown"]) {
+      (ev === "visibilitychange" ? document : window).addEventListener(ev, () => setTimeout(kioskWatchdog, 0), { passive: true });
+    }
+  }
 }
 
 function showApp() {
@@ -2126,6 +2174,7 @@ function showLogin() {
   clearInterval(kioskScrollTimer);
   clearTimeout(kioskReloadTimer);
   document.body.classList.remove("kiosk-mode");
+  document.getElementById("boardFreshness")?.remove();
   if (typeof ShopBoard !== "undefined") ShopBoard.stop();
   $("appRoot").classList.remove("visible");
   $("loginScreen").style.display = "flex";
