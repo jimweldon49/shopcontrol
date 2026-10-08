@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.6";
+const VERSION = "2.7";
 const UPDATED = "October 8, 2026";
 
 const CHANGES = [
+  { version: "2.7", date: "October 8, 2026", text: "The paper **payroll correction form** is now in the Employee App: **Staff Hub → Payroll correction**. Admins approve or deny it with time off and missed punches, and the employee and office are notified." },
   { version: "2.6", date: "October 8, 2026", text: "The paper missed punch slip is now in the Employee App: **Staff Hub → Missed punch**. Admins approve or deny slips with time off (Staff Hub → **Approve requests**, or the **Time Off** tab), and the employee and office are notified. The Employee App now **updates itself** when a new version is put on the server." },
   { version: "2.5", date: "October 8, 2026", text: "Office staff and the parts department can **run parts from their phone**: the new **Parts desk** in the Employee App orders, receives and mirror matches parts, moves them between shelves, and covers Returns & Alerts and storage locations." },
   { version: "2.4", date: "October 6, 2026", text: "Admins can **approve or deny time off in the Employee App** (Staff Hub → Approve time off), and the office is emailed every decision. The TV and shop touch board show when they last updated and catch up by themselves if they fall behind." },
@@ -90,7 +91,7 @@ const sections = [
       { bullets: [
         "**In the shop:** every vehicle marked onsite, with its picture, RO number, customer and stage. The ring on the right shows how much of **your department's** checklist is done for that car.",
         "**Search:** type an RO number, customer name or vehicle to find any open job, even one that isn't onsite.",
-        "**Staff Hub** button: time off, missed punches, mailbox, company info and this manual.",
+        "**Staff Hub** button: time off, missed punches, payroll corrections, mailbox, company info and this manual.",
         "**Envelope icon:** your mailbox. A red number means unread messages.",
         "**Bell icon:** parts and core-return alerts.",
         "**Exit icon** (top right): sign out.",
@@ -132,7 +133,7 @@ const sections = [
 
   {
     id: "hub",
-    title: "Staff Hub: time off, missed punches, mailbox and company info",
+    title: "Staff Hub: time off, missed punches, payroll corrections, mailbox and company info",
     blocks: [
       { p: "Open it from the **Staff Hub** button on the Employee App home screen." },
       { h3: "Requesting time off" },
@@ -153,15 +154,27 @@ const sections = [
         "Add a note if it helps (for example \"Forgot to clock out for lunch\"), type your **initials** to confirm the times, and tap **Submit missed punch**.",
       ] },
       { p: "The office and admins are emailed right away. Only an admin can approve or deny it, and you'll get a mailbox message (and an email) with **APPROVED** or **DENIED**. You can send one slip per day; to fix a mistake, cancel it under **My requests** and send a new one." },
-      { h3: "Approving time off and missed punches on your phone (admins and owners)" },
+      { h3: "Payroll correction" },
+      { p: "If you think there's an error on your payroll check, send a payroll correction as soon as possible. **Verbal inquiries are not accepted.** An admin's approval takes the place of your supervisor's signature. Corrections should be done within three working days; if it will take longer, you'll be told how long." },
+      { steps: [
+        "Tap **Payroll correction**. Your name fills in automatically.",
+        "Enter your **phone number** (and your **employee #** if you know it). Your phone remembers them for next time.",
+        "Under **Dates in question**, enter each day: the **date**, the hours you actually worked (**from** and **to**), and the **total hours**. Total hours fills in from your times; change it if it's different (for example after lunch). Tap **Add another day** for more, up to 5.",
+        "The **Hours in question** total adds up by itself. Fill in **Program(s)** if it applies.",
+        "Explain **why you feel the error was made** (for example \"I forgot to clock in/out and forgot to tell my supervisor\").",
+        "Choose **Adjust my next payroll check** or **Issue me a separate check (if applicable)**.",
+        "Type your **full name** to sign, then tap **Submit payroll correction**.",
+      ] },
+      { p: "The office and admins are emailed right away. You'll get a mailbox message (and an email) with **APPROVED** or **DENIED**. You can cancel it under **My requests** while it's still waiting." },
+      { h3: "Approving time off, missed punches and payroll corrections on your phone (admins and owners)" },
       { steps: [
         "Open **Staff Hub** → **Approve requests**. The tile, and the Staff Hub button, show how many requests are waiting.",
         "Tap **Approve** or **Deny** on a request, add an optional note to the employee, and confirm.",
-        "Missed punch slips show the date, every time, the payroll week and the employee's initials.",
+        "Missed punch slips show the date, every time, the payroll week and the employee's initials. Payroll corrections show each day and its hours, the reason, how it should be paid, and the employee's phone.",
         "The employee gets a mailbox message and an email, and the office gets an email with **APPROVED** or **DENIED** in the subject. **Recently decided** below shows the last decisions.",
       ] },
       { h3: "Checking your requests" },
-      { p: "**My requests** shows each time-off request and missed punch slip as **Waiting for approval**, **Approved** or **Denied**, with the admin's note. You can cancel a request while it's still waiting." },
+      { p: "**My requests** shows each time-off request, missed punch slip and payroll correction as **Waiting for approval**, **Approved** or **Denied**, with the admin's note. You can cancel a request while it's still waiting." },
       { h3: "Mailbox" },
       { bullets: [
         "Messages from the office show here. Unread ones have an orange dot and are counted on the envelope icon.",
@@ -199,7 +212,7 @@ const sections = [
         "**Arrivals and jobs:** scheduled arrivals, cars on the road, open opportunities, active jobs, must-move and delivery-today counts.",
         "**Needs attention:** estimates and supplements needed, management help, customer updates needed, cars sitting too long, overdue tasks, QC failures.",
         "**Parts:** Parts Problems (counted by vehicle), Parts Not Arrived On Time, Parts No RO Yet, parts needing return or mirror match, parts value on site and parts 25+ days on site.",
-        "**Time Off & Missed Punches Pending** (office and admins only).",
+        "**Time Off, Punches & Payroll Pending** (office and admins only).",
       ] },
     ],
   },
@@ -435,6 +448,7 @@ const sections = [
         "The employee gets a mailbox message and an email with the decision. The office and admins also get an email, with **APPROVED** or **DENIED** and the employee's name in the subject (for example \"Time-off request APPROVED · Jane Doe\").",
       ] },
       { p: "**Missed punches** are listed below the time-off requests, with the date, times, payroll week (Thursday to Wednesday) and the employee's initials. Approve or deny them the same way; the emails say \"Missed punch APPROVED · Jane Doe\". Use the approved slips to correct the time clock for payroll." },
+      { p: "**Payroll corrections** are listed last, with the employee's phone and employee #, each day in question with its hours, the total, the reason, whether to adjust the next check or issue a separate check, and their typed signature. Approving takes the place of the supervisor's signature on the paper form." },
       { note: "Only **admins and owners** can approve or deny, here or in the Employee App (Staff Hub → **Approve requests**). Managers and office staff can see requests but not decide them." },
       { h3: "Messages & Info tab" },
       { bullets: [

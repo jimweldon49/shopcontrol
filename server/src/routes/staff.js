@@ -283,6 +283,138 @@ router.post("/missed-punch/:id/decision", async (req, res) => {
   finally { db.release(); }
 });
 
+// ---------------------------------------------------------------- Payroll correction
+// Page 1 of the paper Payroll Correction Form (migrations/025). An admin's approval
+// stands in for the supervisor's signature.
+const PAYOUTS = ["Next payroll", "Separate check"];
+const fmtDay = (d) => new Date(String(d).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+const hoursLabel = (n) => `${Number(n)} ${Number(n) === 1 ? "hour" : "hours"}`;
+const correctionDates = (r) => r.days.map((d) => fmtDay(d.date).replace(/, \d{4}$/, "")).join(" & ");
+const correctionLines = (r) => [
+  `Employee #: ${r.employee_number || "—"}`,
+  `Phone: ${r.phone}`,
+  `Payroll date(s) in question: ${correctionDates(r)}`,
+  `Number of hours in question: ${Number(r.total_hours)}`,
+  r.programs ? `Program(s): ${r.programs}` : "",
+  ...r.days.map((d) => `${fmtDay(d.date)}: worked ${hhmm(d.from)}–${hhmm(d.to)}, ${hoursLabel(d.hours)}`),
+  `Why: ${r.explanation}`,
+  `Correction paid by: ${r.payout === "Separate check" ? "a separate check" : "adjusting the next payroll check"}`,
+  `Signed: ${r.signature}`,
+].filter(Boolean);
+
+function validateCorrection(b) {
+  const phone = clean(b.phone, 40);
+  if ((phone.match(/\d/g) || []).length < 7) throw Error("Enter a phone number where the office can reach you.");
+  if (!Array.isArray(b.days) || !b.days.length) throw Error("Add at least one date in question.");
+  if (b.days.length > 5) throw Error("Up to 5 dates per form. Send another form for more.");
+  const today = new Date().toLocaleDateString("en-CA");
+  const days = b.days.map((d) => {
+    if (!d || !isDate(d.date)) throw Error("Choose the date for each day in question.");
+    if (d.date > today) throw Error("Dates in question can't be in the future.");
+    if (!isTime(d.from) || !isTime(d.to)) throw Error("Enter the hours you actually worked for each day (from and to).");
+    if (d.to <= d.from) throw Error("Each day's end time must be after its start time.");
+    const hours = Math.round(Number(d.hours) * 100) / 100;
+    if (!(hours > 0 && hours <= 24)) throw Error("Enter the total number of hours for each day.");
+    return { date: d.date, from: d.from, to: d.to, hours };
+  });
+  if (new Set(days.map((d) => d.date)).size !== days.length) throw Error("Each date should only be listed once.");
+  days.sort((x, y) => x.date.localeCompare(y.date));
+  const explanation = clean(b.explanation, 2000);
+  if (!explanation) throw Error("Explain why you feel the error was made.");
+  if (!PAYOUTS.includes(b.payout)) throw Error("Choose how you'd like the correction paid.");
+  const signature = clean(b.signature, 120);
+  if (!signature) throw Error("Type your full name to sign.");
+  return {
+    phone, days, explanation, signature, payout: b.payout,
+    employee_number: clean(b.employee_number, 20) || null,
+    programs: clean(b.programs, 200) || null,
+    total_hours: Math.round(days.reduce((s, d) => s + d.hours, 0) * 100) / 100,
+  };
+}
+
+router.get("/payroll-corrections/mine", async (req, res) => {
+  try {
+    res.json((await pool.query("SELECT * FROM payroll_corrections WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100", [req.user.id])).rows);
+  } catch (e) { fail(res, e); }
+});
+
+router.get("/payroll-corrections", async (req, res) => {
+  try {
+    if (!isOffice(req.user)) throw httpError(403, "Only office staff and admins can view all payroll corrections.");
+    const status = ["Pending", "Approved", "Denied", "Cancelled"].includes(req.query.status) ? req.query.status : null;
+    res.json((await pool.query(
+      `SELECT * FROM payroll_corrections WHERE ($1::text IS NULL OR status=$1)
+       ORDER BY (status='Pending') DESC, created_at DESC LIMIT 500`, [status])).rows);
+  } catch (e) { fail(res, e); }
+});
+
+router.post("/payroll-corrections", async (req, res) => {
+  const db = await pool.connect();
+  try {
+    const v = validateCorrection(req.body || {});
+    await db.query("BEGIN");
+    const row = (await db.query(
+      `INSERT INTO payroll_corrections(user_id, full_name, employee_number, phone, days, total_hours, programs, explanation, payout, signature)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [req.user.id, who(req), v.employee_number, v.phone, JSON.stringify(v.days), v.total_hours, v.programs, v.explanation, v.payout, v.signature])).rows[0];
+    const office = (await db.query(
+      `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, req.user.id])).rows;
+    const title = `Payroll correction · ${row.full_name}`;
+    await notifyUsers(db, office, title, `${hoursLabel(row.total_hours)} on ${correctionDates(row)}. Open Time Off in Shop Control to review.`);
+    await db.query("COMMIT");
+    await logActivity({ req, resource: "payrollCorrection", recordId: row.id, action: "create", after: row, summary: `Payroll correction: ${hoursLabel(row.total_hours)} on ${correctionDates(row)}` });
+    emailUsers(office, title, `Payroll correction from ${row.full_name}`, [
+      ...correctionLines(row), "An admin can approve or deny it under Time Off in Shop Control.",
+    ]);
+    res.status(201).json(row);
+  } catch (e) { await db.query("ROLLBACK").catch(() => {}); fail(res, e); }
+  finally { db.release(); }
+});
+
+router.post("/payroll-corrections/:id/cancel", async (req, res) => {
+  try {
+    const row = (await pool.query(
+      "UPDATE payroll_corrections SET status='Cancelled', updated_at=now() WHERE id=$1 AND user_id=$2 AND status='Pending' RETURNING *",
+      [req.params.id, req.user.id])).rows[0];
+    if (!row) throw httpError(409, "Only your own pending forms can be cancelled.");
+    await logActivity({ req, resource: "payrollCorrection", recordId: row.id, action: "update", after: row, summary: "Cancelled payroll correction" });
+    res.json(row);
+  } catch (e) { fail(res, e); }
+});
+
+router.post("/payroll-corrections/:id/decision", async (req, res) => {
+  const db = await pool.connect();
+  try {
+    if (!isApprover(req.user)) throw httpError(403, "Only admins can approve or deny payroll corrections.");
+    const decision = req.body && req.body.decision;
+    if (!["Approved", "Denied"].includes(decision)) throw Error("Choose approve or deny.");
+    const note = clean(req.body.note, 1000) || null;
+    await db.query("BEGIN");
+    const row = (await db.query(
+      `UPDATE payroll_corrections SET status=$1, decision_note=$2, decided_by=$3, decided_at=now(), updated_at=now()
+       WHERE id=$4 AND status='Pending' RETURNING *`, [decision, note, who(req), req.params.id])).rows[0];
+    if (!row) throw httpError(409, "This form was already decided or cancelled. Refresh and check.");
+    const requester = (await db.query("SELECT id, email, full_name FROM users WHERE id=$1", [row.user_id])).rows[0];
+    const subject = `Payroll correction ${decision.toUpperCase()}: ${correctionDates(row)}`;
+    const body = `Your payroll correction (${hoursLabel(row.total_hours)} on ${correctionDates(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
+    if (requester) {
+      await db.query(
+        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body) VALUES($1,$2,$3,'Payroll Correction',$4,$5)`,
+        [req.user.id, who(req), requester.id, subject, body]);
+    }
+    const office = (await db.query(
+      `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, row.user_id])).rows;
+    await db.query("COMMIT");
+    await logActivity({ req, resource: "payrollCorrection", recordId: row.id, action: "update", after: row, summary: `${decision} payroll correction for ${row.full_name}` });
+    const details = [...correctionLines(row), `Decided by: ${who(req)}`, note ? `Decision note: ${note}` : ""].filter(Boolean);
+    if (requester) emailUsers([requester], subject, `Your payroll correction was ${decision.toLowerCase()}`, details);
+    emailUsers(office, `Payroll correction ${decision.toUpperCase()} · ${row.full_name}`,
+      `Payroll correction ${decision.toLowerCase()} for ${row.full_name}`, [`Employee: ${row.full_name}`, ...details]);
+    res.json(row);
+  } catch (e) { await db.query("ROLLBACK").catch(() => {}); fail(res, e); }
+  finally { db.release(); }
+});
+
 // ---------------------------------------------------------------- Messages
 router.get("/recipients", async (req, res) => {
   try {

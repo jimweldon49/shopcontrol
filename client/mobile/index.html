@@ -262,6 +262,12 @@
   .sheet h3 { margin: 0 0 12px; }
   .lang-btn { flex: 0 0 auto; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-weight: 700; font-size: 13px; }
   .lang-corner { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px; }
+  .day-card { padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 10px; }
+  .day-card .day-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .day-card .day-top b { font-size: 14px; }
+  .day-card .remove { color: var(--muted); font-size: 13px; font-weight: 700; padding: 4px 6px; }
+  .pf-total { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-size: 14px; margin-bottom: 14px; }
+  .choice-list { display: grid; gap: 8px; margin-bottom: 14px; }
   .update-bar { position: fixed; left: 12px; right: 12px; bottom: calc(96px + var(--safe-bottom)); z-index: 70; padding: 14px 16px; border-radius: 14px; background: var(--accent); color: #111; font-weight: 800; font-size: 15px; border: 0; box-shadow: 0 12px 30px rgba(0,0,0,.45); animation: enter .2s; }
   .toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); font-weight: 700; font-size: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.4); animation: enter .2s; }
 
@@ -352,7 +358,7 @@
   </header>
   <div class="main">
     <div class="hello"><h2 id="helloName">Hey there</h2><p id="helloSub"></p></div>
-    <button class="hub-cta" id="staffHubBtn"><div><b>Staff Hub</b><small>Time off · missed punch · mailbox · company info</small></div><span class="badge-inline" id="hubCount" hidden></span><span class="arrow">›</span></button>
+    <button class="hub-cta" id="staffHubBtn"><div><b>Staff Hub</b><small>Time off · missed punch · payroll · mailbox · info</small></div><span class="badge-inline" id="hubCount" hidden></span><span class="arrow">›</span></button>
     <button class="hub-cta parts-cta" id="partsDeskBtn" hidden><div><b>Parts desk</b><small>Order · receive · mirror match · carts · returns</small></div><span class="arrow">›</span></button>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -484,10 +490,11 @@
     <div class="hub-grid">
       <button class="hub-tile" data-staff-go="timeoff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg><b>Request time off</b><small>Sick, vacation and more</small></button>
       <button class="hub-tile" data-staff-go="punch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6M12 2v3"/></svg><b>Missed punch</b><small>Forgot to clock in or out</small></button>
+      <button class="hub-tile" data-staff-go="payfix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg><b>Payroll correction</b><small>Error on your paycheck</small></button>
       <button class="hub-tile" data-staff-go="requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><b>My requests</b><small id="hubRequestsSub">Status of your requests</small></button>
       <button class="hub-tile hub-wide" data-staff-go="approve" id="hubApproveTile" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg><b>Approve requests</b><small id="hubApproveSub">Time off and missed punches</small></button>
       <button class="hub-tile" data-staff-go="mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg><b>Mailbox</b><small id="hubMailSub">Messages from the office</small></button>
-      <button class="hub-tile hub-wide" data-staff-go="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><b>Company info</b><small>Hours, contacts, policies</small></button>
+      <button class="hub-tile" data-staff-go="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><b>Company info</b><small>Hours, contacts, policies</small></button>
       <a class="hub-tile hub-wide" href="../manual/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg><b>User manual</b><small>How to use ShopControl and this app</small></a>
     </div>
   </div>
@@ -544,6 +551,38 @@
     <label class="field"><span>Your initials</span><input class="input" id="mpInitials" maxlength="8" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;max-width:140px"></label>
     <span class="hint">By typing your initials you confirm these times are correct.</span>
     <div class="sticky-foot"><button class="btn btn-primary" id="mpSubmit">Submit missed punch</button></div>
+  </div>
+</section>
+
+<!-- PAYROLL CORRECTION FORM (page 1 of the paper form) -->
+<section class="screen" id="screen-payfix">
+  <header class="bar">
+    <button class="icon-btn" data-staff-back="staff" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Payroll correction</h1>
+  </header>
+  <div class="main">
+    <div class="form-head"><img src="../img/logo.png" alt="Concept Autobody"><div><b>Payroll Correction Form</b><small id="pfName"></small></div></div>
+    <span class="hint" style="margin-top:12px">If you think there's an error on your payroll check, send this form as soon as possible. Verbal inquiries will not be accepted. An admin's approval takes the place of your supervisor's signature. Corrections should be done within three working days; if it will take longer, you'll be told how long.</span>
+    <div class="alert alert-error" id="pfError"></div>
+    <div class="two-col">
+      <label class="field"><span>Employee # (optional)</span><input class="input" id="pfEmpNo" maxlength="20" inputmode="numeric" autocomplete="off"></label>
+      <label class="field"><span>Phone</span><input class="input" id="pfPhone" type="tel" maxlength="40" autocomplete="tel" placeholder="Where we can reach you"></label>
+    </div>
+    <div class="eyebrow">Dates in question</div>
+    <span class="hint">Show the hours you actually worked each day (example: 9 AM to 5 PM, 8 hours).</span>
+    <div id="pfDays"></div>
+    <button class="btn btn-ghost" id="pfAddDay" style="margin-bottom:14px">＋ Add another day</button>
+    <div class="pf-total"><span>Hours in question</span><b id="pfTotal">0</b></div>
+    <label class="field"><span>Program(s) (optional)</span><input class="input" id="pfPrograms" maxlength="200"></label>
+    <label class="field"><span>Why do you feel the error was made?</span><textarea class="input" id="pfWhy" maxlength="2000" placeholder="e.g. I forgot to clock in/out and forgot to tell my supervisor"></textarea></label>
+    <div class="eyebrow">How should it be paid?</div>
+    <div class="choice-list" id="pfPayout">
+      <button class="choice" data-payout="Next payroll">Adjust my next payroll check</button>
+      <button class="choice" data-payout="Separate check">Issue me a separate check (if applicable)</button>
+    </div>
+    <label class="field"><span>Signature: type your full name</span><input class="input" id="pfSign" maxlength="120" autocomplete="name"></label>
+    <span class="hint">By signing you confirm this information is correct.</span>
+    <div class="sticky-foot"><button class="btn btn-primary" id="pfSubmit">Submit payroll correction</button></div>
   </div>
 </section>
 

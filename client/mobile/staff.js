@@ -1,4 +1,5 @@
-// Staff Hub in the employee app: time-off requests, missed punch slips, mailbox and company info.
+// Staff Hub in the employee app: time-off requests, missed punch slips, payroll corrections,
+// mailbox and company info.
 // Uses helpers from mobile.js (apiRequest, showScreen, esc, toast, showAlert, today).
 (() => {
   const TYPES = ["Sick", "Vacation", "Bereavement", "Time off without pay", "Military", "Jury duty", "Maternity/Paternity", "Other"];
@@ -39,13 +40,26 @@
     return `${f(d)} – ${f(end)}`;
   }
   const punchTimes = (r) => `${I18n.t("In")} ${clock(r.time_in)} · ${I18n.t("Lunch")} ${clock(r.lunch_out)}–${clock(r.lunch_in)} · ${I18n.t("Out")} ${clock(r.time_out)}`;
-  // Time off and missed punches share My requests and Approve; kind picks the API path.
-  const KIND_PATH = { timeoff: "time-off", punch: "missed-punch" };
-  const reqTitle = (r) => (r.kind === "punch" ? `${I18n.t("Missed punch")} · ${fmtDay(r.punch_date)}` : typeLabel(r));
-  const reqDetail = (r) => (r.kind === "punch" ? `${punchTimes(r)}` : dates(r));
-  async function loadBoth(timeOffPath, punchPath) {
-    const [a, b] = await Promise.all([apiRequest(timeOffPath), apiRequest(punchPath).catch(() => [])]);
-    return [...a.map((r) => ({ ...r, kind: "timeoff" })), ...b.map((r) => ({ ...r, kind: "punch" }))];
+  // Payroll corrections (page 1 of the paper form).
+  const hoursText = (n) => `${Number(n)} ${I18n.t(Number(n) === 1 ? "hour" : "hours")}`;
+  const correctionDates = (r) => r.days.map((d) => fmtDay(d.date)).join(" & ");
+  // Time off, missed punches and payroll corrections share My requests and Approve;
+  // kind picks the API path.
+  const KIND_PATH = { timeoff: "time-off", punch: "missed-punch", payfix: "payroll-corrections" };
+  const KIND_NAME = { timeoff: "time off", punch: "missed punch", payfix: "payroll correction" };
+  function reqTitle(r) {
+    if (r.kind === "punch") return `${I18n.t("Missed punch")} · ${fmtDay(r.punch_date)}`;
+    if (r.kind === "payfix") return `${I18n.t("Payroll correction")} · ${hoursText(r.total_hours)}`;
+    return typeLabel(r);
+  }
+  const reqDetail = (r) => (r.kind === "punch" ? punchTimes(r) : r.kind === "payfix" ? correctionDates(r) : dates(r));
+  async function loadRequests(mine) {
+    const sets = await Promise.all(Object.entries(KIND_PATH).map(([kind, path]) =>
+      apiRequest(`/staff/${path}${mine ? "/mine" : ""}`).then((rows) => rows.map((r) => ({ ...r, kind })), (err) => {
+        if (kind === "timeoff") throw err;
+        return [];
+      })));
+    return sets.flat();
   }
 
   function open(name) {
@@ -53,6 +67,7 @@
     if (name === "staff") { refreshCounts(); showScreen("staff"); }
     if (name === "timeoff") openTimeOff();
     if (name === "punch") openPunch();
+    if (name === "payfix") openPayfix();
     if (name === "requests") openRequests();
     if (name === "approve") openApprove();
     if (name === "mail") openMail();
@@ -75,9 +90,10 @@
       let waiting = 0;
       if (isApprover()) {
         waiting = (await apiRequest("/staff/time-off?status=Pending").catch(() => [])).length
-          + (await apiRequest("/staff/missed-punch?status=Pending").catch(() => [])).length;
+          + (await apiRequest("/staff/missed-punch?status=Pending").catch(() => [])).length
+          + (await apiRequest("/staff/payroll-corrections?status=Pending").catch(() => [])).length;
         const sub = $("hubApproveSub");
-        sub.textContent = waiting ? `${waiting} waiting` : "Time off and missed punches";
+        sub.textContent = waiting ? `${waiting} waiting` : "Time off, missed punches, payroll";
         sub.classList.toggle("waiting", !!waiting);
       }
       setBadge("mailCount", count);
@@ -174,12 +190,114 @@
     finally { btn.disabled = false; btn.textContent = "Submit missed punch"; }
   }
 
+  // ---------------------------------------------------------------- Payroll correction
+  const MAX_DAYS = 5;
+  let payout = null;
+  const remembered = (k) => { try { return localStorage.getItem(k) || ""; } catch (_) { return ""; } };
+  const remember = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+
+  function openPayfix() {
+    payout = null;
+    $("pfName").textContent = (currentUser && currentUser.fullName) || "";
+    $("pfEmpNo").value = remembered("payfixEmpNo");
+    $("pfPhone").value = remembered("payfixPhone");
+    for (const id of ["pfPrograms", "pfWhy", "pfSign"]) $(id).value = "";
+    document.querySelectorAll("#pfPayout .choice").forEach((b) => b.classList.remove("on"));
+    $("pfDays").innerHTML = "";
+    addDay();
+    showAlert("pfError", "");
+    showScreen("payfix");
+  }
+
+  function addDay() {
+    const list = $("pfDays");
+    if (list.children.length >= MAX_DAYS) return;
+    const card = document.createElement("div");
+    card.className = "day-card";
+    card.innerHTML = `<div class="day-top"><b></b><button class="remove" data-remove-day>Remove</button></div>
+      <label class="field"><span>Date</span><input class="input" type="date" data-f="date" max="${today()}"></label>
+      <div class="two-col">
+        <label class="field"><span>From</span><input class="input" type="time" data-f="from"></label>
+        <label class="field"><span>To</span><input class="input" type="time" data-f="to"></label>
+      </div>
+      <label class="field"><span>Total hours</span><input class="input" type="number" inputmode="decimal" min="0.25" max="24" step="0.25" data-f="hours" placeholder="e.g. 8"></label>`;
+    list.append(card);
+    renumberDays();
+  }
+
+  function renumberDays() {
+    const cards = [...$("pfDays").children];
+    cards.forEach((c, i) => {
+      c.querySelector(".day-top b").textContent = `${I18n.t("Day")} ${i + 1}`;
+      c.querySelector("[data-remove-day]").hidden = cards.length === 1;
+    });
+    $("pfAddDay").hidden = cards.length >= MAX_DAYS;
+    updateTotal();
+  }
+
+  // Fill in total hours from the from/to times until the person types their own.
+  function autoHours(card) {
+    const h = card.querySelector('[data-f="hours"]');
+    if (h.dataset.typed) return;
+    const [from, to] = ["from", "to"].map((f) => card.querySelector(`[data-f="${f}"]`).value);
+    if (!from || !to || to <= from) return;
+    const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    h.value = String(Math.round((mins(to) - mins(from)) / 15) / 4);
+  }
+
+  function readDays() {
+    return [...$("pfDays").children].map((c) => {
+      const v = (f) => c.querySelector(`[data-f="${f}"]`).value;
+      return { date: v("date"), from: v("from"), to: v("to"), hours: v("hours") };
+    });
+  }
+
+  function updateTotal() {
+    const total = readDays().reduce((s, d) => s + (Number(d.hours) || 0), 0);
+    $("pfTotal").textContent = String(Math.round(total * 100) / 100);
+  }
+
+  async function submitPayfix() {
+    showAlert("pfError", "");
+    const days = readDays();
+    const body = {
+      employee_number: $("pfEmpNo").value.trim(),
+      phone: $("pfPhone").value.trim(),
+      days,
+      programs: $("pfPrograms").value.trim(),
+      explanation: $("pfWhy").value.trim(),
+      payout,
+      signature: $("pfSign").value.trim(),
+    };
+    if ((body.phone.match(/\d/g) || []).length < 7) return showAlert("pfError", "Enter a phone number where the office can reach you.");
+    if (days.some((d) => !d.date)) return showAlert("pfError", "Choose the date for each day in question.");
+    if (days.some((d) => d.date > today())) return showAlert("pfError", "Dates in question can't be in the future.");
+    if (days.some((d) => !d.from || !d.to)) return showAlert("pfError", "Enter the hours you actually worked for each day (from and to).");
+    if (days.some((d) => d.to <= d.from)) return showAlert("pfError", "Each day's end time must be after its start time.");
+    if (days.some((d) => !(Number(d.hours) > 0 && Number(d.hours) <= 24))) return showAlert("pfError", "Enter the total number of hours for each day.");
+    if (new Set(days.map((d) => d.date)).size !== days.length) return showAlert("pfError", "Each date should only be listed once.");
+    if (!body.explanation) return showAlert("pfError", "Explain why you feel the error was made.");
+    if (!body.payout) return showAlert("pfError", "Choose how you'd like the correction paid.");
+    if (!body.signature) return showAlert("pfError", "Type your full name to sign.");
+    const btn = $("pfSubmit");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try {
+      await apiRequest("/staff/payroll-corrections", { method: "POST", body: JSON.stringify(body) });
+      remember("payfixEmpNo", body.employee_number);
+      remember("payfixPhone", body.phone);
+      toast("Payroll correction sent to the office ✓");
+      openRequests();
+    } catch (err) { showAlert("pfError", err.message); }
+    finally { btn.disabled = false; btn.textContent = "Submit payroll correction"; }
+  }
+
   async function openRequests() {
     showScreen("requests");
     const list = $("requestsList");
     list.innerHTML = '<div class="skeleton"></div>';
     try {
-      const rows = (await loadBoth("/staff/time-off/mine", "/staff/missed-punch/mine"))
+      const rows = (await loadRequests(true))
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       const pending = rows.filter((r) => r.status === "Pending").length;
       $("hubRequestsSub").textContent = pending ? `${pending} waiting for approval` : "Status of your requests";
@@ -207,7 +325,7 @@
     const list = $("approveList");
     list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
     try {
-      approveRows = await loadBoth("/staff/time-off", "/staff/missed-punch");
+      approveRows = await loadRequests(false);
       const pending = approveRows.filter((r) => r.status === "Pending").sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       const decided = approveRows.filter((r) => r.status === "Approved" || r.status === "Denied")
         .sort((a, b) => String(b.decided_at || b.updated_at).localeCompare(String(a.decided_at || a.updated_at))).slice(0, 15);
@@ -216,6 +334,10 @@
           <b translate="no">${esc(r.full_name)}</b>
           <small>${esc(reqTitle(r))} · ${esc(reqDetail(r))}</small>
           ${r.kind === "punch" ? `<small style="display:block;margin-top:4px">${esc(I18n.t("Payroll week"))} ${esc(payWeek(r.punch_date))} · ${esc(I18n.t("Initials"))} <span translate="no">${esc(r.initials)}</span></small>` : ""}
+          ${r.kind === "payfix" ? `
+            ${r.days.map((d) => `<small style="display:block;margin-top:4px">${esc(fmtDay(d.date))}: ${esc(clock(d.from))}–${esc(clock(d.to))} · ${esc(hoursText(d.hours))}</small>`).join("")}
+            <small style="display:block;margin-top:4px">${esc(I18n.t(r.payout === "Separate check" ? "Separate check" : "Next payroll check"))} · <span translate="no">${esc(r.phone)}${r.employee_number ? ` · #${esc(r.employee_number)}` : ""}${r.programs ? ` · ${esc(r.programs)}` : ""}</span></small>
+            <small style="display:block;margin-top:6px" translate="no">${esc(r.explanation)}</small>` : ""}
           ${r.notes ? `<small style="display:block;margin-top:6px" translate="no">${esc(r.notes)}</small>` : ""}
           ${buttons ? `<div class="decide-row">
             <button class="btn btn-approve" data-decide="Approved" data-req="${esc(r.id)}" data-kind="${r.kind}">Approve</button>
@@ -237,7 +359,7 @@
     const back = document.createElement("div");
     back.className = "sheet-backdrop";
     back.innerHTML = `<div class="sheet"><div class="grab"></div>
-      <h3>${approve ? "Approve" : "Deny"} ${kind === "punch" ? "missed punch" : "time off"}?</h3>
+      <h3>${approve ? "Approve" : "Deny"} ${KIND_NAME[kind]}?</h3>
       <div class="row-card"><b translate="no">${esc(r.full_name)}</b><small>${esc(reqTitle(r))} · ${esc(reqDetail(r))}</small></div>
       <label class="field"><span>Note to the employee (optional)</span><textarea class="input" id="decideNote" maxlength="1000"></textarea></label>
       <button class="btn ${approve ? "btn-approve" : "btn-deny"}" data-confirm>${approve ? "Approve" : "Deny"}</button>
@@ -372,6 +494,24 @@
     $("toStart").addEventListener("change", () => { if ($("toEnd").value < $("toStart").value) $("toEnd").value = $("toStart").value; });
     $("toSubmit").onclick = submitTimeOff;
     $("mpSubmit").onclick = submitPunch;
+    $("pfSubmit").onclick = submitPayfix;
+    $("pfAddDay").onclick = addDay;
+    $("pfDays").addEventListener("click", (e) => {
+      const rm = e.target.closest("[data-remove-day]");
+      if (rm) { rm.closest(".day-card").remove(); renumberDays(); }
+    });
+    $("pfDays").addEventListener("input", (e) => {
+      const card = e.target.closest(".day-card");
+      if (e.target.dataset.f === "hours") e.target.dataset.typed = e.target.value ? "1" : "";
+      else if (card) autoHours(card);
+      updateTotal();
+    });
+    $("pfPayout").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-payout]");
+      if (!b) return;
+      payout = b.dataset.payout;
+      document.querySelectorAll("#pfPayout .choice").forEach((x) => x.classList.toggle("on", x === b));
+    });
     $("mpDate").addEventListener("change", showWeek);
     $("mailComposeBtn").onclick = () => openCompose();
     $("msgReplyBtn").onclick = () => openCompose(openMsg);

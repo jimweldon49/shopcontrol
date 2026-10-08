@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict'), Modul
 
 // In-memory stand-ins for the database, mailer and activity log.
 const calls = [], emails = [];
-let users = [], requests = [], messages = [], punches = [];
+let users = [], requests = [], messages = [], punches = [], corrections = [];
 function query(sql, args = []) {
   calls.push({ sql, args });
   if (sql.startsWith('BEGIN') || sql.startsWith('COMMIT') || sql.startsWith('ROLLBACK')) return { rows: [] };
@@ -15,6 +15,15 @@ function query(sql, args = []) {
     const [user_id, full_name, punch_date, time_in, lunch_out, lunch_in, time_out, initials, notes] = args;
     const row = { id: 'p' + (punches.length + 1), user_id, full_name, punch_date, time_in, lunch_out, lunch_in, time_out, initials, notes, status: 'Pending' };
     punches.push(row); return { rows: [row] };
+  }
+  if (sql.startsWith('INSERT INTO payroll_corrections')) {
+    const [user_id, full_name, employee_number, phone, days, total_hours, programs, explanation, payout, signature] = args;
+    const row = { id: 'c' + (corrections.length + 1), user_id, full_name, employee_number, phone, days: JSON.parse(days), total_hours, programs, explanation, payout, signature, status: 'Pending' };
+    corrections.push(row); return { rows: [row] };
+  }
+  if (sql.startsWith('UPDATE payroll_corrections SET status=$1')) {
+    const r = corrections.find(x => x.id === args[3] && x.status === 'Pending'); if (!r) return { rows: [] };
+    Object.assign(r, { status: args[0], decision_note: args[1], decided_by: args[2] }); return { rows: [r] };
   }
   if (sql.startsWith('SELECT 1 FROM missed_punch_requests')) return { rows: punches.filter(p => p.user_id === args[0] && p.punch_date === args[1] && ['Pending', 'Approved'].includes(p.status)) };
   if (sql.startsWith('UPDATE missed_punch_requests SET status=$1')) {
@@ -64,7 +73,7 @@ const office = { id: 'u-office', role: 'office', fullName: 'Olivia Office' };
 const admin = { id: 'u-admin', role: 'admin', fullName: 'Andy Admin' };
 
 test.beforeEach(() => {
-  calls.length = 0; emails.length = 0; requests = []; messages = []; punches = [];
+  calls.length = 0; emails.length = 0; requests = []; messages = []; punches = []; corrections = [];
   users = [
     { id: 'u-tech', role: 'body', email: 'tech@x.com', full_name: 'Travis Tech', department: 'Body' },
     { id: 'u-tech2', role: 'paint', email: null, full_name: 'Pat Painter', department: 'Paint' },
@@ -174,4 +183,51 @@ test('only admins decide missed punches; the employee and office hear about it',
   assert.equal(emails[0].to, 'tech@x.com');
   assert.equal(emails[1].subject, 'Missed punch APPROVED · Travis Tech');
   assert.equal((await call('POST /missed-punch/:id/decision', admin, { decision: 'Denied' }, { id: 'p1' })).code, 409);
+});
+
+const correction = {
+  employee_number: '42', phone: '(555) 123-4567', programs: '',
+  days: [{ date: '2026-10-06', from: '08:00', to: '16:30', hours: 8 }, { date: '2026-10-05', from: '08:00', to: '17:00', hours: '8.5' }],
+  explanation: 'I forgot to clock out and forgot to tell my supervisor', payout: 'Next payroll', signature: 'Travis Tech',
+};
+
+test('a payroll correction totals the hours, lists the dates in order and emails the office', async () => {
+  const r = await call('POST /payroll-corrections', tech, correction);
+  assert.equal(r.code, 201);
+  assert.equal(corrections[0].total_hours, 16.5);
+  assert.deepEqual(corrections[0].days.map(d => d.date), ['2026-10-05', '2026-10-06']);
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].subject, 'Payroll correction · Travis Tech');
+  assert.match(emails[0].to, /office@x\.com/);
+  assert.ok(emails[0].bodyLines.includes('Payroll date(s) in question: Mon, Oct 5 & Tue, Oct 6'), emails[0].bodyLines.join('|'));
+  assert.ok(emails[0].bodyLines.includes('Number of hours in question: 16.5'));
+  assert.ok(emails[0].bodyLines.includes('Mon, Oct 5, 2026: worked 8:00 AM–5:00 PM, 8.5 hours'));
+});
+
+test('a payroll correction needs a phone, valid days, a reason, a payout choice and a signature', async () => {
+  const bad = async (patch) => (await call('POST /payroll-corrections', tech, { ...correction, ...patch })).code;
+  assert.equal(await bad({ phone: '555' }), 400);
+  assert.equal(await bad({ days: [] }), 400);
+  assert.equal(await bad({ days: [{ date: '2026-10-06', from: '17:00', to: '08:00', hours: 8 }] }), 400);
+  assert.equal(await bad({ days: [{ date: '2026-10-06', from: '08:00', to: '16:00', hours: 0 }] }), 400);
+  assert.equal(await bad({ days: [{ date: '2999-01-01', from: '08:00', to: '16:00', hours: 8 }] }), 400);
+  assert.equal(await bad({ days: [correction.days[0], correction.days[0]] }), 400, 'same date twice');
+  assert.equal(await bad({ days: Array(6).fill(correction.days[0]) }), 400);
+  assert.equal(await bad({ explanation: ' ' }), 400);
+  assert.equal(await bad({ payout: 'Cash' }), 400);
+  assert.equal(await bad({ signature: '' }), 400);
+  assert.equal(await bad({ employee_number: '' }), 201, 'employee # is optional');
+});
+
+test('only admins decide payroll corrections; the employee and office hear about it', async () => {
+  await call('POST /payroll-corrections', tech, correction);
+  emails.length = 0;
+  assert.equal((await call('POST /payroll-corrections/:id/decision', office, { decision: 'Approved' }, { id: 'c1' })).code, 403);
+  assert.equal((await call('POST /payroll-corrections/:id/decision', admin, { decision: 'Denied', note: 'Hours match the clock' }, { id: 'c1' })).code, 200);
+  assert.equal(corrections[0].status, 'Denied');
+  assert.equal(messages[0].args[3], 'Payroll correction DENIED: Mon, Oct 5 & Tue, Oct 6');
+  assert.equal(emails.length, 2);
+  assert.equal(emails[0].to, 'tech@x.com');
+  assert.equal(emails[1].subject, 'Payroll correction DENIED · Travis Tech');
+  assert.ok(emails[1].bodyLines.includes('Decision note: Hours match the clock'));
 });
