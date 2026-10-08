@@ -378,7 +378,7 @@ function dailyObj() {
     endOfDayNotes: $("endOfDayNotes").value,
   };
 }
-function resetDaily() { $("dailyForm").reset(); $("dailyId").value = ""; $("createdAt").value = ""; $("updatedAt").value = ""; $("deliveredAt").value = ""; $("targetDeliveryDate").value = today(); const box = $("dailyTimestampBox"); if (box) box.textContent = "System timestamps will appear here after saving."; }
+function resetDaily() { $("dailyForm").reset(); $("dailyId").value = ""; $("createdAt").value = ""; $("updatedAt").value = ""; $("deliveredAt").value = ""; $("targetDeliveryDate").value = today(); const box = $("dailyTimestampBox"); if (box) box.textContent = "System timestamps will appear here after saving."; if (typeof CustomerPortalAdmin !== "undefined") CustomerPortalAdmin.hide(); }
 function isStaleVehicle(r) {
   if (!r || ["Delivered","Total Loss"].includes(r.currentStage)) return false;
   if (!r.updatedAt) return false;
@@ -450,6 +450,7 @@ function editDaily(id) {
   $("dailyExpectedUpdatedAt").value=r.updatedAt||""; $("dailyExpectedUpdatedAt").dataset.version=String(r.version??0);
   const box = $("dailyTimestampBox");
   if (box) {
+    if (typeof CustomerPortalAdmin !== "undefined") CustomerPortalAdmin.show(r);
     box.innerHTML = `<strong>Created:</strong> ${formatDateTime(r.createdAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Last Updated:</strong> ${formatDateTime(r.updatedAt) || "Not recorded"} &nbsp; | &nbsp; <strong>Delivered:</strong> ${formatDateTime(r.deliveredAt) || r.actualDeliveredDate || "Not delivered"}${r.onsite ? `<br>${escapeHtml(customerUpdateSummary(r))}` : ""}`;
   }
   document.querySelector('[data-tab="daily"]').click();

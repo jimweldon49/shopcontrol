@@ -37,7 +37,7 @@ function versionedPage(file) {
   if (hit && Date.now() - hit.at < 10000) return hit.html;
   const dir = path.dirname(file);
   const html = fs.readFileSync(file, "utf8").replace(ASSET, (m, pre, src, post) => {
-    const stamp = fileStamp(path.resolve(dir, src));
+    const stamp = fileStamp(src.startsWith("/") ? path.join(CLIENT, src) : path.resolve(dir, src));
     return stamp ? `${pre}${src}?v=${stamp}${post}` : m;
   });
   pages.set(file, { html, at: Date.now() });

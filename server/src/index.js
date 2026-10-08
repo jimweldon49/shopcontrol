@@ -53,6 +53,8 @@ app.use('/api/inventoryLocations', require('./routes/inventory'));
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/jobHistory', require('./routes/jobHistory'));
 app.use('/api/shopBoard', require('./routes/shopBoard'));
+app.use('/api/portal', require('./routes/portal').publicRouter);
+app.use('/api/customer-portal', require('./routes/portal').staffRouter);
 mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc, /api/booth, /api/facility
 
 startEmsWatcher();
@@ -64,6 +66,13 @@ require('./coreNotifications').startCoreNotifications();
 require('./customerUpdateReminders').startCustomerUpdateReminders();
 // The web app and employee app share this server and login origin.
 // The two app pages go out with their scripts version-stamped (see appVersion.js).
+// The customer status page: /update (look up by RO + last name) and /update/<link>.
+app.get(["/update", "/update/", "/update/:token"], (req, res, next) => {
+  if (req.params.token && !/^[A-Za-z0-9_-]{8,64}$/.test(req.params.token)) return next();
+  const { versionedPage, CLIENT } = require("./appVersion");
+  try { res.set({ "Cache-Control": "no-cache", "X-Robots-Tag": "noindex" }).type("html").send(versionedPage(path.join(CLIENT, "update", "index.html"))); }
+  catch (e) { next(e); }
+});
 for (const [routes, file] of [[["/", "/index.html"], "index.html"], [["/mobile/", "/mobile/index.html"], "mobile/index.html"]]) {
   app.get(routes, (req, res, next) => {
     // "/mobile" without the slash: redirect so the page's relative links resolve.

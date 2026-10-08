@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.7";
+const VERSION = "2.8";
 const UPDATED = "October 8, 2026";
 
 const CHANGES = [
+  { version: "2.8", date: "October 8, 2026", text: "New **customer status page** at conceptautobody.app/update: customers see where their car is in the repair and the updates you post, from a private link or by looking up their RO number and last name. Set it up from the job editor (**Customer status page**) and Settings." },
   { version: "2.7", date: "October 8, 2026", text: "The paper **payroll correction form** is now in the Employee App: **Staff Hub → Payroll correction**. Admins approve or deny it with time off and missed punches, and the employee and office are notified." },
   { version: "2.6", date: "October 8, 2026", text: "The paper missed punch slip is now in the Employee App: **Staff Hub → Missed punch**. Admins approve or deny slips with time off (Staff Hub → **Approve requests**, or the **Time Off** tab), and the employee and office are notified. The Employee App now **updates itself** when a new version is put on the server." },
   { version: "2.5", date: "October 8, 2026", text: "Office staff and the parts department can **run parts from their phone**: the new **Parts desk** in the Employee App orders, receives and mirror matches parts, moves them between shelves, and covers Returns & Alerts and storage locations." },
@@ -450,6 +451,16 @@ const sections = [
       { p: "**Missed punches** are listed below the time-off requests, with the date, times, payroll week (Thursday to Wednesday) and the employee's initials. Approve or deny them the same way; the emails say \"Missed punch APPROVED · Jane Doe\". Use the approved slips to correct the time clock for payroll." },
       { p: "**Payroll corrections** are listed last, with the employee's phone and employee #, each day in question with its hours, the total, the reason, whether to adjust the next check or issue a separate check, and their typed signature. Approving takes the place of the supervisor's signature on the paper form." },
       { note: "Only **admins and owners** can approve or deny, here or in the Employee App (Staff Hub → **Approve requests**). Managers and office staff can see requests but not decide them." },
+      { h3: "Customer status page" },
+      { p: "Customers can check on their car at **conceptautobody.app/update**. They see the vehicle, a progress bar (Checked in, Repair plan, Parts, Body, Paint, Reassembly, Final check, Ready), the updates you post, and Call and Text buttons. They **never** see prices, notes, hold-up reasons, supplements or staff names. A car on hold keeps showing the last step it reached." },
+      { steps: [
+        "Open the job in **Shop Control** (Edit). The **Customer status page** panel is under the timestamps (office staff, estimators, managers and admins).",
+        "Click **Create customer link**. It's copied for you; paste it into a text or email to the customer. **Copy customer link** copies it again later.",
+        "To update the customer, type a short message under **Post an update for the customer** and click **Post update**. It shows on their page right away and sets **Customer Updated** to Yes.",
+        "Made a mistake? Click **Remove** next to the update, then click again to confirm.",
+      ] },
+      { p: "Customers who lost the link can go to conceptautobody.app/update and enter their **5-digit RO number** and the **last name** on the repair order. After a few wrong tries the page makes them wait, so nobody can guess their way into another customer's car. Links keep working for 30 days after pickup. Estimates without an RO don't have a status page." },
+      { note: "Admins set the shop phone, the number customers can text, hours and address under **Settings** → **Customer status page**. Leave the text number blank if you don't take texts." },
       { h3: "Messages & Info tab" },
       { bullets: [
         "**Inbox:** your messages. Click one to read it and **Reply**.",
