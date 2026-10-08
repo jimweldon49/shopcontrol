@@ -263,6 +263,49 @@
   .lang-btn { flex: 0 0 auto; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-weight: 700; font-size: 13px; }
   .lang-corner { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px; }
   .toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); font-weight: 700; font-size: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.4); animation: enter .2s; }
+
+  /* Parts desk (office staff + parts role) */
+  .parts-cta { margin-top: 10px; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; margin: 12px -16px 0; padding: 0 16px 4px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; padding: 8px 13px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; color: var(--muted); }
+  .chip.on { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color: var(--accent); color: var(--text); }
+  .tool-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tool-row button { padding: 12px 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 700; }
+  .tool-row svg { display: block; width: 22px; height: 22px; margin: 0 auto 6px; color: var(--accent); }
+  .arrow-muted { font-size: 24px; color: var(--muted); }
+  .prow { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--line); overflow: hidden; }
+  .prow.on { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+  .pbox { padding: 14px 4px 14px 14px; align-self: flex-start; }
+  .pbox .box { width: 28px; height: 28px; border-radius: 9px; border: 2px solid var(--faint); display: grid; place-items: center; }
+  .pbox svg { width: 17px; height: 17px; stroke: var(--accent-ink); stroke-width: 3.2; fill: none; opacity: 0; }
+  .prow.on .pbox .box { background: var(--accent); border-color: var(--accent); }
+  .prow.on .pbox svg { opacity: 1; }
+  .pbody { flex: 1; min-width: 0; text-align: left; padding: 14px 14px 14px 10px; }
+  .pbody b { display: block; font-size: 14.5px; }
+  .pbody small { color: var(--muted); }
+  .pill.warn { background: rgba(234,179,8,.16); color: #fde047; }
+  .pick-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+  .pick-row button { padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 700; }
+  .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .action-grid .btn { padding: 13px 6px; margin: 0; font-size: 14px; }
+  .sel-count { margin: 0 0 8px 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .part-card { display: block; width: 100%; text-align: left; }
+  .loc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .loc-tile { text-align: left; padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .loc-tile.busy { border-color: rgba(249,115,22,.45); }
+  .loc-tile b { display: block; font-size: 16px; }
+  .loc-tile small { display: block; color: var(--muted); font-size: 12.5px; }
+  .shelf-empty { padding: 10px 14px; margin-bottom: 8px; border-radius: 12px; border: 1.5px dashed var(--line); color: var(--faint); font-size: 13px; }
+  .warn-text { color: #fde047; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .stat.bad { border-color: rgba(244,63,94,.5); }
+  .stat b { display: block; font-size: 20px; margin: 2px 0; }
+  .stat small { display: block; color: var(--muted); font-size: 12px; }
+  .hint { color: var(--muted); font-size: 13.5px; margin: 0 4px 12px; display: block; }
+  .bulk-field { margin-bottom: 10px; }
+  .bulk-field .toggle-row { margin: 0 4px 6px; }
 </style>
 </head>
 <body>
@@ -309,6 +352,7 @@
   <div class="main">
     <div class="hello"><h2 id="helloName">Hey there</h2><p id="helloSub"></p></div>
     <button class="hub-cta" id="staffHubBtn"><div><b>Staff Hub</b><small>Time off · mailbox · company info</small></div><span class="badge-inline" id="hubCount" hidden></span><span class="arrow">›</span></button>
+    <button class="hub-cta parts-cta" id="partsDeskBtn" hidden><div><b>Parts desk</b><small>Order · receive · mirror match · carts · returns</small></div><span class="arrow">›</span></button>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input class="input" id="searchInput" type="search" placeholder="Search RO, customer or vehicle" autocomplete="off" />
@@ -420,7 +464,7 @@
     <button class="icon-btn" data-back="job" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     <h1 id="partsTitle">Parts</h1>
   </header>
-  <div class="main"><div id="partsList"></div></div>
+  <div class="main"><div id="partsList"></div><button class="btn btn-primary" id="partsManageBtn" style="margin-top:12px" hidden>Manage parts</button></div>
 </section>
 
 <script src="../shared.js"></script>
@@ -538,7 +582,142 @@
   <div class="main"><img class="hub-logo" src="../img/logo.png" alt="Concept Autobody"><div id="infoList"></div></div>
 </section>
 
+<!-- PARTS DESK (office staff + parts role) -->
+<section class="screen" id="screen-pdesk">
+  <header class="bar">
+    <button class="icon-btn" data-pback="home" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Parts desk</h1>
+  </header>
+  <div class="main">
+    <div class="tool-row">
+      <button data-pgo="carts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16"/></svg>Carts &amp; shelves</button>
+      <button data-pgo="returns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Returns &amp; alerts</button>
+      <button data-pgo="locs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Locations</button>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input class="input" id="pdeskSearch" type="search" placeholder="Search RO, customer, vehicle, part" autocomplete="off" />
+    </div>
+    <div class="chips" id="pdeskViews"></div>
+    <div class="eyebrow" id="pdeskCount"></div>
+    <div id="pdeskList"></div>
+    <div class="sticky-foot"><button class="btn btn-primary" data-pgo="newpart">+ Add a part</button></div>
+  </div>
+</section>
+
+<!-- PARTS FOR ONE VEHICLE -->
+<section class="screen" id="screen-pgroup">
+  <header class="bar">
+    <button class="icon-btn" data-pgroup-back aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="pgroupTitle">Parts</h1>
+  </header>
+  <div class="main">
+    <div id="pgroupHead"></div>
+    <label class="toggle-row"><input type="checkbox" id="pProblemsOnly"> Problem parts only</label>
+    <div class="pick-row">
+      <button data-ppick="all">Select all</button><button data-ppick="none">Clear</button>
+      <button data-ppick="ordered">Already ordered</button><button data-ppick="mirrored">Already mirror matched</button>
+    </div>
+    <div id="pgroupList"></div>
+    <div class="sticky-foot">
+      <div class="sel-count" id="pselCount"></div>
+      <div class="action-grid" id="pActions" hidden>
+        <button class="btn btn-primary" data-pact="order">Order</button>
+        <button class="btn btn-primary" data-pact="receive">Receive</button>
+        <button class="btn btn-primary" data-pact="mirror">Mirror match</button>
+        <button class="btn btn-ghost" data-pact="edit">Edit</button>
+        <button class="btn btn-deny" data-pact="delete" id="pBulkDelete">Delete</button>
+      </div>
+      <button class="btn btn-ghost" id="pAddToGroup">+ Add a part to this vehicle</button>
+    </div>
+  </div>
+</section>
+
+<!-- ADD / EDIT PART -->
+<section class="screen" id="screen-pedit">
+  <header class="bar">
+    <button class="icon-btn" data-pback="edit" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="peditTitle">Edit part</h1>
+  </header>
+  <div class="main">
+    <div class="alert alert-error" id="peditError"></div>
+    <label class="field"><span>RO number</span><input class="input" id="pe_parts_ro_number" type="text" inputmode="numeric" autocomplete="off"></label>
+    <div class="two-col"><label class="field"><span>Customer</span><input class="input" id="pe_parts_customer_name" type="text"></label><label class="field"><span>Vehicle</span><input class="input" id="pe_parts_vehicle" type="text" placeholder="2022 Honda Accord"></label></div>
+    <label class="field"><span>Part description</span><input class="input" id="pe_part_description" type="text" placeholder="LH headlamp, rear bumper…"></label>
+    <div class="two-col"><label class="field"><span>Status</span><select class="input" id="pe_part_status"></select></label><label class="field"><span>Priority</span><select class="input" id="pe_part_priority"></select></label></div>
+    <div class="two-col"><label class="field"><span>Part type</span><select class="input" id="pe_part_type"></select></label><label class="field"><span>Vendor</span><input class="input" id="pe_part_vendor" type="text" placeholder="Dealer, LKQ…"></label></div>
+    <div class="two-col"><label class="field"><span>Est. unit value ($)</span><input class="input" id="pe_part_cost" type="number" min="0" step="0.01" inputmode="decimal"></label><label class="field"><span>Quantity</span><input class="input" id="pe_part_qty" type="number" min="0" step="1" inputmode="numeric"></label></div>
+    <label class="field"><span>Cart / storage location</span><select class="input" id="pe_part_location"></select></label>
+    <label class="field" id="pe_shelfWrap"><span>Shelf</span><select class="input" id="pe_part_shelf"></select></label>
+    <div class="two-col"><label class="field"><span>Ordered</span><input class="input" id="pe_part_ordered_date" type="date"></label><label class="field"><span>ETA</span><input class="input" id="pe_part_eta" type="date"></label></div>
+    <div class="two-col"><label class="field"><span>Received</span><input class="input" id="pe_part_received_date" type="date"></label><label class="field"><span>Last follow-up</span><input class="input" id="pe_part_last_follow_up" type="date"></label></div>
+    <div class="two-col"><label class="field"><span>Mirror matched?</span><select class="input" id="pe_part_mirror_matched"></select></label><label class="field"><span>Return needed?</span><select class="input" id="pe_part_return_needed"></select></label></div>
+    <div class="two-col"><label class="field"><span>Credit needed?</span><select class="input" id="pe_part_credit_needed"></select></label><label class="field"><span>Assigned to</span><input class="input" id="pe_part_assigned_to" type="text" placeholder="Parts person"></label></div>
+    <label class="toggle-row"><input type="checkbox" id="pe_has_core"> Has a core (notifies staff)</label>
+    <label class="toggle-row"><input type="checkbox" id="pe_core_returned"> Core returned</label>
+    <label class="field"><span>Notes</span><textarea class="input" id="pe_part_notes" placeholder="ETA, vendor, wrong part, return/credit notes…"></textarea></label>
+    <button class="btn btn-deny" id="peditDelete" hidden>Delete part</button>
+    <div class="sticky-foot"><button class="btn btn-primary" id="peditSave">Save part</button></div>
+  </div>
+</section>
+
+<!-- CARTS & SHELVES -->
+<section class="screen" id="screen-pcarts">
+  <header class="bar">
+    <button class="icon-btn" data-pback="desk" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Carts &amp; shelves</h1>
+  </header>
+  <div class="main"><div id="pcartsList"></div></div>
+</section>
+<section class="screen" id="screen-pcart">
+  <header class="bar">
+    <button class="icon-btn" data-pback="carts" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="pcartTitle">Cart</h1>
+  </header>
+  <div class="main"><div id="pcartDetail"></div></div>
+</section>
+
+<!-- RETURNS & ALERTS -->
+<section class="screen" id="screen-preturns">
+  <header class="bar">
+    <button class="icon-btn" data-pback="desk" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Returns &amp; alerts</h1>
+  </header>
+  <div class="main"><p class="hint">Parts age starts when they're received. Review anything 25+ days on site and check the vendor's return terms.</p><div id="preturnsBody"></div></div>
+</section>
+
+<!-- MANAGE LOCATIONS -->
+<section class="screen" id="screen-plocs">
+  <header class="bar">
+    <button class="icon-btn" data-pback="desk" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1>Locations</h1>
+    <button class="icon-btn" data-pgo="newloc" aria-label="Add a location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  </header>
+  <div class="main"><div id="plocsList"></div><button class="btn btn-ghost" style="margin-top:6px" data-pgo="newloc">+ Add a cart or location</button></div>
+</section>
+<section class="screen" id="screen-ploc">
+  <header class="bar">
+    <button class="icon-btn" data-pback="locs" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="plocTitle">Location</h1>
+  </header>
+  <div class="main">
+    <div class="alert alert-error" id="plocError"></div>
+    <label class="field"><span>Type</span><select class="input" id="pl_kind"><option value="cart">Cart</option><option value="storage">Storage location</option></select></label>
+    <div class="two-col"><label class="field"><span>Name</span><input class="input" id="pl_name"></label><label class="field"><span>Floor-plan zone</span><input class="input" id="pl_zone" placeholder="North wall…"></label></div>
+    <div id="pl_cartFields">
+      <label class="field"><span>Number of shelves</span><input class="input" id="pl_shelf_count" type="number" min="1" max="20" inputmode="numeric"></label>
+      <label class="toggle-row"><input type="checkbox" id="pl_has_top"> Include top storage area</label>
+      <label class="field"><span>Linked RO(s), comma-separated</span><input class="input" id="pl_ros" placeholder="Leave blank for an available cart" inputmode="numeric"></label>
+      <label class="toggle-row"><input type="checkbox" id="pl_same_car"> All linked ROs are the same car</label>
+      <p class="hint">Leave ROs blank to release an empty cart. Move parts out before removing their RO or a shelf.</p>
+    </div>
+    <button class="btn btn-deny" id="plocDelete" hidden>Delete location</button>
+    <div class="sticky-foot"><button class="btn btn-primary" id="plocSave">Save location</button></div>
+  </div>
+</section>
+
 <script src="mobile.js"></script>
 <script src="staff.js"></script>
+<script src="parts.js"></script>
 </body>
 </html>

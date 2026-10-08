@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.4";
-const UPDATED = "October 6, 2026";
+const VERSION = "2.5";
+const UPDATED = "October 8, 2026";
 
 const CHANGES = [
+  { version: "2.5", date: "October 8, 2026", text: "Office staff and the parts department can **run parts from their phone**: the new **Parts desk** in the Employee App orders, receives and mirror matches parts, moves them between shelves, and covers Returns & Alerts and storage locations." },
   { version: "2.4", date: "October 6, 2026", text: "Admins can **approve or deny time off in the Employee App** (Staff Hub → Approve time off), and the office is emailed every decision. The TV and shop touch board show when they last updated and catch up by themselves if they fall behind." },
   { version: "2.3", date: "October 5, 2026", text: "Estimates without an RO are now **capture opportunities**: instead of cycle time emails, the office gets up to 3 reminders to call the customer. Log each call with **Log call** under **Opportunities**." },
   { version: "2.2", date: "September 30, 2026", text: "On the shop touch board, technicians can **drag** a car to its next stage with a finger (tapping still works)." },
@@ -328,6 +329,21 @@ const sections = [
       ] },
       { note: "One vehicle per cart. A cart belongs to the first RO placed on it until it's cleared." },
       { p: "Technicians see these spots in the Employee App under **Parts**, so always record where a part was put (cart and shelf, or storage spot). A part that is received but not placed shows as **not put away yet**." },
+      { h3: "Parts desk on your phone (office and parts staff)" },
+      { p: "Office, manager, admin, owner and parts accounts get a **Parts desk** button on the Employee App home screen. It does what the Parts, Carts & Shelves, Returns & Alerts and Manage Locations tabs do. Technicians don't see it; they keep the read-only **Parts** list on each car." },
+      { steps: [
+        "Tap **Parts desk**. Vehicles with parts are listed; use the search box or the filters (All open, Problems, Not arrived on time, Need to order and so on).",
+        "Tap a vehicle to see its parts. Tap the boxes to pick parts, or use **Select all**, **Already ordered** or **Already mirror matched**.",
+        "With parts picked, tap **Order** (asks for the ETA), **Receive** (sets Received with today's date), **Mirror match** (asks which cart and shelf), **Edit** (change only the fields you tick) or **Delete** (accounts allowed to delete only).",
+        "Tap a part's name to open and edit everything about it. **+ Add a part** adds one; from a vehicle it fills in the RO, customer and vehicle for you.",
+      ] },
+      { bullets: [
+        "**Carts & shelves:** tap a cart to see each shelf. Tap a part to move it to another shelf (there's no dragging on a phone).",
+        "**Returns & alerts:** on-site value, parts 25+ days on site, cores waiting to go back, and returns and credits.",
+        "**Locations:** add or change carts and storage spots (+ in the top corner).",
+        "From a car's **Parts** screen, **Manage parts** jumps straight to that RO in the Parts desk.",
+      ] },
+      { note: "The Shop Floor Plan and Export Parts CSV are only in the office program." },
       { h3: "Other parts screens" },
       { bullets: [
         "**Shop Floor Plan:** carts and storage locations by zone.",
