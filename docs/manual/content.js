@@ -12,7 +12,7 @@ const VERSION = "2.6";
 const UPDATED = "October 8, 2026";
 
 const CHANGES = [
-  { version: "2.6", date: "October 8, 2026", text: "The paper missed punch slip is now in the Employee App: **Staff Hub → Missed punch**. Admins approve or deny slips with time off (Staff Hub → **Approve requests**, or the **Time Off** tab), and the employee and office are notified." },
+  { version: "2.6", date: "October 8, 2026", text: "The paper missed punch slip is now in the Employee App: **Staff Hub → Missed punch**. Admins approve or deny slips with time off (Staff Hub → **Approve requests**, or the **Time Off** tab), and the employee and office are notified. The Employee App now **updates itself** when a new version is put on the server." },
   { version: "2.5", date: "October 8, 2026", text: "Office staff and the parts department can **run parts from their phone**: the new **Parts desk** in the Employee App orders, receives and mirror matches parts, moves them between shelves, and covers Returns & Alerts and storage locations." },
   { version: "2.4", date: "October 6, 2026", text: "Admins can **approve or deny time off in the Employee App** (Staff Hub → Approve time off), and the office is emailed every decision. The TV and shop touch board show when they last updated and catch up by themselves if they fall behind." },
   { version: "2.3", date: "October 5, 2026", text: "Estimates without an RO are now **capture opportunities**: instead of cycle time emails, the office gets up to 3 reminders to call the customer. Log each call with **Log call** under **Opportunities**." },
@@ -96,6 +96,7 @@ const sections = [
         "**Exit icon** (top right): sign out.",
         "**Español / English** button (top of the screen): switches the app between English and Spanish.",
       ] },
+      { tip: "The app **updates itself**. When a new version is put on the server it reloads the next time you open it. If you're in the middle of a form, an orange **A new version is ready. Tap to update** bar shows instead: finish what you're doing, then tap it (or just go back, and it updates on its own)." },
       { h3: "Spanish (Español)" },
       { p: "Tap **Español** at the top of the sign-in screen, the home screen or the Staff Hub to switch the whole app to Spanish: menus, buttons, messages, every QC checklist item, part statuses, production stages and the time-off form. Tap **English** to switch back. Each phone remembers its choice." },
       { p: "Everything is still **saved in English**. Checklists save which items were checked, not the words on screen, so the office program, the QC report and Completed Jobs always show the English checklist, whichever language the tech used. Time-off types, rework choices and stages also save in English." },

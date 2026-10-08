@@ -97,6 +97,7 @@ const I18n = (() => {
     "No messages yet.": "Todavía no hay mensajes.", "Write a message.": "Escribe un mensaje.", "Choose who it's for.": "Elige para quién es.",
     "Choose…": "Elegir…", "Office & admins": "Oficina y administradores", "Everyone": "Todos", "Department": "Departamento", "Person": "Persona",
     "Nothing here yet. The office will add shop info soon.": "Nada todavía. La oficina agregará información pronto.",
+    "A new version is ready. Tap to update": "Hay una nueva versión. Toca para actualizar",
     // Missed punch
     "Missed punch": "Ponchado olvidado", "Missed Punch": "Ponchado olvidado", "Forgot to clock in or out": "Olvidaste marcar entrada o salida",
     "Time off · missed punch · mailbox · company info": "Días libres · ponchado olvidado · buzón · información",

@@ -37,6 +37,10 @@ app.use(express.json({ limit: "4mb" }));
 app.use("/uploads", express.static(process.env.UPLOAD_DIR || path.join(__dirname, "..", "uploads")));
 
 app.get("/api/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+app.get("/api/version", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ mobile: require("./appVersion").mobileVersion() });
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
