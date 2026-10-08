@@ -97,6 +97,22 @@ const I18n = (() => {
     "No messages yet.": "Todavía no hay mensajes.", "Write a message.": "Escribe un mensaje.", "Choose who it's for.": "Elige para quién es.",
     "Choose…": "Elegir…", "Office & admins": "Oficina y administradores", "Everyone": "Todos", "Department": "Departamento", "Person": "Persona",
     "Nothing here yet. The office will add shop info soon.": "Nada todavía. La oficina agregará información pronto.",
+    // Missed punch
+    "Missed punch": "Ponchado olvidado", "Missed Punch": "Ponchado olvidado", "Forgot to clock in or out": "Olvidaste marcar entrada o salida",
+    "Time off · missed punch · mailbox · company info": "Días libres · ponchado olvidado · buzón · información",
+    "Fill out every time as accurately as you can. Missed punches are paid on the following payroll. Payroll runs Thursday to Wednesday, so send your slip before the next payroll to get paid.":
+      "Llena todas las horas lo más exacto posible. Los ponchados olvidados se pagan en la siguiente nómina. La nómina va de jueves a miércoles; manda tu hoja antes de la próxima nómina para que te paguen.",
+    "Date": "Fecha", "Time in": "Hora de entrada", "Time out": "Hora de salida", "Time out (lunch)": "Salida a comer", "Time in (lunch)": "Regreso de comer",
+    "I didn't take a lunch": "No tomé hora de comida", "e.g. Forgot to clock out for lunch": "ej. Olvidé marcar la salida a comer",
+    "Your initials": "Tus iniciales", "By typing your initials you confirm these times are correct.": "Al escribir tus iniciales confirmas que estas horas son correctas.",
+    "Submit missed punch": "Enviar ponchado olvidado", "Missed punch sent to the office ✓": "Ponchado olvidado enviado a la oficina ✓",
+    "Payroll week": "Semana de nómina", "Thu–Wed": "jue–mié", "Initials": "Iniciales", "In": "Entrada", "Out": "Salida", "Lunch": "Comida", "No lunch": "Sin comida",
+    "Choose the date of the missed punch.": "Elige la fecha del ponchado olvidado.", "The date can't be in the future.": "La fecha no puede ser en el futuro.",
+    "Enter your time in and time out.": "Escribe tu hora de entrada y de salida.", "Enter both lunch times, or check \"I didn't take a lunch\".": "Escribe las dos horas de comida, o marca \"No tomé hora de comida\".",
+    "The times must be in order: in, lunch out, lunch in, out.": "Las horas deben ir en orden: entrada, salida a comer, regreso, salida.",
+    "Type your initials.": "Escribe tus iniciales.",
+    "Approve requests": "Aprobar solicitudes", "Time off and missed punches": "Días libres y ponchados olvidados",
+    "Approve missed punch?": "¿Aprobar ponchado olvidado?", "Deny missed punch?": "¿Negar ponchado olvidado?",
     // Departments and production stages
     "Check-In": "Recepción", "Body": "Carrocería", "Paint": "Pintura", "Reassy": "Rearmado", "Final QC": "QC final",
     "Tear Down": "Desarmado", "Repair Plan": "Plan de reparación", "Waiting Approval": "Esperando aprobación",

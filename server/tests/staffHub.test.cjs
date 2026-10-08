@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict'), Modul
 
 // In-memory stand-ins for the database, mailer and activity log.
 const calls = [], emails = [];
-let users = [], requests = [], messages = [];
+let users = [], requests = [], messages = [], punches = [];
 function query(sql, args = []) {
   calls.push({ sql, args });
   if (sql.startsWith('BEGIN') || sql.startsWith('COMMIT') || sql.startsWith('ROLLBACK')) return { rows: [] };
@@ -10,6 +10,16 @@ function query(sql, args = []) {
     const [user_id, full_name, request_type, other_reason, start_date, end_date, partial_day, start_time, end_time, notes] = args;
     const row = { id: 't' + (requests.length + 1), user_id, full_name, request_type, other_reason, start_date, end_date, partial_day, start_time, end_time, notes, status: 'Pending' };
     requests.push(row); return { rows: [row] };
+  }
+  if (sql.startsWith('INSERT INTO missed_punch_requests')) {
+    const [user_id, full_name, punch_date, time_in, lunch_out, lunch_in, time_out, initials, notes] = args;
+    const row = { id: 'p' + (punches.length + 1), user_id, full_name, punch_date, time_in, lunch_out, lunch_in, time_out, initials, notes, status: 'Pending' };
+    punches.push(row); return { rows: [row] };
+  }
+  if (sql.startsWith('SELECT 1 FROM missed_punch_requests')) return { rows: punches.filter(p => p.user_id === args[0] && p.punch_date === args[1] && ['Pending', 'Approved'].includes(p.status)) };
+  if (sql.startsWith('UPDATE missed_punch_requests SET status=$1')) {
+    const r = punches.find(x => x.id === args[3] && x.status === 'Pending'); if (!r) return { rows: [] };
+    Object.assign(r, { status: args[0], decision_note: args[1], decided_by: args[2] }); return { rows: [r] };
   }
   if (sql.startsWith('SELECT id, email FROM users WHERE active=true AND role = ANY')) return { rows: users.filter(u => args[0].includes(u.role) && u.id !== args[1]) };
   if (sql.startsWith('INSERT INTO employee_notifications')) return { rows: [] };
@@ -54,7 +64,7 @@ const office = { id: 'u-office', role: 'office', fullName: 'Olivia Office' };
 const admin = { id: 'u-admin', role: 'admin', fullName: 'Andy Admin' };
 
 test.beforeEach(() => {
-  calls.length = 0; emails.length = 0; requests = []; messages = [];
+  calls.length = 0; emails.length = 0; requests = []; messages = []; punches = [];
   users = [
     { id: 'u-tech', role: 'body', email: 'tech@x.com', full_name: 'Travis Tech', department: 'Body' },
     { id: 'u-tech2', role: 'paint', email: null, full_name: 'Pat Painter', department: 'Paint' },
@@ -121,4 +131,47 @@ test('techs can message the office but not each other or everyone; office can me
   const dept = await call('POST /messages', office, { audience: 'dept:Paint', body: 'Booth at 2' });
   assert.equal(dept.code, 201);
   assert.deepEqual(messages.map(m => m.args[3]), ['u-tech2']);
+});
+
+const slip = { punch_date: '2026-10-07', time_in: '07:58', lunch_out: '12:00', lunch_in: '12:30', time_out: '16:31', initials: 'tt' };
+
+test('a missed punch slip is saved, emailed to the office with the payroll week, and duplicates are refused', async () => {
+  const r = await call('POST /missed-punch', tech, slip);
+  assert.equal(r.code, 201);
+  assert.equal(punches[0].initials, 'TT');
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].subject, 'Missed punch · Travis Tech');
+  assert.match(emails[0].to, /office@x\.com/);
+  assert.doesNotMatch(emails[0].to, /tech@x\.com/);
+  assert.ok(emails[0].bodyLines.includes('Payroll week: Oct 1 – Oct 7 (Thu–Wed)'), emails[0].bodyLines.join('|'));
+  assert.ok(emails[0].bodyLines.includes('Time out (lunch): 12:00 PM'));
+  assert.equal((await call('POST /missed-punch', tech, slip)).code, 409, 'same day twice');
+});
+
+test('missed punch times must be complete and in order; lunch is both or neither', async () => {
+  const bad = async (patch) => (await call('POST /missed-punch', tech, { ...slip, punch_date: '2026-10-01', ...patch })).code;
+  assert.equal(await bad({ time_out: '' }), 400);
+  assert.equal(await bad({ lunch_in: '' }), 400);
+  assert.equal(await bad({ lunch_out: '13:00' }), 400);
+  assert.equal(await bad({ time_out: '07:00' }), 400);
+  assert.equal(await bad({ initials: '' }), 400);
+  assert.equal(await bad({ punch_date: '2999-01-01' }), 400);
+  assert.equal(await bad({ lunch_out: '', lunch_in: '' }), 201, 'no lunch is fine');
+  assert.equal(punches[0].lunch_out, null);
+});
+
+test('only admins decide missed punches; the employee and office hear about it', async () => {
+  await call('POST /missed-punch', tech, slip);
+  emails.length = 0;
+  assert.equal((await call('POST /missed-punch/:id/decision', office, { decision: 'Approved' }, { id: 'p1' })).code, 403);
+  const ok = await call('POST /missed-punch/:id/decision', admin, { decision: 'Approved' }, { id: 'p1' });
+  assert.equal(ok.code, 200);
+  assert.equal(punches[0].status, 'Approved');
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].args[2], 'u-tech');
+  assert.equal(messages[0].args[3], 'Missed punch APPROVED: Wed, Oct 7, 2026');
+  assert.equal(emails.length, 2);
+  assert.equal(emails[0].to, 'tech@x.com');
+  assert.equal(emails[1].subject, 'Missed punch APPROVED · Travis Tech');
+  assert.equal((await call('POST /missed-punch/:id/decision', admin, { decision: 'Denied' }, { id: 'p1' })).code, 409);
 });

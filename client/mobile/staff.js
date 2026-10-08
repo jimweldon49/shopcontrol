@@ -1,4 +1,4 @@
-// Staff Hub in the employee app: time-off requests, mailbox and company info.
+// Staff Hub in the employee app: time-off requests, missed punch slips, mailbox and company info.
 // Uses helpers from mobile.js (apiRequest, showScreen, esc, toast, showAlert, today).
 (() => {
   const TYPES = ["Sick", "Vacation", "Bereavement", "Time off without pay", "Military", "Jury duty", "Maternity/Paternity", "Other"];
@@ -28,11 +28,31 @@
     if (r.partial_day && r.start_time) out += ` · ${String(r.start_time).slice(0, 5)}–${String(r.end_time).slice(0, 5)}`;
     return out;
   }
+  // Missed punch slips (paper form "Missed Punch"); payroll runs Thursday to Wednesday.
+  const hhmm = (t) => (t ? String(t).slice(0, 5) : "");
+  const clock = (t) => new Date(`2000-01-01T${hhmm(t)}:00`).toLocaleTimeString(I18n.locale(), { hour: "numeric", minute: "2-digit" });
+  function payWeek(date) {
+    const d = new Date(String(date).slice(0, 10) + "T12:00:00");
+    d.setDate(d.getDate() - ((d.getDay() + 3) % 7));
+    const end = new Date(d); end.setDate(d.getDate() + 6);
+    const f = (x) => x.toLocaleDateString(I18n.locale(), { month: "short", day: "numeric" });
+    return `${f(d)} – ${f(end)}`;
+  }
+  const punchTimes = (r) => `${I18n.t("In")} ${clock(r.time_in)}${r.lunch_out ? ` · ${I18n.t("Lunch")} ${clock(r.lunch_out)}–${clock(r.lunch_in)}` : ` · ${I18n.t("No lunch")}`} · ${I18n.t("Out")} ${clock(r.time_out)}`;
+  // Time off and missed punches share My requests and Approve; kind picks the API path.
+  const KIND_PATH = { timeoff: "time-off", punch: "missed-punch" };
+  const reqTitle = (r) => (r.kind === "punch" ? `${I18n.t("Missed punch")} · ${fmtDay(r.punch_date)}` : typeLabel(r));
+  const reqDetail = (r) => (r.kind === "punch" ? `${punchTimes(r)}` : dates(r));
+  async function loadBoth(timeOffPath, punchPath) {
+    const [a, b] = await Promise.all([apiRequest(timeOffPath), apiRequest(punchPath).catch(() => [])]);
+    return [...a.map((r) => ({ ...r, kind: "timeoff" })), ...b.map((r) => ({ ...r, kind: "punch" }))];
+  }
 
   function open(name) {
     setAccent(DEFAULT_ACCENT);
     if (name === "staff") { refreshCounts(); showScreen("staff"); }
     if (name === "timeoff") openTimeOff();
+    if (name === "punch") openPunch();
     if (name === "requests") openRequests();
     if (name === "approve") openApprove();
     if (name === "mail") openMail();
@@ -54,9 +74,10 @@
       const { count } = await apiRequest("/staff/messages/unread-count");
       let waiting = 0;
       if (isApprover()) {
-        waiting = (await apiRequest("/staff/time-off?status=Pending").catch(() => [])).length;
+        waiting = (await apiRequest("/staff/time-off?status=Pending").catch(() => [])).length
+          + (await apiRequest("/staff/missed-punch?status=Pending").catch(() => [])).length;
         const sub = $("hubApproveSub");
-        sub.textContent = waiting ? `${waiting} waiting` : "Requests from staff";
+        sub.textContent = waiting ? `${waiting} waiting` : "Time off and missed punches";
         sub.classList.toggle("waiting", !!waiting);
       }
       setBadge("mailCount", count);
@@ -109,31 +130,80 @@
     finally { btn.disabled = false; btn.textContent = "Submit request"; }
   }
 
+  // ---------------------------------------------------------------- Missed punch
+  function openPunch() {
+    $("mpName").textContent = (currentUser && currentUser.fullName) || "";
+    $("mpDate").value = today();
+    $("mpDate").max = today();
+    for (const id of ["mpIn", "mpOut", "mpLunchOut", "mpLunchIn", "mpNotes", "mpInitials"]) $(id).value = "";
+    $("mpNoLunch").checked = false;
+    $("mpLunch").hidden = false;
+    showWeek();
+    showAlert("mpError", "");
+    showScreen("punch");
+  }
+
+  function showWeek() {
+    const d = $("mpDate").value;
+    $("mpWeek").textContent = d ? `${I18n.t("Payroll week")}: ${payWeek(d)} (${I18n.t("Thu–Wed")})` : "";
+  }
+
+  async function submitPunch() {
+    showAlert("mpError", "");
+    const noLunch = $("mpNoLunch").checked;
+    const body = {
+      punch_date: $("mpDate").value,
+      time_in: $("mpIn").value,
+      lunch_out: noLunch ? "" : $("mpLunchOut").value,
+      lunch_in: noLunch ? "" : $("mpLunchIn").value,
+      time_out: $("mpOut").value,
+      initials: $("mpInitials").value.trim(),
+      notes: $("mpNotes").value.trim(),
+    };
+    if (!body.punch_date) return showAlert("mpError", "Choose the date of the missed punch.");
+    if (body.punch_date > today()) return showAlert("mpError", "The date can't be in the future.");
+    if (!body.time_in || !body.time_out) return showAlert("mpError", "Enter your time in and time out.");
+    if (!noLunch && (!body.lunch_out || !body.lunch_in)) return showAlert("mpError", "Enter both lunch times, or check \"I didn't take a lunch\".");
+    const order = noLunch ? [body.time_in, body.time_out] : [body.time_in, body.lunch_out, body.lunch_in, body.time_out];
+    if (order.some((t, i) => i && t <= order[i - 1])) return showAlert("mpError", "The times must be in order: in, lunch out, lunch in, out.");
+    if (!body.initials) return showAlert("mpError", "Type your initials.");
+    const btn = $("mpSubmit");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try {
+      await apiRequest("/staff/missed-punch", { method: "POST", body: JSON.stringify(body) });
+      toast("Missed punch sent to the office ✓");
+      openRequests();
+    } catch (err) { showAlert("mpError", err.message); }
+    finally { btn.disabled = false; btn.textContent = "Submit missed punch"; }
+  }
+
   async function openRequests() {
     showScreen("requests");
     const list = $("requestsList");
     list.innerHTML = '<div class="skeleton"></div>';
     try {
-      const rows = await apiRequest("/staff/time-off/mine");
+      const rows = (await loadBoth("/staff/time-off/mine", "/staff/missed-punch/mine"))
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       const pending = rows.filter((r) => r.status === "Pending").length;
       $("hubRequestsSub").textContent = pending ? `${pending} waiting for approval` : "Status of your requests";
       list.innerHTML = rows.length ? rows.map((r) => `
         <div class="row-card">
-          <b>${esc(r.request_type === "Other" ? `Other: ${r.other_reason}` : r.request_type)}</b>
-          <small>${esc(dates(r))}</small><br>
+          <b>${esc(reqTitle(r))}</b>
+          <small>${esc(reqDetail(r))}</small><br>
           <span class="pill ${r.status === "Approved" ? "ok" : r.status === "Denied" ? "bad" : ""}">${esc(r.status === "Pending" ? "Waiting for approval" : r.status)}</span>
           ${r.decided_by ? `<small style="display:block;margin-top:6px">${esc(r.status)} by ${esc(r.decided_by)}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}</small>` : ""}
-          ${r.status === "Pending" ? `<button class="btn btn-ghost" style="margin-top:10px;padding:11px" data-cancel="${esc(r.id)}">Cancel request</button>` : ""}
+          ${r.status === "Pending" ? `<button class="btn btn-ghost" style="margin-top:10px;padding:11px" data-cancel="${esc(r.id)}" data-kind="${r.kind}">Cancel request</button>` : ""}
         </div>`).join("") : `<div class="empty">No requests yet.</div><button class="btn btn-primary" style="margin-top:12px" data-staff-go="timeoff">Request time off</button>`;
     } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
   }
 
-  async function cancelRequest(id) {
-    try { await apiRequest(`/staff/time-off/${id}/cancel`, { method: "POST" }); toast("Request cancelled"); openRequests(); }
+  async function cancelRequest(id, kind) {
+    try { await apiRequest(`/staff/${KIND_PATH[kind]}/${id}/cancel`, { method: "POST" }); toast("Request cancelled"); openRequests(); }
     catch (err) { toast(err.message); }
   }
 
-  // ---------------------------------------------------------------- Approve time off (admins)
+  // ---------------------------------------------------------------- Approve time off and missed punches (admins)
   let approveRows = [];
 
   async function openApprove() {
@@ -141,18 +211,19 @@
     const list = $("approveList");
     list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
     try {
-      approveRows = await apiRequest("/staff/time-off");
-      const pending = approveRows.filter((r) => r.status === "Pending");
+      approveRows = await loadBoth("/staff/time-off", "/staff/missed-punch");
+      const pending = approveRows.filter((r) => r.status === "Pending").sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       const decided = approveRows.filter((r) => r.status === "Approved" || r.status === "Denied")
         .sort((a, b) => String(b.decided_at || b.updated_at).localeCompare(String(a.decided_at || a.updated_at))).slice(0, 15);
       const card = (r, buttons) => `
         <div class="row-card">
           <b translate="no">${esc(r.full_name)}</b>
-          <small>${esc(typeLabel(r))} · ${esc(dates(r))}</small>
+          <small>${esc(reqTitle(r))} · ${esc(reqDetail(r))}</small>
+          ${r.kind === "punch" ? `<small style="display:block;margin-top:4px">${esc(I18n.t("Payroll week"))} ${esc(payWeek(r.punch_date))} · ${esc(I18n.t("Initials"))} <span translate="no">${esc(r.initials)}</span></small>` : ""}
           ${r.notes ? `<small style="display:block;margin-top:6px" translate="no">${esc(r.notes)}</small>` : ""}
           ${buttons ? `<div class="decide-row">
-            <button class="btn btn-approve" data-decide="Approved" data-req="${esc(r.id)}">Approve</button>
-            <button class="btn btn-deny" data-decide="Denied" data-req="${esc(r.id)}">Deny</button></div>`
+            <button class="btn btn-approve" data-decide="Approved" data-req="${esc(r.id)}" data-kind="${r.kind}">Approve</button>
+            <button class="btn btn-deny" data-decide="Denied" data-req="${esc(r.id)}" data-kind="${r.kind}">Deny</button></div>`
           : `<span class="pill ${r.status === "Approved" ? "ok" : "bad"}">${esc(r.status)}</span>
              <small style="display:block;margin-top:6px">${esc(r.status)} by ${esc(r.decided_by || "")}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}</small>`}
         </div>`;
@@ -163,15 +234,15 @@
     } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
   }
 
-  function openDecision(id, decision) {
-    const r = approveRows.find((x) => x.id === id);
+  function openDecision(id, decision, kind) {
+    const r = approveRows.find((x) => x.id === id && x.kind === kind);
     if (!r) return;
     const approve = decision === "Approved";
     const back = document.createElement("div");
     back.className = "sheet-backdrop";
     back.innerHTML = `<div class="sheet"><div class="grab"></div>
-      <h3>${approve ? "Approve" : "Deny"} time off?</h3>
-      <div class="row-card"><b translate="no">${esc(r.full_name)}</b><small>${esc(typeLabel(r))} · ${esc(dates(r))}</small></div>
+      <h3>${approve ? "Approve" : "Deny"} ${kind === "punch" ? "missed punch" : "time off"}?</h3>
+      <div class="row-card"><b translate="no">${esc(r.full_name)}</b><small>${esc(reqTitle(r))} · ${esc(reqDetail(r))}</small></div>
       <label class="field"><span>Note to the employee (optional)</span><textarea class="input" id="decideNote" maxlength="1000"></textarea></label>
       <button class="btn ${approve ? "btn-approve" : "btn-deny"}" data-confirm>${approve ? "Approve" : "Deny"}</button>
       <button class="btn btn-ghost" data-close>Cancel</button></div>`;
@@ -181,7 +252,7 @@
       if (!btn || btn.disabled) return;
       btn.disabled = true;
       try {
-        await apiRequest(`/staff/time-off/${id}/decision`, { method: "POST", body: JSON.stringify({ decision, note: $("decideNote").value.trim() }) });
+        await apiRequest(`/staff/${KIND_PATH[kind]}/${id}/decision`, { method: "POST", body: JSON.stringify({ decision, note: $("decideNote").value.trim() }) });
         back.remove();
         toast(approve ? "Approved ✓ The employee and office were notified" : "Denied ✓ The employee and office were notified");
         openApprove();
@@ -283,9 +354,9 @@
       const back = e.target.closest("[data-staff-back]");
       if (back) return back.dataset.staffBack === "home" ? enterHome() : open(back.dataset.staffBack);
       const decide = e.target.closest("[data-decide]");
-      if (decide) return openDecision(decide.dataset.req, decide.dataset.decide);
+      if (decide) return openDecision(decide.dataset.req, decide.dataset.decide, decide.dataset.kind);
       const cancel = e.target.closest("[data-cancel]");
-      if (cancel) return cancelRequest(cancel.dataset.cancel);
+      if (cancel) return cancelRequest(cancel.dataset.cancel, cancel.dataset.kind);
       const msg = e.target.closest("[data-msg]");
       if (msg) return openMessage(msg.dataset.msg);
       const type = e.target.closest("[data-type]");
@@ -304,6 +375,9 @@
     });
     $("toStart").addEventListener("change", () => { if ($("toEnd").value < $("toStart").value) $("toEnd").value = $("toStart").value; });
     $("toSubmit").onclick = submitTimeOff;
+    $("mpSubmit").onclick = submitPunch;
+    $("mpDate").addEventListener("change", showWeek);
+    $("mpNoLunch").addEventListener("change", () => { $("mpLunch").hidden = $("mpNoLunch").checked; });
     $("mailComposeBtn").onclick = () => openCompose();
     $("msgReplyBtn").onclick = () => openCompose(openMsg);
     $("composeSend").onclick = sendMessage;

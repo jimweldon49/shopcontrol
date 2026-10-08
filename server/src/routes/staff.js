@@ -156,6 +156,135 @@ router.post("/time-off/:id/decision", async (req, res) => {
   finally { db.release(); }
 });
 
+// ---------------------------------------------------------------- Missed punch
+// The paper missed punch slip (migrations/024). Payroll runs Thursday to Wednesday.
+const hhmm = (t) => {
+  if (!t) return "";
+  const [h, m] = String(t).split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+};
+function payWeek(date) {
+  const d = new Date(String(date).slice(0, 10) + "T12:00:00");
+  d.setDate(d.getDate() - ((d.getDay() + 3) % 7)); // back to Thursday
+  const end = new Date(d); end.setDate(d.getDate() + 6);
+  const fmt = (x) => x.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${fmt(d)} – ${fmt(end)}`;
+}
+function describePunch(r) {
+  const day = new Date(String(r.punch_date).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return `${day}: in ${hhmm(r.time_in)}${r.lunch_out ? `, lunch ${hhmm(r.lunch_out)}–${hhmm(r.lunch_in)}` : ""}, out ${hhmm(r.time_out)}`;
+}
+const punchLines = (r) => [
+  `Date: ${new Date(String(r.punch_date).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}`,
+  `Time in: ${hhmm(r.time_in)}`,
+  `Time out (lunch): ${hhmm(r.lunch_out) || "No lunch"}`,
+  `Time in (lunch): ${hhmm(r.lunch_in) || "No lunch"}`,
+  `Time out: ${hhmm(r.time_out)}`,
+  `Payroll week: ${payWeek(r.punch_date)} (Thu–Wed)`,
+  `Initials: ${r.initials}`,
+  r.notes ? `Notes: ${r.notes}` : "",
+].filter(Boolean);
+
+function validatePunch(b) {
+  if (!isDate(b.punch_date)) throw Error("Choose the date of the missed punch.");
+  if (b.punch_date > new Date().toLocaleDateString("en-CA")) throw Error("The date can't be in the future.");
+  if (!isTime(b.time_in) || !isTime(b.time_out)) throw Error("Enter your time in and time out.");
+  const lunch = !!(b.lunch_out || b.lunch_in);
+  if (lunch && (!isTime(b.lunch_out) || !isTime(b.lunch_in))) throw Error("Enter both lunch times, or leave both empty if you didn't take lunch.");
+  const order = lunch ? [b.time_in, b.lunch_out, b.lunch_in, b.time_out] : [b.time_in, b.time_out];
+  if (order.some((t, i) => i && t <= order[i - 1])) throw Error("The times must be in order: in, lunch out, lunch in, out.");
+  if (!/^[A-Za-z][A-Za-z. -]{0,7}$/.test(clean(b.initials, 8))) throw Error("Type your initials.");
+  return lunch;
+}
+
+router.get("/missed-punch/mine", async (req, res) => {
+  try {
+    res.json((await pool.query("SELECT * FROM missed_punch_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100", [req.user.id])).rows);
+  } catch (e) { fail(res, e); }
+});
+
+router.get("/missed-punch", async (req, res) => {
+  try {
+    if (!isOffice(req.user)) throw httpError(403, "Only office staff and admins can view all missed punch slips.");
+    const status = ["Pending", "Approved", "Denied", "Cancelled"].includes(req.query.status) ? req.query.status : null;
+    res.json((await pool.query(
+      `SELECT * FROM missed_punch_requests WHERE ($1::text IS NULL OR status=$1)
+       ORDER BY (status='Pending') DESC, punch_date DESC, created_at DESC LIMIT 500`, [status])).rows);
+  } catch (e) { fail(res, e); }
+});
+
+router.post("/missed-punch", async (req, res) => {
+  const db = await pool.connect();
+  try {
+    const b = req.body || {};
+    const lunch = validatePunch(b);
+    const dup = (await db.query(
+      "SELECT 1 FROM missed_punch_requests WHERE user_id=$1 AND punch_date=$2 AND status IN ('Pending','Approved')", [req.user.id, b.punch_date])).rows[0];
+    if (dup) throw httpError(409, "You already sent a missed punch slip for that day. Cancel it under My requests to send a new one.");
+    await db.query("BEGIN");
+    const row = (await db.query(
+      `INSERT INTO missed_punch_requests(user_id, full_name, punch_date, time_in, lunch_out, lunch_in, time_out, initials, notes)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [req.user.id, who(req), b.punch_date, b.time_in, lunch ? b.lunch_out : null, lunch ? b.lunch_in : null, b.time_out,
+        clean(b.initials, 8).toUpperCase(), clean(b.notes, 2000) || null])).rows[0];
+    const office = (await db.query(
+      `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, req.user.id])).rows;
+    const title = `Missed punch · ${row.full_name}`;
+    await notifyUsers(db, office, title, `${describePunch(row)}. Open Time Off in Shop Control to review.`);
+    await db.query("COMMIT");
+    await logActivity({ req, resource: "missedPunch", recordId: row.id, action: "create", after: row, summary: `Missed punch slip: ${describePunch(row)}` });
+    emailUsers(office, title, `Missed punch slip from ${row.full_name}`, [
+      ...punchLines(row), "An admin can approve or deny it under Time Off in Shop Control.",
+    ]);
+    res.status(201).json(row);
+  } catch (e) { await db.query("ROLLBACK").catch(() => {}); fail(res, e); }
+  finally { db.release(); }
+});
+
+router.post("/missed-punch/:id/cancel", async (req, res) => {
+  try {
+    const row = (await pool.query(
+      "UPDATE missed_punch_requests SET status='Cancelled', updated_at=now() WHERE id=$1 AND user_id=$2 AND status='Pending' RETURNING *",
+      [req.params.id, req.user.id])).rows[0];
+    if (!row) throw httpError(409, "Only your own pending slips can be cancelled.");
+    await logActivity({ req, resource: "missedPunch", recordId: row.id, action: "update", after: row, summary: "Cancelled missed punch slip" });
+    res.json(row);
+  } catch (e) { fail(res, e); }
+});
+
+router.post("/missed-punch/:id/decision", async (req, res) => {
+  const db = await pool.connect();
+  try {
+    if (!isApprover(req.user)) throw httpError(403, "Only admins can approve or deny missed punches.");
+    const decision = req.body && req.body.decision;
+    if (!["Approved", "Denied"].includes(decision)) throw Error("Choose approve or deny.");
+    const note = clean(req.body.note, 1000) || null;
+    await db.query("BEGIN");
+    const row = (await db.query(
+      `UPDATE missed_punch_requests SET status=$1, decision_note=$2, decided_by=$3, decided_at=now(), updated_at=now()
+       WHERE id=$4 AND status='Pending' RETURNING *`, [decision, note, who(req), req.params.id])).rows[0];
+    if (!row) throw httpError(409, "This slip was already decided or cancelled. Refresh and check.");
+    const requester = (await db.query("SELECT id, email, full_name FROM users WHERE id=$1", [row.user_id])).rows[0];
+    const subject = `Missed punch ${decision.toUpperCase()}: ${describePunch(row).split(":")[0]}`;
+    const body = `Your missed punch slip (${describePunch(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
+    if (requester) {
+      await db.query(
+        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body) VALUES($1,$2,$3,'Missed Punch',$4,$5)`,
+        [req.user.id, who(req), requester.id, subject, body]);
+    }
+    const office = (await db.query(
+      `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, row.user_id])).rows;
+    await db.query("COMMIT");
+    await logActivity({ req, resource: "missedPunch", recordId: row.id, action: "update", after: row, summary: `${decision} missed punch for ${row.full_name}` });
+    const details = [...punchLines(row), `Decided by: ${who(req)}`, note ? `Decision note: ${note}` : ""].filter(Boolean);
+    if (requester) emailUsers([requester], subject, `Your missed punch was ${decision.toLowerCase()}`, details);
+    emailUsers(office, `Missed punch ${decision.toUpperCase()} · ${row.full_name}`,
+      `Missed punch ${decision.toLowerCase()} for ${row.full_name}`, [`Employee: ${row.full_name}`, ...details]);
+    res.json(row);
+  } catch (e) { await db.query("ROLLBACK").catch(() => {}); fail(res, e); }
+  finally { db.release(); }
+});
+
 // ---------------------------------------------------------------- Messages
 router.get("/recipients", async (req, res) => {
   try {

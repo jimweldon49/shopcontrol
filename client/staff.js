@@ -1,10 +1,10 @@
-// Staff hub on the desktop: Time Off (review / approve) and Messages & Info
+// Staff hub on the desktop: Time Off (review / approve time off and missed punch slips) and Messages & Info
 // (mailbox, compose, company info editor). API: /api/staff (server/src/routes/staff.js).
 const StaffHub = (() => {
   const OFFICE_ROLES = ["office", "manager", "admin", "owner"];
   const APPROVER_ROLES = ["admin", "owner"];
   const TIME_OFF_TYPES = ["Sick", "Vacation", "Bereavement", "Time off without pay", "Military", "Jury duty", "Maternity/Paternity", "Other"];
-  const state = { timeOff: [], inbox: [], sent: [], recipients: [], info: [], filter: "Pending", openMessage: null, timer: null };
+  const state = { timeOff: [], punches: [], inbox: [], sent: [], recipients: [], info: [], filter: "Pending", openMessage: null, timer: null };
   const role = () => String((currentUser && currentUser.role) || "").toLowerCase();
   const isOffice = () => OFFICE_ROLES.includes(role());
   const isApprover = () => APPROVER_ROLES.includes(role());
@@ -23,12 +23,23 @@ const StaffHub = (() => {
     return out + (r.partial_day ? " (partial day)" : days > 1 ? ` (${days} days)` : "");
   }
   const typeLabel = (r) => (r.request_type === "Other" ? `Other: ${r.other_reason || ""}` : r.request_type);
+  // Missed punch slips; payroll runs Thursday to Wednesday.
+  const hhmm = (t) => (t ? String(t).slice(0, 5) : "");
+  function payWeek(date) {
+    const d = new Date(String(date).slice(0, 10) + "T12:00:00");
+    d.setDate(d.getDate() - ((d.getDay() + 3) % 7));
+    const end = new Date(d); end.setDate(d.getDate() + 6);
+    const f = (x) => x.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${f(d)} – ${f(end)}`;
+  }
+  const punchTimes = (r) => `In ${hhmm(r.time_in)}${r.lunch_out ? ` · Lunch ${hhmm(r.lunch_out)}–${hhmm(r.lunch_in)}` : " · No lunch"} · Out ${hhmm(r.time_out)}`;
+  const pendingCount = () => state.timeOff.filter((r) => r.status === "Pending").length + state.punches.filter((r) => r.status === "Pending").length;
   const statusPill = (s) => `<span class="pill ${s === "Approved" ? "pill-yes" : s === "Denied" || s === "Cancelled" ? "pill-no" : "pill-admin"}">${e(s)}</span>`;
 
   async function load() {
     if (!currentUser) return;
     const jobs = [req("/messages").then((r) => (state.inbox = r)), req("/company-info").then((r) => (state.info = r))];
-    if (isOffice()) jobs.push(req("/time-off").then((r) => (state.timeOff = r)));
+    if (isOffice()) jobs.push(req("/time-off").then((r) => (state.timeOff = r)), req("/missed-punch").then((r) => (state.punches = r)));
     await Promise.all(jobs.map((p) => p.catch((err) => console.warn("Staff hub:", err.message))));
     render();
   }
@@ -40,7 +51,7 @@ const StaffHub = (() => {
   }
 
   function renderBadges() {
-    const pending = state.timeOff.filter((r) => r.status === "Pending").length;
+    const pending = pendingCount();
     const unread = state.inbox.filter((m) => !m.read_at).length;
     const tb = document.getElementById("timeOffTabBtn"), mb = document.getElementById("staffHubTabBtn"), tile = document.getElementById("metricTimeOffTile");
     if (tb) { tb.style.display = isOffice() ? "" : "none"; tb.innerHTML = `Time Off${pending ? ` <span class="tab-count">${pending}</span>` : ""}`; }
@@ -53,13 +64,14 @@ const StaffHub = (() => {
     const panel = document.getElementById("timeOff");
     if (!panel || !isOffice()) return;
     const rows = state.filter === "All" ? state.timeOff : state.timeOff.filter((r) => r.status === state.filter);
+    const punches = state.filter === "All" ? state.punches : state.punches.filter((r) => r.status === state.filter);
     const today = dateKey();
     const outNow = state.timeOff.filter((r) => r.status === "Approved" && String(r.start_date).slice(0, 10) <= today && String(r.end_date).slice(0, 10) >= today);
     panel.innerHTML = `
       <div class="section-head heading-row"><div><div class="eyebrow">STAFF</div><h2>Time Off</h2>
-        <p>Absence requests from the employee app. ${isApprover() ? "Approve or deny below; the employee is notified automatically." : "Only admins can approve or deny requests."}</p></div></div>
+        <p>Absence requests and missed punch slips from the employee app. ${isApprover() ? "Approve or deny below; the employee is notified automatically." : "Only admins can approve or deny requests."}</p></div></div>
       <div class="board-summary">
-        <div><small>Waiting for a decision</small><b>${state.timeOff.filter((r) => r.status === "Pending").length}</b></div>
+        <div><small>Waiting for a decision</small><b>${pendingCount()}</b></div>
         <div><small>Out today</small><b>${outNow.length}</b></div>
         <div><small>Approved (upcoming)</small><b>${state.timeOff.filter((r) => r.status === "Approved" && String(r.end_date).slice(0, 10) >= today).length}</b></div>
         <div><small>Who's out</small><b style="font-size:13px;font-weight:600">${e(outNow.map((r) => r.full_name).join(", ") || "Nobody")}</b></div>
@@ -72,19 +84,30 @@ const StaffHub = (() => {
         <td>${statusPill(r.status)}${r.decided_by ? `<small>${e(r.decided_by)} · ${e(formatDateTime(r.decided_at))}</small>` : ""}${r.decision_note ? `<small>${e(r.decision_note)}</small>` : ""}</td>
         <td><div class="actions">${r.status === "Pending" && isApprover() ? `<button onclick="StaffHub.decide('${r.id}','Approved')">Approve</button><button class="danger" onclick="StaffHub.decide('${r.id}','Denied')">Deny</button>` : ""}</div></td>
       </tr>`).join("") || `<tr><td colspan="7">No ${state.filter === "All" ? "" : state.filter.toLowerCase() + " "}requests.</td></tr>`}
+      </tbody></table></div>
+      <div class="section-head heading-row" style="margin-top:24px"><div><h2>Missed punches</h2>
+        <p>Slips for days someone forgot to clock in or out. Approved punches are paid on the following payroll (payroll runs Thursday to Wednesday).</p></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Times</th><th>Payroll week</th><th>Initials</th><th>Notes</th><th>Sent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      ${punches.map((r) => `<tr>
+        <td><b>${e(r.full_name)}</b></td><td>${e(fmtDate(r.punch_date))}</td><td>${e(punchTimes(r))}</td><td>${e(payWeek(r.punch_date))}</td>
+        <td>${e(r.initials)}</td><td>${e(r.notes || "")}</td><td>${e(formatDateTime(r.created_at))}</td>
+        <td>${statusPill(r.status)}${r.decided_by ? `<small>${e(r.decided_by)} · ${e(formatDateTime(r.decided_at))}</small>` : ""}${r.decision_note ? `<small>${e(r.decision_note)}</small>` : ""}</td>
+        <td><div class="actions">${r.status === "Pending" && isApprover() ? `<button onclick="StaffHub.decide('${r.id}','Approved','punch')">Approve</button><button class="danger" onclick="StaffHub.decide('${r.id}','Denied','punch')">Deny</button>` : ""}</div></td>
+      </tr>`).join("") || `<tr><td colspan="9">No ${state.filter === "All" ? "" : state.filter.toLowerCase() + " "}missed punches.</td></tr>`}
       </tbody></table></div>`;
   }
 
-  function decide(id, decision) {
-    const r = state.timeOff.find((x) => x.id === id);
+  function decide(id, decision, kind) {
+    const punch = kind === "punch";
+    const r = (punch ? state.punches : state.timeOff).find((x) => x.id === id);
     if (!r) return;
-    const dialog = openDialog(`${decision === "Approved" ? "Approve" : "Deny"} time off`, `
-      <p><b>${e(r.full_name)}</b> · ${e(typeLabel(r))}<br>${e(dates(r))}</p>${r.notes ? `<p class="board-tip">${e(r.notes)}</p>` : ""}
+    const dialog = openDialog(`${decision === "Approved" ? "Approve" : "Deny"} ${punch ? "missed punch" : "time off"}`, `
+      <p><b>${e(r.full_name)}</b> · ${punch ? `Missed punch · ${e(fmtDate(r.punch_date))}<br>${e(punchTimes(r))}<br>Payroll week ${e(payWeek(r.punch_date))} · Initials ${e(r.initials)}` : `${e(typeLabel(r))}<br>${e(dates(r))}`}</p>${r.notes ? `<p class="board-tip">${e(r.notes)}</p>` : ""}
       <label>Note to ${e(r.full_name.split(" ")[0])} (optional)<textarea name="note" maxlength="1000" placeholder="${decision === "Denied" ? "Let them know why" : "e.g. Enjoy your time off"}"></textarea></label>
       <p class="board-tip">They'll get a message in the employee app${decision === "Approved" ? " saying it's approved" : ""}, and an email if their account has one.</p>`,
       async (form) => {
-        await post(`/time-off/${id}/decision`, { decision, note: form.get("note") });
-        showStatus(`Time off ${decision.toLowerCase()} for ${r.full_name}.`);
+        await post(`/${punch ? "missed-punch" : "time-off"}/${id}/decision`, { decision, note: form.get("note") });
+        showStatus(`${punch ? "Missed punch" : "Time off"} ${decision.toLowerCase()} for ${r.full_name}.`);
         await load();
       });
     dialog.querySelector("[type=submit]").textContent = decision === "Approved" ? "Approve" : "Deny";
@@ -176,7 +199,7 @@ const StaffHub = (() => {
     load();
     state.timer = setInterval(load, 30000);
   }
-  function stop() { clearInterval(state.timer); state.timer = null; Object.assign(state, { timeOff: [], inbox: [], info: [], openMessage: null }); }
+  function stop() { clearInterval(state.timer); state.timer = null; Object.assign(state, { timeOff: [], punches: [], inbox: [], info: [], openMessage: null }); }
 
   return { start, stop, load, setFilter, decide, openMail, compose, editInfo, deleteInfo, TIME_OFF_TYPES };
 })();
