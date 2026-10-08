@@ -65,6 +65,16 @@ require('./customerUpdateReminders').startCustomerUpdateReminders();
 // The web app and employee app share this server and login origin.
 // no-cache makes browsers check for a newer copy on every load (a cheap 304 when
 // unchanged), so updates show up without anyone having to force-refresh.
+// The two app pages go out with their scripts version-stamped (see appVersion.js).
+for (const [routes, file] of [[["/", "/index.html"], "index.html"], [["/mobile/", "/mobile/index.html"], "mobile/index.html"]]) {
+  app.get(routes, (req, res, next) => {
+    // "/mobile" without the slash: redirect so the page's relative links resolve.
+    if (!req.path.endsWith("/") && !req.path.endsWith(".html")) return res.redirect(301, req.originalUrl.replace(/^([^?]*)/, "$1/"));
+    const { versionedPage, CLIENT } = require("./appVersion");
+    try { res.set("Cache-Control", "no-cache").type("html").send(versionedPage(path.join(CLIENT, file))); }
+    catch (e) { next(e); }
+  });
+}
 app.use(express.static(path.join(__dirname,'..','..','client'),{setHeaders:res=>res.setHeader('Cache-Control','no-cache')}));
 
 // Fallback error handler for anything that slips through

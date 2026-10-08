@@ -22,4 +22,26 @@ function mobileVersion() {
   return cached;
 }
 
-module.exports = { mobileVersion };
+// Cloudflare overrides our Cache-Control on .js/.css and lets browsers keep them for
+// hours, so a phone could get a new page with an old script (new buttons that do
+// nothing). Pages are sent with each local script/stylesheet stamped ?v=<its own
+// size and modified time>, so any changed file gets a new address.
+const ASSET = /(<(?:script|link)\b[^>]*?\s(?:src|href)=")([^":?#]+\.(?:js|css))(")/g;
+const pages = new Map(); // file -> { html, at }
+function fileStamp(f) {
+  try { const s = fs.statSync(f); return crypto.createHash("sha1").update(`${s.size}:${s.mtimeMs}`).digest("hex").slice(0, 10); }
+  catch (_) { return null; }
+}
+function versionedPage(file) {
+  const hit = pages.get(file);
+  if (hit && Date.now() - hit.at < 10000) return hit.html;
+  const dir = path.dirname(file);
+  const html = fs.readFileSync(file, "utf8").replace(ASSET, (m, pre, src, post) => {
+    const stamp = fileStamp(path.resolve(dir, src));
+    return stamp ? `${pre}${src}?v=${stamp}${post}` : m;
+  });
+  pages.set(file, { html, at: Date.now() });
+  return html;
+}
+
+module.exports = { mobileVersion, versionedPage, CLIENT };
