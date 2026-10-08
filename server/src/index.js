@@ -63,8 +63,6 @@ startPartsAgingAlerts();
 require('./coreNotifications').startCoreNotifications();
 require('./customerUpdateReminders').startCustomerUpdateReminders();
 // The web app and employee app share this server and login origin.
-// no-cache makes browsers check for a newer copy on every load (a cheap 304 when
-// unchanged), so updates show up without anyone having to force-refresh.
 // The two app pages go out with their scripts version-stamped (see appVersion.js).
 for (const [routes, file] of [[["/", "/index.html"], "index.html"], [["/mobile/", "/mobile/index.html"], "mobile/index.html"]]) {
   app.get(routes, (req, res, next) => {
@@ -75,7 +73,11 @@ for (const [routes, file] of [[["/", "/index.html"], "index.html"], [["/mobile/"
     catch (e) { next(e); }
   });
 }
-app.use(express.static(path.join(__dirname,'..','..','client'),{setHeaders:res=>res.setHeader('Cache-Control','no-cache')}));
+// Version-stamped scripts and stylesheets (?v=, see appVersion.js) never change at
+// that address, so browsers and Cloudflare can keep them for a year. Everything
+// else, including the pages that carry the stamps, is checked on every load.
+app.use(express.static(path.join(__dirname,'..','..','client'),{setHeaders:(res,file)=>res.setHeader('Cache-Control',
+  res.req.query.v && /\.(js|css)$/.test(file) ? 'public, max-age=31536000, immutable' : 'no-cache')}));
 
 // Fallback error handler for anything that slips through
 app.use((err, req, res, next) => {
