@@ -148,7 +148,7 @@ const sections = [
       { steps: [
         "Tap **Missed punch**. Your name fills in automatically.",
         "Pick the **date**. The app shows which payroll week (Thursday to Wednesday) it falls in.",
-        "Enter the whole day as accurately as you can: **Time in**, **Time out (lunch)**, **Time in (lunch)** and **Time out**. If you didn't take a lunch, check **I didn't take a lunch**.",
+        "Enter the whole day as accurately as you can: **Time in**, **Time out (lunch)**, **Time in (lunch)** and **Time out**. All four are required, since everyone takes a lunch.",
         "Add a note if it helps (for example \"Forgot to clock out for lunch\"), type your **initials** to confirm the times, and tap **Submit missed punch**.",
       ] },
       { p: "The office and admins are emailed right away. Only an admin can approve or deny it, and you'll get a mailbox message (and an email) with **APPROVED** or **DENIED**. You can send one slip per day; to fix a mistake, cancel it under **My requests** and send a new one." },

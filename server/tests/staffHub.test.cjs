@@ -148,7 +148,7 @@ test('a missed punch slip is saved, emailed to the office with the payroll week,
   assert.equal((await call('POST /missed-punch', tech, slip)).code, 409, 'same day twice');
 });
 
-test('missed punch times must be complete and in order; lunch is both or neither', async () => {
+test('missed punch needs all four times in order, including lunch', async () => {
   const bad = async (patch) => (await call('POST /missed-punch', tech, { ...slip, punch_date: '2026-10-01', ...patch })).code;
   assert.equal(await bad({ time_out: '' }), 400);
   assert.equal(await bad({ lunch_in: '' }), 400);
@@ -156,8 +156,8 @@ test('missed punch times must be complete and in order; lunch is both or neither
   assert.equal(await bad({ time_out: '07:00' }), 400);
   assert.equal(await bad({ initials: '' }), 400);
   assert.equal(await bad({ punch_date: '2999-01-01' }), 400);
-  assert.equal(await bad({ lunch_out: '', lunch_in: '' }), 201, 'no lunch is fine');
-  assert.equal(punches[0].lunch_out, null);
+  assert.equal(await bad({ lunch_out: '', lunch_in: '' }), 400, 'everyone takes a lunch');
+  assert.equal(await bad({}), 201);
 });
 
 test('only admins decide missed punches; the employee and office hear about it', async () => {

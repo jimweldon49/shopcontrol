@@ -1,5 +1,6 @@
 -- Missed punch slips: the paper "Missed Punch" form, filed from the employee app and
 -- approved by an admin (see src/routes/staff.js). Payroll runs Thursday to Wednesday.
+-- Everyone takes a lunch, so all four times are required.
 
 CREATE TABLE IF NOT EXISTS missed_punch_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7,8 +8,8 @@ CREATE TABLE IF NOT EXISTS missed_punch_requests (
   full_name TEXT NOT NULL,
   punch_date DATE NOT NULL,
   time_in TIME NOT NULL,
-  lunch_out TIME,
-  lunch_in TIME,
+  lunch_out TIME NOT NULL,
+  lunch_in TIME NOT NULL,
   time_out TIME NOT NULL,
   initials TEXT NOT NULL CHECK (btrim(initials) <> ''),
   notes TEXT,
@@ -17,8 +18,7 @@ CREATE TABLE IF NOT EXISTS missed_punch_requests (
   decided_at TIMESTAMPTZ,
   decision_note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK ((lunch_out IS NULL) = (lunch_in IS NULL))
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_missed_punch_status ON missed_punch_requests(status, punch_date);
 CREATE INDEX IF NOT EXISTS idx_missed_punch_user ON missed_punch_requests(user_id, created_at DESC);

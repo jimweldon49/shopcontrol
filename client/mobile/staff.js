@@ -38,7 +38,7 @@
     const f = (x) => x.toLocaleDateString(I18n.locale(), { month: "short", day: "numeric" });
     return `${f(d)} – ${f(end)}`;
   }
-  const punchTimes = (r) => `${I18n.t("In")} ${clock(r.time_in)}${r.lunch_out ? ` · ${I18n.t("Lunch")} ${clock(r.lunch_out)}–${clock(r.lunch_in)}` : ` · ${I18n.t("No lunch")}`} · ${I18n.t("Out")} ${clock(r.time_out)}`;
+  const punchTimes = (r) => `${I18n.t("In")} ${clock(r.time_in)} · ${I18n.t("Lunch")} ${clock(r.lunch_out)}–${clock(r.lunch_in)} · ${I18n.t("Out")} ${clock(r.time_out)}`;
   // Time off and missed punches share My requests and Approve; kind picks the API path.
   const KIND_PATH = { timeoff: "time-off", punch: "missed-punch" };
   const reqTitle = (r) => (r.kind === "punch" ? `${I18n.t("Missed punch")} · ${fmtDay(r.punch_date)}` : typeLabel(r));
@@ -136,8 +136,6 @@
     $("mpDate").value = today();
     $("mpDate").max = today();
     for (const id of ["mpIn", "mpOut", "mpLunchOut", "mpLunchIn", "mpNotes", "mpInitials"]) $(id).value = "";
-    $("mpNoLunch").checked = false;
-    $("mpLunch").hidden = false;
     showWeek();
     showAlert("mpError", "");
     showScreen("punch");
@@ -150,21 +148,19 @@
 
   async function submitPunch() {
     showAlert("mpError", "");
-    const noLunch = $("mpNoLunch").checked;
     const body = {
       punch_date: $("mpDate").value,
       time_in: $("mpIn").value,
-      lunch_out: noLunch ? "" : $("mpLunchOut").value,
-      lunch_in: noLunch ? "" : $("mpLunchIn").value,
+      lunch_out: $("mpLunchOut").value,
+      lunch_in: $("mpLunchIn").value,
       time_out: $("mpOut").value,
       initials: $("mpInitials").value.trim(),
       notes: $("mpNotes").value.trim(),
     };
     if (!body.punch_date) return showAlert("mpError", "Choose the date of the missed punch.");
     if (body.punch_date > today()) return showAlert("mpError", "The date can't be in the future.");
-    if (!body.time_in || !body.time_out) return showAlert("mpError", "Enter your time in and time out.");
-    if (!noLunch && (!body.lunch_out || !body.lunch_in)) return showAlert("mpError", "Enter both lunch times, or check \"I didn't take a lunch\".");
-    const order = noLunch ? [body.time_in, body.time_out] : [body.time_in, body.lunch_out, body.lunch_in, body.time_out];
+    const order = [body.time_in, body.lunch_out, body.lunch_in, body.time_out];
+    if (!order.every(Boolean)) return showAlert("mpError", "Enter all four times: in, lunch out, lunch in and out.");
     if (order.some((t, i) => i && t <= order[i - 1])) return showAlert("mpError", "The times must be in order: in, lunch out, lunch in, out.");
     if (!body.initials) return showAlert("mpError", "Type your initials.");
     const btn = $("mpSubmit");
@@ -377,7 +373,6 @@
     $("toSubmit").onclick = submitTimeOff;
     $("mpSubmit").onclick = submitPunch;
     $("mpDate").addEventListener("change", showWeek);
-    $("mpNoLunch").addEventListener("change", () => { $("mpLunch").hidden = $("mpNoLunch").checked; });
     $("mailComposeBtn").onclick = () => openCompose();
     $("msgReplyBtn").onclick = () => openCompose(openMsg);
     $("composeSend").onclick = sendMessage;

@@ -32,7 +32,7 @@ const StaffHub = (() => {
     const f = (x) => x.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     return `${f(d)} – ${f(end)}`;
   }
-  const punchTimes = (r) => `In ${hhmm(r.time_in)}${r.lunch_out ? ` · Lunch ${hhmm(r.lunch_out)}–${hhmm(r.lunch_in)}` : " · No lunch"} · Out ${hhmm(r.time_out)}`;
+  const punchTimes = (r) => `In ${hhmm(r.time_in)} · Lunch ${hhmm(r.lunch_out)}–${hhmm(r.lunch_in)} · Out ${hhmm(r.time_out)}`;
   const pendingCount = () => state.timeOff.filter((r) => r.status === "Pending").length + state.punches.filter((r) => r.status === "Pending").length;
   const statusPill = (s) => `<span class="pill ${s === "Approved" ? "pill-yes" : s === "Denied" || s === "Cancelled" ? "pill-no" : "pill-admin"}">${e(s)}</span>`;
 

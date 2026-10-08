@@ -172,13 +172,13 @@ function payWeek(date) {
 }
 function describePunch(r) {
   const day = new Date(String(r.punch_date).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  return `${day}: in ${hhmm(r.time_in)}${r.lunch_out ? `, lunch ${hhmm(r.lunch_out)}–${hhmm(r.lunch_in)}` : ""}, out ${hhmm(r.time_out)}`;
+  return `${day}: in ${hhmm(r.time_in)}${`, lunch ${hhmm(r.lunch_out)}–${hhmm(r.lunch_in)}`}, out ${hhmm(r.time_out)}`;
 }
 const punchLines = (r) => [
   `Date: ${new Date(String(r.punch_date).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}`,
   `Time in: ${hhmm(r.time_in)}`,
-  `Time out (lunch): ${hhmm(r.lunch_out) || "No lunch"}`,
-  `Time in (lunch): ${hhmm(r.lunch_in) || "No lunch"}`,
+  `Time out (lunch): ${hhmm(r.lunch_out)}`,
+  `Time in (lunch): ${hhmm(r.lunch_in)}`,
   `Time out: ${hhmm(r.time_out)}`,
   `Payroll week: ${payWeek(r.punch_date)} (Thu–Wed)`,
   `Initials: ${r.initials}`,
@@ -188,13 +188,11 @@ const punchLines = (r) => [
 function validatePunch(b) {
   if (!isDate(b.punch_date)) throw Error("Choose the date of the missed punch.");
   if (b.punch_date > new Date().toLocaleDateString("en-CA")) throw Error("The date can't be in the future.");
-  if (!isTime(b.time_in) || !isTime(b.time_out)) throw Error("Enter your time in and time out.");
-  const lunch = !!(b.lunch_out || b.lunch_in);
-  if (lunch && (!isTime(b.lunch_out) || !isTime(b.lunch_in))) throw Error("Enter both lunch times, or leave both empty if you didn't take lunch.");
-  const order = lunch ? [b.time_in, b.lunch_out, b.lunch_in, b.time_out] : [b.time_in, b.time_out];
+  // Everyone takes a lunch, so all four times are required.
+  const order = [b.time_in, b.lunch_out, b.lunch_in, b.time_out];
+  if (!order.every(isTime)) throw Error("Enter all four times: in, lunch out, lunch in and out.");
   if (order.some((t, i) => i && t <= order[i - 1])) throw Error("The times must be in order: in, lunch out, lunch in, out.");
   if (!/^[A-Za-z][A-Za-z. -]{0,7}$/.test(clean(b.initials, 8))) throw Error("Type your initials.");
-  return lunch;
 }
 
 router.get("/missed-punch/mine", async (req, res) => {
@@ -217,7 +215,7 @@ router.post("/missed-punch", async (req, res) => {
   const db = await pool.connect();
   try {
     const b = req.body || {};
-    const lunch = validatePunch(b);
+    validatePunch(b);
     const dup = (await db.query(
       "SELECT 1 FROM missed_punch_requests WHERE user_id=$1 AND punch_date=$2 AND status IN ('Pending','Approved')", [req.user.id, b.punch_date])).rows[0];
     if (dup) throw httpError(409, "You already sent a missed punch slip for that day. Cancel it under My requests to send a new one.");
@@ -225,7 +223,7 @@ router.post("/missed-punch", async (req, res) => {
     const row = (await db.query(
       `INSERT INTO missed_punch_requests(user_id, full_name, punch_date, time_in, lunch_out, lunch_in, time_out, initials, notes)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [req.user.id, who(req), b.punch_date, b.time_in, lunch ? b.lunch_out : null, lunch ? b.lunch_in : null, b.time_out,
+      [req.user.id, who(req), b.punch_date, b.time_in, b.lunch_out, b.lunch_in, b.time_out,
         clean(b.initials, 8).toUpperCase(), clean(b.notes, 2000) || null])).rows[0];
     const office = (await db.query(
       `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, req.user.id])).rows;
