@@ -10,6 +10,10 @@ function query(sql, args = []) {
   if (sql.startsWith('SELECT * FROM daily_go_list WHERE id=$1')) return { rows: jobs.filter(j => j.id === args[0]) };
   if (sql.startsWith('SELECT * FROM daily_go_list WHERE btrim(ro_number)=$1')) return { rows: jobs.filter(j => j.ro_number.trim() === args[0] && !j.merged_into) };
   if (sql.startsWith('SELECT message, created_at FROM customer_updates')) return { rows: updates.filter(u => u.job_id === args[0]) };
+  if (sql.startsWith('SELECT l.job_id, l.token')) {
+    const ids = [...new Set([...links.map(l => l.job_id), ...updates.map(u => u.job_id)])];
+    return { rows: ids.map(id => { const mine = updates.filter(u => u.job_id === id); return { job_id: id, token: (links.find(l => l.job_id === id) || {}).token || null, last_update_at: mine.length ? mine.map(u => u.created_at).sort().pop() : null, update_count: mine.length }; }) };
+  }
   if (sql.startsWith('SELECT data FROM board_settings')) return { rows: [{ data: settings }] };
   if (sql.startsWith('UPDATE daily_go_list SET customer_updated_today')) {
     const j = jobs.find(x => x.id === args[0]); if (!j) return { rows: [] };
@@ -120,4 +124,19 @@ test('only office staff post updates, and posting marks the customer updated', a
   assert.equal(jobs[0].customer_updated_today, 'Yes');
   assert.equal(r.body.job.version, 4, 'the editor gets the new version so Save still works');
   assert.equal(updates[0].message, 'Starting paint today');
+});
+
+test('the Customer Service list shows each job link and last update, for office staff only', async () => {
+  const tech = { id: 't', role: 'body' }, office = { id: 'o', role: 'office', fullName: 'Olivia Office' };
+  assert.equal((await call(portal.staffRouter, 'GET /', { user: tech })).code, 403);
+  jobs.push(job({ id: 'j2', ro_number: '12346' }));
+  await call(portal.staffRouter, 'POST /:jobId/updates', { user: office, body: { message: 'Parts are here' }, params: { jobId: 'j2' } });
+  const r = await call(portal.staffRouter, 'GET /', { user: office });
+  assert.equal(r.code, 200);
+  const byId = Object.fromEntries(r.body.jobs.map(j => [j.jobId, j]));
+  assert.match(byId.j1.url, /tok_abcdefgh/);
+  assert.equal(byId.j1.updateCount, 0);
+  assert.equal(byId.j2.url, null);
+  assert.equal(byId.j2.updateCount, 1);
+  assert.ok(byId.j2.lastUpdateAt);
 });

@@ -8,10 +8,11 @@
 // Block types: { p }, { h3 }, { steps: [] }, { bullets: [] }, { tip }, { note },
 // { table: { head: [], rows: [[]] } }.  Inline **bold** is supported in any text.
 
-const VERSION = "2.8";
-const UPDATED = "October 8, 2026";
+const VERSION = "2.9";
+const UPDATED = "October 9, 2026";
 
 const CHANGES = [
+  { version: "2.9", date: "October 9, 2026", text: "The left menu is now grouped (Jobs, Boards & Calendar, Customer Service, Parts, Quality & Shop, Money & Cycle Time, Staff, Admin & Help, Other Screens). Click a group name to open or close it. New **Customer Service → Customer Status Page** tab lists every open RO with its customer link and last update, so you can share links and post updates in one place." },
   { version: "2.8", date: "October 8, 2026", text: "New **customer status page** at conceptautobody.app/update: customers see where their car is in the repair and the updates you post, from a private link or by looking up their RO number and last name. Set it up from the job editor (**Customer status page**) and Settings." },
   { version: "2.7", date: "October 8, 2026", text: "The paper **payroll correction form** is now in the Employee App: **Staff Hub → Payroll correction**. Admins approve or deny it with time off and missed punches, and the employee and office are notified." },
   { version: "2.6", date: "October 8, 2026", text: "The paper missed punch slip is now in the Employee App: **Staff Hub → Missed punch**. Admins approve or deny slips with time off (Staff Hub → **Approve requests**, or the **Time Off** tab), and the employee and office are notified. The Employee App now **updates itself** when a new version is put on the server." },
@@ -42,11 +43,11 @@ const sections = [
       { h3: "Opening ShopControl" },
       { bullets: [
         "**Employee App (phones):** go to **https://conceptautobody.app** in Safari or Chrome. It works anywhere you have internet, in the shop or not.",
-        "**Office computers (full program):** open **https://shopcontrol.conceptauto.local** in Chrome or Edge. This address only works on the shop network. The Employee App is also under **Employee app** in the left menu.",
+        "**Office computers (full program):** open **https://shopcontrol.conceptauto.local** in Chrome or Edge. This address only works on the shop network. The Employee App is also under **Other Screens → Employee app** in the left menu.",
       ] },
       { h3: "Finding help" },
       { bullets: [
-        "**Office computers:** click **Help** in the left menu to read this manual inside ShopControl. Use **Download Word copy** to print it.",
+        "**Office computers:** click **Admin & Help → Help** in the left menu to read this manual inside ShopControl. Use **Download Word copy** to print it.",
         "**Employee App:** Staff Hub → **User manual**.",
         "Type a word or two about what you need in the **search box** at the top of the manual to see just the sections that cover it.",
       ] },
@@ -283,7 +284,7 @@ const sections = [
         "Reminders stop on their own once the job gets a 5-digit RO, or is marked No Show, Delivered or Total Loss.",
       ] },
       { h3: "TV display" },
-      { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. **Updated 2:41 PM** in the bottom-right corner shows when the board last got fresh data (it refreshes every 20 seconds). If it can't reach the server, the corner turns red and says **reconnecting**; it catches up on its own once the connection is back. To open it on a computer, click **TV display** in the left menu." },
+      { p: "The shop TV shows the Production Board full screen and scrolls through the columns by itself. It reloads every 3 hours to pick up updates. **Updated 2:41 PM** in the bottom-right corner shows when the board last got fresh data (it refreshes every 20 seconds). If it can't reach the server, the corner turns red and says **reconnecting**; it catches up on its own once the connection is back. To open it on a computer, click **Other Screens → TV display** in the left menu." },
       { h3: "Shop touch board" },
       { p: "The touch screen in the shop shows the same Production Board as the TV, and technicians use it to move cars to their next stage. There are two ways:" },
       { h3: "Drag it" },
@@ -309,7 +310,7 @@ const sections = [
         "On the touch screen, open ShopControl (https://shopcontrol.conceptauto.local on the shop network, or https://conceptautobody.app/index.html) and sign in with that account. It opens straight to the Production Board, full screen.",
         "It stays signed in, refreshes every 20 seconds and reloads every 3 hours, just like the TV.",
       ] },
-      { tip: "To try it from an office computer, click **Shop touch board** in the left menu. Moves you make there are recorded under the name you tap." },
+      { tip: "To try it from an office computer, click **Other Screens → Shop touch board** in the left menu. Moves you make there are recorded under the name you tap." },
     ],
   },
 
@@ -396,7 +397,7 @@ const sections = [
     id: "completed",
     title: "Completed Jobs (job records)",
     blocks: [
-      { p: "When a car is delivered (or marked Total Loss) it leaves the boards, but nothing about it is lost. The **Completed Jobs** tab (left menu, under Delivery Board) lists every finished job with when it came in, when it was delivered, days in the shop, repair value, how many parts it had and how many QC checklists were done. Search by RO, customer, vehicle or insurance, or filter by delivered date." },
+      { p: "When a car is delivered (or marked Total Loss) it leaves the boards, but nothing about it is lost. The **Completed Jobs** tab (left menu, under **Jobs**) lists every finished job with when it came in, when it was delivered, days in the shop, repair value, how many parts it had and how many QC checklists were done. Search by RO, customer, vehicle or insurance, or filter by delivered date." },
       { p: "Click a job to open its **job file**:" },
       { bullets: [
         "**Job details:** customer, vehicle, value, insurance, estimator, the techs and painters on it, in / on-site / delivered dates, days in shop and hours.",
@@ -454,7 +455,7 @@ const sections = [
       { h3: "Customer status page" },
       { p: "Customers can check on their car at **conceptautobody.app/update**. They see the vehicle, a progress bar (Checked in, Repair plan, Parts, Body, Paint, Reassembly, Final check, Ready), the updates you post, and Call and Text buttons. They **never** see prices, notes, hold-up reasons, supplements or staff names. A car on hold keeps showing the last step it reached." },
       { steps: [
-        "Open the job in **Shop Control** (Edit). The **Customer status page** panel is under the timestamps (office staff, estimators, managers and admins).",
+        "Click **Customer Service → Customer Status Page** in the left menu (office staff, estimators, managers and admins). The red number shows how many cars in the shop need a customer update today. Use **Need an update**, **In the shop** or **All open ROs** and the search box to find the car, then click **Manage**. The same panel is also in the job editor (Daily GO List → Edit), under the timestamps.",
         "Click **Create customer link**. It's copied for you; paste it into a text or email to the customer. **Copy customer link** copies it again later.",
         "To update the customer, type a short message under **Post an update for the customer** and click **Post update**. It shows on their page right away and sets **Customer Updated** to Yes.",
         "Made a mistake? Click **Remove** next to the update, then click again to confirm.",

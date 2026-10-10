@@ -337,3 +337,29 @@ body.shopboard-mode .production-card { -webkit-user-select: none; user-select: n
 .production-card.sb-dragging { opacity: .3; }
 .sb-ghost { position: fixed; left: 0; top: 0; z-index: 300; pointer-events: none; margin: 0; opacity: .95; box-shadow: 0 24px 60px rgba(0,0,0,.6); outline: 3px solid var(--accent); }
 body.shopboard-mode .production-column.drag-over { background: var(--accent-soft); border-color: var(--accent); outline: 3px dashed var(--accent); outline-offset: -3px; }
+
+/* ---------- Left menu groups (nav.js) ---------- */
+.nav-group { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.nav-group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; background: transparent; color: var(--faint); text-align: left; padding: 12px 12px 6px; font-size: 9.5px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; border-radius: 6px; }
+.nav-group-toggle::before { content: "▸"; display: inline-block; width: 10px; font-size: 10px; transition: transform .15s; }
+.nav-group.open > .nav-group-toggle::before { transform: rotate(90deg); }
+.nav-group-toggle:hover { color: var(--text); background: transparent; }
+.nav-group-items { display: none; flex-direction: column; gap: 2px; padding-left: 8px; }
+.nav-group.open > .nav-group-items { display: flex; }
+.nav-group-items .tab, .nav-group-items .mobile-link { width: 100%; box-sizing: border-box; }
+.nav-group-count:not(:empty), #customerServiceCount:not(:empty) { min-width: 16px; padding: 1px 6px; margin-left: auto; border-radius: 9px; background: var(--danger); color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0; text-align: center; }
+#customerServiceCount:not(:empty) { margin-left: 6px; }
+.nav-group.open > .nav-group-toggle .nav-group-count { display: none; }
+@media (max-width: 760px) {
+  .nav-group, .nav-group-items, .nav-group.open > .nav-group-items { display: contents; }
+  .nav-group-toggle { display: none; }
+  .nav-group-items .tab, .nav-group-items .mobile-link { width: auto; }
+}
+
+/* ---------- Customer Service tab ---------- */
+.cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 18px; align-items: start; margin-top: 20px; }
+.cs-layout #csPortalBox { position: sticky; top: 16px; }
+.cs-layout tr.selected td { background: var(--accent-soft); }
+.cs-layout table { min-width: 0; }
+.cs-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+@media (max-width: 1100px) { .cs-layout { grid-template-columns: 1fr; } .cs-layout #csPortalBox { position: static; } }

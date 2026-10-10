@@ -164,6 +164,18 @@ staffRouter.use((req, res, next) => {
 });
 const who = (req) => req.user.fullName || req.user.username;
 
+// Customer Service tab: which jobs have a link, and when each was last updated.
+staffRouter.get("/", async (req, res) => {
+  try {
+    const rows = (await pool.query(
+      `SELECT l.job_id, l.token, u.last_update_at, u.update_count
+         FROM customer_portal_links l
+         FULL JOIN (SELECT job_id, max(created_at) AS last_update_at, count(*)::int AS update_count
+                      FROM customer_updates GROUP BY job_id) u USING (job_id)`)).rows;
+    res.json({ jobs: rows.map((r) => ({ jobId: r.job_id, url: r.token ? linkUrl(r.token) : null, lastUpdateAt: r.last_update_at || null, updateCount: r.update_count || 0 })) });
+  } catch (e) { fail(res, e); }
+});
+
 staffRouter.get("/:jobId", async (req, res) => {
   try {
     const link = (await pool.query("SELECT token FROM customer_portal_links WHERE job_id=$1", [req.params.jobId])).rows[0];

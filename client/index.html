@@ -79,40 +79,86 @@
   <nav class="tabs" aria-label="Shop workspace">
     <div class="nav-brand"><img src="img/logo.png" alt="Concept Autobody" /><small>SHOP CONTROL</small></div>
     <button class="tab active" data-tab="dashboard">Dashboard</button>
-    <button class="tab" data-tab="daily">Daily GO List</button>
-    <button class="tab" data-tab="missedCalls">Missed Calls</button>
-    <button class="tab" data-tab="opportunities">Opportunities</button>
-    <button class="tab" data-tab="production">Production Board</button>
-    <button class="tab" data-tab="deliveryBoard">Delivery Board</button>
-    <button class="tab" data-tab="completedJobs" id="completedJobsTabBtn">Completed Jobs</button>
-    <button class="tab" data-tab="planningBoard">Planning Board</button>
-    <button class="tab" data-tab="calendar">Calendar</button>
-    <button class="tab" data-tab="workspaceSettings">Board Settings</button>
     <button class="tab" data-tab="notifications">Notifications <span id="notificationCount"></span></button>
-    <a class="mobile-link" href="mobile/">Employee app ↗</a>
-    <button class="tab" data-tab="help" id="helpTabBtn">Help</button>
-    <a class="mobile-link" href="?kiosk=1" target="_blank" rel="noopener">TV display ↗</a>
-    <a class="mobile-link" href="?shopboard=1" target="_blank" rel="noopener">Shop touch board ↗</a>
-    <button class="tab" data-tab="tasks">Tasks</button>
-    <button class="tab" data-tab="parts">Parts</button>
-    <button class="tab" data-tab="cartsShelves">Carts &amp; Shelves</button>
-    <button class="tab" data-tab="floorPlan">Shop Floor Plan</button>
-    <button class="tab" data-tab="returnsAlerts">Returns &amp; Alerts</button>
-    <button class="tab" data-tab="manageLocations">Manage Locations</button>
-    <button class="tab" data-tab="qc">Vehicle QC</button>
-    <button class="tab" data-tab="booth">Booth Filters</button>
-    <button class="tab" data-tab="facility">Facility Checklist</button>
-    <button class="tab" data-tab="ar">AR Balances</button>
-    <button class="tab" data-tab="cycle1">Cycle $0-2K</button>
-    <button class="tab" data-tab="cycle2">Cycle $2-4K</button>
-    <button class="tab" data-tab="cycle3">Cycle $4-10K</button>
-    <button class="tab" data-tab="cycle4">Cycle $10K+</button>
-    <button class="tab" data-tab="timeOff" id="timeOffTabBtn" style="display:none;">Time Off</button>
-    <button class="tab" data-tab="staffHub" id="staffHubTabBtn">Messages &amp; Info</button>
-    <button class="tab" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
-    <button class="tab" data-tab="photos">Photos</button>
-    <button class="tab" data-tab="activity">Activity Log</button>
-    <button class="tab" data-tab="cccImport">CCC Import</button>
+    <div class="nav-group" data-group="jobs">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Jobs<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="daily">Daily GO List</button>
+        <button class="tab" data-tab="opportunities">Opportunities</button>
+        <button class="tab" data-tab="completedJobs" id="completedJobsTabBtn">Completed Jobs</button>
+        <button class="tab" data-tab="photos">Photos</button>
+        <button class="tab" data-tab="cccImport">CCC Import</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="boards">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Boards &amp; Calendar<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="production">Production Board</button>
+        <button class="tab" data-tab="deliveryBoard">Delivery Board</button>
+        <button class="tab" data-tab="planningBoard">Planning Board</button>
+        <button class="tab" data-tab="calendar">Calendar</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="customers">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Customer Service<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="customerService">Customer Status Page <span id="customerServiceCount"></span></button>
+        <button class="tab" data-tab="missedCalls">Missed Calls</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="parts">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Parts<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="parts">Parts</button>
+        <button class="tab" data-tab="cartsShelves">Carts &amp; Shelves</button>
+        <button class="tab" data-tab="floorPlan">Shop Floor Plan</button>
+        <button class="tab" data-tab="returnsAlerts">Returns &amp; Alerts</button>
+        <button class="tab" data-tab="manageLocations">Manage Locations</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="quality">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Quality &amp; Shop<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="qc">Vehicle QC</button>
+        <button class="tab" data-tab="booth">Booth Filters</button>
+        <button class="tab" data-tab="facility">Facility Checklist</button>
+        <button class="tab" data-tab="tasks">Tasks</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="money">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Money &amp; Cycle Time<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="ar">AR Balances</button>
+        <button class="tab" data-tab="cycle1">Cycle $0-2K</button>
+        <button class="tab" data-tab="cycle2">Cycle $2-4K</button>
+        <button class="tab" data-tab="cycle3">Cycle $4-10K</button>
+        <button class="tab" data-tab="cycle4">Cycle $10K+</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="staff">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Staff<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="staffHub" id="staffHubTabBtn">Messages &amp; Info</button>
+        <button class="tab" data-tab="timeOff" id="timeOffTabBtn" style="display:none;">Time Off</button>
+        <button class="tab" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="admin">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Admin &amp; Help<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <button class="tab" data-tab="workspaceSettings">Board Settings</button>
+        <button class="tab" data-tab="activity">Activity Log</button>
+        <button class="tab" data-tab="help" id="helpTabBtn">Help</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="screens">
+      <button type="button" class="nav-group-toggle" aria-expanded="false">Other Screens<span class="nav-group-count"></span></button>
+      <div class="nav-group-items">
+        <a class="mobile-link" href="mobile/">Employee app ↗</a>
+        <a class="mobile-link" href="?kiosk=1" target="_blank" rel="noopener">TV display ↗</a>
+        <a class="mobile-link" href="?shopboard=1" target="_blank" rel="noopener">Shop touch board ↗</a>
+      </div>
+    </div>
   </nav>
 
   <main>
@@ -242,6 +288,8 @@
         </table>
       </div>
     </section>
+
+    <section id="customerService" class="tab-panel"></section>
 
     <section id="missedCalls" class="tab-panel">
       <div class="section-head">
@@ -1056,6 +1104,7 @@
 <script src="app.js"></script>
 <script src="staff.js"></script>
 <script src="portal-admin.js"></script>
+<script src="nav.js"></script>
 <script src="completed.js"></script>
 <script src="search.js"></script>
 <script src="shopboard.js"></script>
