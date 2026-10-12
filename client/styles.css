@@ -507,3 +507,10 @@ tr.part-problem-row td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
 .qc-checklist-view li.done { color: var(--text); }
 .qc-checklist-view li span { display: inline-block; width: 22px; font-weight: 700; }
 .qc-checklist-view li.done span { color: #15803d; }
+.qc-who { color: var(--muted); font-weight: 400; }
+.qc-unsigned { color: var(--muted); }
+.qc-signoff { display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-top: 1px dashed var(--line); }
+.qc-signoff:first-child { border-top: 0; }
+.qc-signoff img { height: 60px; max-width: 220px; background: #fff; border: 1px solid var(--line); border-radius: 6px; flex-shrink: 0; }
+.qc-signed-for { color: var(--muted); font-size: 13px; }
+.qc-rework-tag { color: #be123c; font-weight: 700; }

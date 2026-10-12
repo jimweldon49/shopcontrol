@@ -92,3 +92,26 @@ test('every checklist item has Spanish wording for the employee app (records kee
     for (const i of d.items) assert.ok(i.es && i.es !== i.label, `${d.id} / ${i.id} has Spanish wording`);
   }
 });
+
+test('every QC sign-off is kept, with the items each person signed for', () => {
+  const { addSignature } = require('../src/qcSignatures');
+  const checklist = { items: { prefit: { done: true, by: 'Ana Tech' }, tech_slot: { done: true, by: 'Bo Office' }, parts_inventoried: { done: false, by: 'Ana Tech' } } };
+  let list = addSignature([], { user: { id: 'a', fullName: 'Ana Tech' }, departmentId: 'Body', checklist, signature: 'sigA', signedAt: '2026-10-12T10:00:00Z', status: 'Open', rework: 'No' });
+  list = addSignature(list, { user: { id: 'b', fullName: 'Bo Office' }, departmentId: 'Body', checklist, signature: 'sigB', signedAt: '2026-10-12T11:00:00Z', status: 'Passed', rework: 'No' });
+  assert.deepEqual(list.map(s => [s.by, s.signature, s.items]), [['Ana Tech', 'sigA', ['prefit']], ['Bo Office', 'sigB', ['tech_slot']]]);
+  // Signing again replaces only that person's earlier sign-off.
+  checklist.items.parts_inventoried.done = true;
+  list = addSignature(list, { user: { id: 'a', fullName: 'Ana Tech' }, departmentId: 'Body', checklist, signature: 'sigA2', signedAt: '2026-10-12T12:00:00Z' });
+  assert.deepEqual(list.map(s => [s.by, s.signature, s.items]), [['Bo Office', 'sigB', ['tech_slot']], ['Ana Tech', 'sigA2', ['prefit', 'parts_inventoried']]]);
+  assert.deepEqual(qc.signedFor('Body', list[1]), ['Parts pre-fit before paint', 'Parts inventoried']);
+});
+
+test('records signed before the signature list still show their one signature', () => {
+  const old = { qc_department: 'Paint', qc_performed_by: 'Cy', qc_signed_at: '2026-10-01T00:00:00Z', qc_signature_data: 'data:image/png;base64,AA==', qc_signatures: [],
+    qc_checklist: { items: { runs_nibs: { done: true, by: 'Cy' }, unmasked: { done: true, by: 'Di' } } } };
+  const sigs = qc.signatures(old);
+  assert.equal(sigs.length, 1);
+  assert.equal(sigs[0].by, 'Cy');
+  assert.deepEqual(sigs[0].items, ['runs_nibs']);
+  assert.deepEqual(qc.signatures({ qc_department: 'Paint' }), []);
+});

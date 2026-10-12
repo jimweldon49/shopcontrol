@@ -5,6 +5,7 @@ const { logActivity } = require("../activityLogger");
 const { sendAssignmentEmail } = require("../taskEmails");
 const { assertCartAssignment } = require("../inventoryRules");
 const { completedJobGuard } = require("../completedJobs");
+const { addSignature } = require("../qcSignatures");
 
 const RESOURCES = {
   daily: {
@@ -83,6 +84,22 @@ function cleanValue(value) {
   return value === "" ? null : value;
 }
 
+// A QC save that carries a new signature also adds it to the record's signature list.
+function withQcSignature(resourceKey, body, before, user, cols, values) {
+  if (resourceKey !== "qc" || !body.qc_signature_data) return;
+  const list = addSignature(before && before.qc_signatures, {
+    user,
+    departmentId: body.qc_department ?? (before && before.qc_department),
+    checklist: body.qc_checklist ?? (before && before.qc_checklist),
+    signature: body.qc_signature_data,
+    signedAt: body.qc_signed_at,
+    status: body.qc_final_status ?? (before && before.qc_final_status),
+    rework: body.qc_rework_needed ?? (before && before.qc_rework_needed),
+  });
+  cols.push("qc_signatures");
+  values.push(JSON.stringify(list));
+}
+
 function buildRouterFor(resourceKey, config) {
   const router = express.Router();
   const { table, columns, orderBy } = config;
@@ -106,6 +123,7 @@ function buildRouterFor(resourceKey, config) {
       }
       const cols = columns.filter((c) => Object.prototype.hasOwnProperty.call(body, c));
       const values = cols.map((c) => cleanValue(body[c]));
+      withQcSignature(resourceKey, body, null, req.user, cols, values);
 
       const allCols = ["created_by", "updated_by", ...cols];
       const allValues = [req.user.fullName || req.user.username, req.user.fullName || req.user.username, ...values];
@@ -163,6 +181,7 @@ function buildRouterFor(resourceKey, config) {
       }
       const cols = columns.filter((c) => Object.prototype.hasOwnProperty.call(body, c));
       const values = cols.map((c) => cleanValue(body[c]));
+      withQcSignature(resourceKey, body, before, req.user, cols, values);
 
       const setClauses = cols.map((c, i) => `${c} = $${i + 1}`);
       setClauses.push(`updated_at = now()`);

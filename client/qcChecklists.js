@@ -130,5 +130,33 @@
     if (checklist.notes !== undefined && (typeof checklist.notes !== "string" || checklist.notes.length > 4000)) throw Error("QC notes are too long.");
   }
 
-  return { departments, names, byId, progress, validateChecklist, departmentsFor };
+  // Everyone who signed a QC record, oldest first: [{ by, at, signature, items, status, rework }],
+  // where items are the ids that person checked (what they signed for). Takes a record
+  // in either the server's snake_case or the desktop's camelCase. Records signed before
+  // the list existed only have their one (latest) signature.
+  function signatures(rec) {
+    if (!rec) return [];
+    const list = rec.qc_signatures || rec.qcSignatures;
+    if (Array.isArray(list) && list.length) return list.slice().sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0));
+    const sig = rec.qc_signature_data || rec.qcSignatureData;
+    if (!sig) return [];
+    const by = rec.qc_performed_by || rec.qcPerformedBy || "";
+    const dept = byId[rec.qc_department || rec.qcDepartment];
+    const items = ((rec.qc_checklist || rec.qcChecklist || {}).items) || {};
+    return [{
+      by, at: rec.qc_signed_at || rec.qcSignedAt || null, signature: sig,
+      items: dept ? dept.items.filter(i => items[i.id] && items[i.id].done && items[i.id].by === by).map(i => i.id) : [],
+      status: rec.qc_final_status || rec.qcFinalStatus || null,
+      rework: (rec.qc_rework_needed || rec.qcReworkNeeded) === "Yes",
+    }];
+  }
+
+  // Item labels for a signature, in checklist order.
+  function signedFor(departmentId, sig) {
+    const dept = byId[departmentId];
+    const ids = new Set((sig && sig.items) || []);
+    return dept ? dept.items.filter(i => ids.has(i.id)).map(i => i.label) : [];
+  }
+
+  return { departments, names, byId, progress, validateChecklist, departmentsFor, signatures, signedFor };
 });

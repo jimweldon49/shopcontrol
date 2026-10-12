@@ -188,6 +188,11 @@ function recordFor(job, deptId) {
     .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))[0] || null;
 }
 
+// Everyone who has signed this vehicle's checklist for a department, oldest first.
+function signersFor(job, deptId) {
+  return QcChecklists.signatures(recordFor(job, deptId));
+}
+
 function progressFor(job, deptId) {
   const rec = recordFor(job, deptId);
   return QcChecklists.progress(deptId, rec && rec.qc_checklist);
@@ -272,9 +277,9 @@ function renderJob() {
   if (myDepts.length) {
     $("jobQc").innerHTML = myDepts.map((id) => {
       const p = progressFor(j, id);
-      const rec = recordFor(j, id);
-      const sub = p.complete && rec && rec.qc_signed_at
-        ? `Done · signed by ${rec.qc_performed_by || "?"}`
+      const signers = signersFor(j, id).map((s) => s.by || "?");
+      const sub = p.complete && signers.length
+        ? `Done · signed by ${signers.join(", ")}`
         : p.done ? `${p.done} of ${p.total} checked · keep going` : `${p.total} items · tap to start`;
       return `<button class="qc-cta" style="--accent:${deptColor(id)}" data-dept="${esc(id)}">${ringHtml(p)}<div><b>${esc(id)} QC</b><span>${esc(sub)}</span></div><div class="arrow">›</div></button>`;
     }).join("");
@@ -284,8 +289,8 @@ function renderJob() {
 
   $("deptGrid").innerHTML = DEPTS.filter((d) => !myDepts.includes(d.id)).map((d) => {
     const p = progressFor(j, d.id);
-    const rec = recordFor(j, d.id);
-    const label = p.complete ? `✓ ${rec && rec.qc_performed_by ? rec.qc_performed_by.split(" ")[0] : "Done"}` : p.done ? `${p.done}/${p.total} checked` : "Not started";
+    const firsts = signersFor(j, d.id).map((s) => String(s.by || "").split(" ")[0]).filter(Boolean);
+    const label = p.complete ? `✓ ${firsts.length ? firsts.join(", ") : "Done"}` : p.done ? `${p.done}/${p.total} checked` : "Not started";
     return `<button class="dept-btn ${p.complete ? "complete" : ""}" style="--accent:${d.color}" data-dept="${esc(d.id)}"><b>${esc(d.id)}</b><small>${esc(label)}</small></button>`;
   }).join("");
 
@@ -388,7 +393,7 @@ function openChecklist(deptId) {
   setSaving("");
   $("qcItems").innerHTML = dept.items.map((item) => {
     const v = checklist.items[item.id] || {};
-    return `<button class="check ${v.done ? "on" : ""}" data-item="${esc(item.id)}"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="label">${esc(item.label)}</span></button>
+    return `<button class="check ${v.done ? "on" : ""}" data-item="${esc(item.id)}"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="label">${esc(item.label)}<small class="who">${v.done && v.by ? `Checked by ${esc(v.by)}` : ""}</small></span></button>
       ${item.input ? `<div class="check-extra"><input class="input" inputmode="decimal" data-value="${esc(item.id)}" value="${esc(v.value || "")}" placeholder="${esc(item.input.label)}" /><span>${esc(item.input.suffix || "")}</span></div>` : ""}`;
   }).join("");
   updateProgress();
@@ -411,6 +416,8 @@ function toggleItem(id, button) {
   const done = !cur.done;
   checklist.items[id] = { ...cur, done, by: currentUser && currentUser.fullName, at: new Date().toISOString() };
   button.classList.toggle("on", done);
+  const who = button.querySelector(".who");
+  if (who) who.textContent = done && currentUser && currentUser.fullName ? `Checked by ${currentUser.fullName}` : "";
   if (done && navigator.vibrate) navigator.vibrate(12);
   updateProgress();
   queueSave();
@@ -471,9 +478,15 @@ let reworkChoice = "No";
 function openFinish() {
   const p = QcChecklists.progress(activeDept.id, checklist);
   const missing = activeDept.items.filter((i) => !(checklist.items[i.id] && checklist.items[i.id].done));
+  // Each person signs for the items they checked; earlier sign-offs stay on the record.
+  const me = (currentUser && currentUser.fullName) || "";
+  const mine = activeDept.items.filter((i) => checklist.items[i.id] && checklist.items[i.id].done && checklist.items[i.id].by === me).length;
+  const others = QcChecklists.signatures(activeRecord).filter((s) => s.by !== me);
   $("finishSummary").innerHTML = `<b>${esc(activeDept.id)} QC · RO ${esc(activeJob.ro_number || "")}</b>
     <small>${p.done} of ${p.total} checked${missing.length ? "" : " · all done"}</small>
-    ${missing.length ? `<div style="margin-top:8px">${missing.map((i) => `<span class="pill bad" style="margin-right:4px">${esc(i.label)}</span>`).join("")}</div>` : ""}`;
+    ${missing.length ? `<div style="margin-top:8px">${missing.map((i) => `<span class="pill bad" style="margin-right:4px">${esc(i.label)}</span>`).join("")}</div>` : ""}
+    <div style="margin-top:10px"><small>${mine ? `You're signing for the ${mine} item${mine === 1 ? "" : "s"} you checked.` : "You haven't checked any items yourself."}</small></div>
+    ${others.length ? `<div style="margin-top:8px"><small>Already signed:</small>${others.map((s) => `<div><b translate="no">${esc(s.by || "?")}</b> <small>${esc(QcChecklists.signedFor(activeDept.id, s).length)} ${QcChecklists.signedFor(activeDept.id, s).length === 1 ? "item" : "items"}</small></div>`).join("")}</div>` : ""}`;
   reworkChoice = "No";
   syncReworkSeg();
   $("reworkNotes").value = "";

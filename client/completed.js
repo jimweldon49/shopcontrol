@@ -122,9 +122,14 @@ const CompletedJobs = (() => {
     const qcDepts = QcChecklists.departments.map((dept) => {
       const recs = d.qc.filter((q) => q.qc_department === dept.id);
       const r = recs[recs.length - 1];
-      if (!r) return `<tr><td>${e(dept.id)}</td><td colspan="4" class="muted">Not started</td></tr>`;
+      if (!r) return `<tr><td>${e(dept.id)}</td><td colspan="3" class="muted">Not started</td></tr>`;
       const prog = QcChecklists.progress(dept.id, r.qc_checklist);
-      return `<tr><td>${e(dept.id)}</td><td>${prog.done} of ${prog.total}${r.qc_rework_needed === "Yes" ? " · rework" : ""}</td><td>${e(r.qc_performed_by || "")}</td><td>${e(day(r.qc_date))}</td><td>${r.qc_signed_at ? "Signed " + e(stamp(r.qc_signed_at)) : "Not signed"}</td></tr>`;
+      const sigs = QcChecklists.signatures(r);
+      const signed = sigs.length ? sigs.map((s) => {
+        const items = QcChecklists.signedFor(dept.id, s);
+        return `<div><b>${e(s.by || "?")}</b> · ${e(stamp(s.at))}${items.length ? `<br><small class="muted">${items.map(e).join(", ")}</small>` : ""}</div>`;
+      }).join("") : "Not signed";
+      return `<tr><td>${e(dept.id)}</td><td>${prog.done} of ${prog.total}${r.qc_rework_needed === "Yes" ? " · rework" : ""}</td><td>${e(day(r.qc_date))}</td><td>${signed}</td></tr>`;
     }).join("");
     const oldQc = d.qc.filter((q) => !q.qc_department);
     const images = d.attachments.filter((a) => /^image\//.test(a.mime_type || ""));
@@ -163,7 +168,7 @@ const CompletedJobs = (() => {
       ${d.cores.length ? `<h4>Core returns</h4><ul>${d.cores.map((c) => `<li>${e(c.description || "")} · ${e(c.assigned_to || "")} · ${e(stamp(c.created_at))}</li>`).join("")}</ul>` : ""}
 
       <h3>Quality control</h3>
-      <div class="table-wrap"><table><thead><tr><th>Checklist</th><th>Checked</th><th>By</th><th>Date</th><th>Signature</th></tr></thead><tbody>${qcDepts}</tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Checklist</th><th>Checked</th><th>Date</th><th>Signed by · signed for</th></tr></thead><tbody>${qcDepts}</tbody></table></div>
       ${ro ? `<p class="no-print"><button type="button" onclick="openQcReport(decodeURIComponent('${encodeURIComponent(ro).replace(/'/g, "%27")}'))">Open full QC report with signatures</button></p>` : ""}
       ${oldQc.length ? `<h4>Older QC records</h4><ul>${oldQc.map((q) => `<li>${e(day(q.qc_date))} · ${e(q.qc_performed_by || "")} · ${e(q.qc_final_status || "")}${q.qc_issues ? " · " + e(q.qc_issues) : ""}</li>`).join("")}</ul>` : ""}
 

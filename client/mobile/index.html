@@ -173,6 +173,8 @@
   .check .box { width: 30px; height: 30px; border-radius: 10px; border: 2px solid var(--faint); flex-shrink: 0; display: grid; place-items: center; transition: all .2s cubic-bezier(.2,.8,.2,1); }
   .check .box svg { width: 18px; height: 18px; stroke: var(--accent-ink); stroke-width: 3.2; fill: none; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset .3s .05s; }
   .check .label { flex: 1; font-size: 15.5px; font-weight: 600; }
+  .check .who { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+  .check .who:empty { display: none; }
   .check.on { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
   .check.on .box { background: var(--accent); border-color: var(--accent); transform: scale(1.06); }
   .check.on .box svg { stroke-dashoffset: 0; }

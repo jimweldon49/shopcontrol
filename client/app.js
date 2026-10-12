@@ -822,22 +822,46 @@ function renderQc() {
     if (view === "failed" && !(["Failed","Needs Rework"].includes(r.qcFinalStatus) || r.qcReworkNeeded === "Yes")) return false;
     if (view === "ready" && r.qcFinalStatus !== "Ready for Delivery") return false;
     if (view === "passed" && r.qcFinalStatus !== "Passed") return false;
-    const hay = [r.qcRoNumber,r.qcCustomerName,r.qcVehicle,r.qcPerformedBy,r.qcIssues,r.qcDeliveryNotes,r.qcDepartment].join(" ").toLowerCase();
+    const hay = [r.qcRoNumber,r.qcCustomerName,r.qcVehicle,r.qcPerformedBy,...QcChecklists.signatures(r).map(x => x.by),r.qcIssues,r.qcDeliveryNotes,r.qcDepartment].join(" ").toLowerCase();
     return hay.includes(search);
   });
 
   table.querySelector("tbody").innerHTML = rows.map(r => {
     const bad = ["Failed","Needs Rework"].includes(r.qcFinalStatus) || r.qcReworkNeeded === "Yes";
     const prog = r.qcDepartment ? QcChecklists.progress(r.qcDepartment, r.qcChecklist) : null;
+    const signers = r.qcDepartment ? QcChecklists.signatures(r).map(x => x.by || "?") : [];
     return `<tr>
       <td>${r.qcRoNumber || ""}</td><td>${r.qcCustomerName || ""}</td><td>${r.qcVehicle || ""}</td>
       <td>${escapeHtml(r.qcDepartment || "General")}${prog ? `<br><small class="${prog.complete ? "status-good" : ""}">${prog.done}/${prog.total} checked</small>` : ""}</td>
-      <td>${r.qcDate || ""}</td><td>${r.qcPerformedBy || ""}</td>
+      <td>${r.qcDate || ""}</td><td>${signers.length ? `${escapeHtml(signers.join(", "))}<br><small>signed</small>` : escapeHtml(r.qcPerformedBy || "")}</td>
       <td class="${bad ? "status-bad" : (["Passed","Ready for Delivery"].includes(r.qcFinalStatus) ? "status-good" : "")}">${r.qcFinalStatus || ""}</td>
       <td>${r.qcReworkNeeded || ""}</td><td>${r.qcReworkAssignedTo || ""}</td><td>${r.qcCustomerCalled || ""}</td>
       <td><div class="actions">${r.qcRoNumber ? `<button onclick="openQcReport(decodeURIComponent('${encodeURIComponent(r.qcRoNumber).replace(/'/g,'%27')}'))">Car report</button>` : ""}${prog ? `<button class="quiet" onclick="viewQcChecklist('${r.id}')">Checklist</button>` : ""}<button class="quiet" onclick="editQc('${r.id}')">Edit</button>${deleteBtn('qc', r.id)}</div></td>
     </tr>`;
   }).join("");
+}
+
+const qcSigOk = (s) => typeof s === "string" && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s);
+
+// One checklist line: the item, any reading taken, and who checked it.
+function qcItemHtml(i, v) {
+  const e = escapeHtml;
+  return `<li class="${v.done ? "done" : ""}"><span>${v.done ? "✔" : "○"}</span>${e(i.label)}${i.input && v.value ? ` — ${e(i.input.label)}: <b>${e(v.value)}${e(i.input.suffix || "")}</b>` : ""}${v.done && v.by ? ` <small class="qc-who">· ${e(v.by)}</small>` : ""}</li>`;
+}
+
+// Every sign-off on a department checklist: signature, who, when and what they signed for.
+function qcSignoffsHtml(deptId, r) {
+  const e = escapeHtml;
+  const sigs = QcChecklists.signatures(r);
+  if (!sigs.length) return `<p class="qc-unsigned">Not signed yet.</p>`;
+  return `<div class="qc-signoffs">${sigs.map(s => {
+    const items = QcChecklists.signedFor(deptId, s);
+    return `<div class="qc-signoff">
+      ${qcSigOk(s.signature) ? `<img alt="Signature of ${e(s.by || "")}" src="${s.signature}">` : ""}
+      <div><b>${e(s.by || "Unknown")}</b>${s.at ? ` · signed ${e(formatDateTime(s.at))}` : ""}${s.rework ? ` · <span class="qc-rework-tag">sent for rework</span>` : ""}
+      <div class="qc-signed-for">${items.length ? `Signed for: ${items.map(e).join(", ")}` : "Signed without checking items themselves."}</div></div>
+    </div>`;
+  }).join("")}</div>`;
 }
 
 // Read-only view of a department checklist filled out on the mobile app.
@@ -848,13 +872,10 @@ function viewQcChecklist(id) {
   const items = (r.qcChecklist && r.qcChecklist.items) || {};
   const prog = QcChecklists.progress(r.qcDepartment, r.qcChecklist);
   const html = `
-    <p><b>RO ${escapeHtml(r.qcRoNumber || "")}</b> · ${escapeHtml(r.qcVehicle || "")}<br>${escapeHtml(r.qcPerformedBy || "")} · ${escapeHtml(r.qcDate || "")} · ${prog.done}/${prog.total} checked${r.qcSignedAt ? " · signed " + escapeHtml(formatDateTime(r.qcSignedAt)) : ""}</p>
-    <ul class="qc-checklist-view">${dept.items.map(i => {
-      const v = items[i.id] || {};
-      return `<li class="${v.done ? "done" : ""}"><span>${v.done ? "✔" : "○"}</span>${escapeHtml(i.label)}${i.input && v.value ? ` — ${escapeHtml(i.input.label)}: <b>${escapeHtml(v.value)}${escapeHtml(i.input.suffix || "")}</b>` : ""}</li>`;
-    }).join("")}</ul>
+    <p><b>RO ${escapeHtml(r.qcRoNumber || "")}</b> · ${escapeHtml(r.qcVehicle || "")}<br>${escapeHtml(r.qcDate || "")} · ${prog.done}/${prog.total} checked</p>
+    <ul class="qc-checklist-view">${dept.items.map(i => qcItemHtml(i, items[i.id] || {})).join("")}</ul>
     ${r.qcChecklist?.notes ? `<p><b>Notes:</b> ${escapeHtml(r.qcChecklist.notes)}</p>` : ""}
-    ${r.qcSignatureData ? `<img alt="Signature" src="${r.qcSignatureData}" style="max-width:260px;border:1px solid var(--line);border-radius:6px">` : ""}`;
+    <h4>Sign-offs</h4>${qcSignoffsHtml(dept.id, r)}`;
   const dialog = openDialog(`${dept.id} QC`, html, async () => {});
   dialog.querySelector("[type=submit]").remove();
 }
@@ -868,7 +889,6 @@ function openQcReport(ro) {
   const job = store.get("daily").find(j => String(j.roNumber || "").trim() === key) || {};
   const first = records[0] || {};
   const e = escapeHtml;
-  const sigOk = (s) => typeof s === "string" && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s);
   const sections = QcChecklists.departments.map(dept => {
     const r = records.filter(x => x.qcDepartment === dept.id).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
     if (!r) return `<section class="dept"><h2 style="--c:${dept.color}">${e(dept.id)}</h2><p class="none">Not started.</p></section>`;
@@ -876,11 +896,11 @@ function openQcReport(ro) {
     const prog = QcChecklists.progress(dept.id, r.qcChecklist);
     const status = r.qcReworkNeeded === "Yes" ? "Needs rework" : prog.complete ? "Complete" : `${prog.done} of ${prog.total} checked`;
     return `<section class="dept"><h2 style="--c:${dept.color}">${e(dept.id)} <span class="status ${prog.complete && r.qcReworkNeeded !== "Yes" ? "ok" : "open"}">${e(status)}</span></h2>
-      <p class="meta">${e(r.qcPerformedBy || "")}${r.qcDate ? ` · ${e(r.qcDate)}` : ""}${r.qcSignedAt ? ` · signed ${e(formatDateTime(r.qcSignedAt))}` : " · not signed yet"}</p>
-      <ul>${dept.items.map(i => { const v = items[i.id] || {}; return `<li class="${v.done ? "done" : ""}"><span>${v.done ? "✔" : "○"}</span>${e(i.label)}${i.input && v.value ? ` — ${e(i.input.label)}: <b>${e(v.value)}${e(i.input.suffix || "")}</b>` : ""}</li>`; }).join("")}</ul>
+      ${r.qcDate ? `<p class="meta">${e(r.qcDate)}</p>` : ""}
+      <ul>${dept.items.map(i => qcItemHtml(i, items[i.id] || {})).join("")}</ul>
       ${r.qcChecklist && r.qcChecklist.notes ? `<p><b>Notes:</b> ${e(r.qcChecklist.notes)}</p>` : ""}
       ${r.qcReworkNeeded === "Yes" ? `<p class="rework"><b>Rework:</b> ${e(r.qcIssues || "")}${r.qcReworkAssignedTo ? ` · assigned to ${e(r.qcReworkAssignedTo)}` : ""}${r.qcReworkDueDate ? ` · due ${e(r.qcReworkDueDate)}` : ""}</p>` : ""}
-      ${sigOk(r.qcSignatureData) ? `<div class="sig"><img alt="Signature of ${e(r.qcPerformedBy || "")}" src="${r.qcSignatureData}"><small>${e(r.qcPerformedBy || "")}</small></div>` : ""}
+      <h3>Sign-offs</h3>${qcSignoffsHtml(dept.id, r)}
     </section>`;
   }).join("");
   const done = QcChecklists.departments.filter(d => records.some(r => r.qcDepartment === d.id && QcChecklists.progress(d.id, r.qcChecklist).complete)).length;
@@ -900,7 +920,12 @@ function openQcReport(ro) {
   ul { list-style: none; padding: 0; margin: 0; columns: 2 300px; } li { padding: 3px 0; color: #8a94a3; break-inside: avoid; } li.done { color: #1f2933; }
   li span { display: inline-block; width: 20px; font-weight: 700; } li.done span { color: #15803d; }
   .rework { background: #fff1f2; border-left: 3px solid #e11d48; padding: 6px 10px; }
-  .sig { margin-top: 10px; } .sig img { height: 70px; border-bottom: 1px solid #1f2933; display: block; } .sig small { color: #5b6776; }
+  .dept h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #5b6776; margin: 12px 0 4px; }
+  .qc-who { color: #8a94a3; } .qc-unsigned { color: #92400e; margin: 0; }
+  .qc-signoff { display: flex; gap: 14px; align-items: flex-start; padding: 8px 0; border-top: 1px dashed #d0d5db; break-inside: avoid; }
+  .qc-signoff:first-child { border-top: 0; }
+  .qc-signoff img { height: 60px; max-width: 200px; border-bottom: 1px solid #1f2933; flex-shrink: 0; }
+  .qc-signed-for { color: #5b6776; font-size: 13px; } .qc-rework-tag { color: #be123c; font-weight: 700; }
   .actions { text-align: right; margin-bottom: 10px; } .actions button { font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 0; background: #f97316; color: #111; cursor: pointer; }
   footer { margin-top: 20px; color: #8a94a3; font-size: 12px; text-align: center; }
   @media print { body { background: #fff; } .page { padding: 0; } .actions { display: none; } }
