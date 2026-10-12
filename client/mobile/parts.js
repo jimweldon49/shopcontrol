@@ -43,7 +43,7 @@
     if (p.part_status === "Complete") return null;
     if (isLate(p)) return "Not arrived by ETA";
     if (["Need to Order", ...BAD_STATUSES].includes(p.part_status)) return p.part_status;
-    if (p.part_status === "Received" && p.part_mirror_matched !== "Yes") return "Not mirror matched";
+    if (needsMirror(p)) return "Not mirror matched";
     return null;
   }
   const isRealRo = (ro) => /^\d+$/.test(String(ro || "").trim());
@@ -58,6 +58,13 @@
     return cust && veh ? daily.find((d) => String(d.customer_name || "").trim().toLowerCase() === cust && String(d.vehicle || "").trim().toLowerCase() === veh) || null : null;
   }
   const hasRo = (p) => isRealRo(p.parts_ro_number) || isRealRo(jobFor(p)?.ro_number);
+  // A received part only needs mirror matching once its car is on site on the Production
+  // Board (same rule as the office Parts tab, partNeedsMirror in app.js).
+  function needsMirror(p) {
+    if (p.part_status !== "Received" || p.part_mirror_matched === "Yes") return false;
+    const j = jobFor(p);
+    return !!j && ShopModel.isOnsite({ roNumber: j.ro_number, onsite: j.onsite, mergedInto: j.merged_into, currentStage: j.current_stage });
+  }
   function vehicleOnsite(p) {
     const j = jobFor(p);
     return j ? ShopModel.isOnsite({ roNumber: j.ro_number, onsite: j.onsite, mergedInto: j.merged_into, currentStage: j.current_stage }) : true;
@@ -69,7 +76,7 @@
       problems: rows.filter(problemOf).length,
       needOrder: rows.filter((r) => r.part_status === "Need to Order").length,
       waiting: rows.filter((r) => ["Ordered", "Backordered"].includes(r.part_status)).length,
-      mirror: rows.filter((r) => r.part_status === "Received" && r.part_mirror_matched !== "Yes").length,
+      mirror: rows.filter(needsMirror).length,
       returns: rows.filter((r) => ["Wrong Part", "Return Needed", "Returned", "Credit Pending"].includes(r.part_status) || r.part_return_needed === "Yes" || r.part_credit_needed === "Yes").length,
     };
   }
@@ -99,7 +106,8 @@
     return loc.kind === "cart" ? `Cart ${loc.name}${p.part_shelf ? " · " + shelfName(p.part_shelf) : ""}` : `${loc.name} · ${loc.zone}`;
   }
   const groupRows = () => parts.filter((p) => groupKeyOf(p) === groupKey);
-  const visibleRows = () => (problemsOnly ? groupRows().filter(problemOf) : groupRows());
+  let groupSearch = "";
+  const visibleRows = () => (problemsOnly ? groupRows().filter(problemOf) : groupRows()).filter((p) => ShopModel.partMatches(p, groupSearch));
 
   // ---------------------------------------------------------------- Data
   async function load() {
@@ -160,6 +168,7 @@
 
   // ---------------------------------------------------------------- One vehicle's parts
   function openGroup(key, back) {
+    if (key !== groupKey) { groupSearch = ""; $("pgroupSearch").value = ""; }
     groupKey = key;
     if (back) groupBack = back;
     selected = new Set();
@@ -572,6 +581,7 @@
     $("partsManageBtn").onclick = () => activeJob && openForJob(activeJob);
     $("pdeskSearch").addEventListener("input", renderDesk);
     $("pProblemsOnly").addEventListener("change", (e) => { problemsOnly = e.target.checked; selected = new Set(); renderGroup(); });
+    $("pgroupSearch").addEventListener("input", (e) => { groupSearch = e.target.value; selected = new Set(); renderGroup(); });
     $("pe_part_location").addEventListener("change", () => syncEditShelf(""));
     $("pl_kind").addEventListener("change", syncLocKind);
     $("peditSave").onclick = saveEdit;

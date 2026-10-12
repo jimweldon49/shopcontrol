@@ -175,7 +175,7 @@ const CompletedJobs = (() => {
       ${d.appointments.length ? `<h3>Appointments</h3><ul>${d.appointments.map((a) => `<li>${e(day(a.appointment_date))} ${e(a.appointment_time || "")} · ${e(a.appointment_type || "")} · ${e(a.title || "")}${a.notes ? " · " + e(a.notes) : ""}</li>`).join("")}</ul>` : ""}
 
       <h3>Photos and files (${d.attachments.length})</h3>
-      ${images.length ? `<div class="job-photos">${images.map((a) => `<a href="${e(a.file_url)}" target="_blank" rel="noopener"><img src="${e(a.file_url)}" alt="${e(a.original_name || "Photo")}" loading="lazy"><small>${e(a.note || a.original_name || "")}</small></a>`).join("")}</div>` : ""}
+      ${images.length ? `<div class="job-photos">${images.map((a) => `<a href="${e(a.file_url)}" target="_blank" rel="noopener"><img src="${e(a.file_url)}" alt="${e(a.original_name || "Photo")}" loading="lazy"><small>${e(a.note || a.original_name || "")}</small><small>${a.taken_at ? `Taken ${e(stamp(a.taken_at))}` : `Added ${e(stamp(a.created_at))}`}</small></a>`).join("")}</div>` : ""}
       ${files.length ? `<ul>${files.map((a) => `<li><a href="${e(a.file_url)}" target="_blank" rel="noopener">${e(a.original_name || "File")}</a> · ${e(a.uploaded_by || "")} · ${e(stamp(a.created_at))}</li>`).join("")}</ul>` : ""}
       ${d.attachments.length ? "" : `<p class="muted">No photos or files were uploaded for this job.</p>`}
 

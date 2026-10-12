@@ -1015,7 +1015,7 @@
       <div class="table-wrap">
         <table id="uploadsTable">
           <thead>
-            <tr><th>Date</th><th>Section</th><th>Record</th><th>File</th><th>Note</th><th>Uploaded By</th></tr>
+            <tr><th>Uploaded</th><th>Taken</th><th>Section</th><th>Record</th><th>File</th><th>Note</th><th>Uploaded By</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -1078,6 +1078,7 @@
         <button type="button" id="closePartsModalBtn">Close</button>
       </div>
       <div class="toolbar">
+        <input type="search" id="partsModalSearch" placeholder="Search this RO: part name or part #" aria-label="Search this RO's parts" oninput="partsModalSearch=this.value;selectedPartIds=new Set();renderPartsDetailRows(visiblePartsGroupRows())" style="min-width:260px">
         <button type="button" onclick="toggleSelectAllParts(true)">Select all parts</button>
         <button type="button" onclick="toggleSelectAllParts(false)">Clear selection</button>
         <button type="button" onclick="openBulkPartsEditor()">Edit selected</button>

@@ -88,6 +88,7 @@
   .hello p { margin: 0 4px; color: var(--muted); }
   .dept-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
   .search { position: relative; margin-top: 18px; }
+  .search.parts-search { margin: 0 0 12px; }
   .search svg { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--faint); }
   .search .input { padding-left: 46px; }
 
@@ -219,6 +220,9 @@
   .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .photo-grid a { aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--surface); display: grid; place-items: center; color: var(--muted); font-size: 12px; font-weight: 700; text-decoration: none; }
   .photo-grid img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-tile { position: relative; display: flex; flex-direction: column; gap: 3px; }
+  .photo-tile small { color: var(--muted); font-size: 11px; line-height: 1.2; }
+  .photo-del { position: absolute; top: 5px; right: 5px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.65); color: #fff; font-size: 14px; display: grid; place-items: center; }
   .big-cam { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 26px; border-radius: 22px; border: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 800; }
   .big-cam svg { width: 38px; height: 38px; }
 
@@ -487,7 +491,7 @@
     <button class="icon-btn" data-back="job" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     <h1 id="partsTitle">Parts</h1>
   </header>
-  <div class="main"><div id="partsList"></div><button class="btn btn-primary" id="partsManageBtn" style="margin-top:12px" hidden>Manage parts</button></div>
+  <div class="main"><div class="search parts-search" id="jobPartsSearchWrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" id="jobPartsSearch" type="search" placeholder="Search part name or part #" autocomplete="off"></div><div id="partsList"></div><button class="btn btn-primary" id="partsManageBtn" style="margin-top:12px" hidden>Manage parts</button></div>
 </section>
 
 <script src="../shared.js"></script>
@@ -698,6 +702,7 @@
   </header>
   <div class="main">
     <div id="pgroupHead"></div>
+    <div class="search parts-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" id="pgroupSearch" type="search" placeholder="Search part name or part #" autocomplete="off"></div>
     <label class="toggle-row"><input type="checkbox" id="pProblemsOnly"> Problem parts only</label>
     <div class="pick-row">
       <button data-ppick="all">Select all</button><button data-ppick="none">Clear</button>

@@ -5,6 +5,7 @@ const multer = require("multer");
 const { pool } = require("../db");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { logActivity } = require("../activityLogger");
+const { takenAt } = require("../photoDate");
 
 const router = express.Router();
 
@@ -46,9 +47,9 @@ router.get("/", requireAuth, requirePermission("uploads", "list"), async (req, r
     }
 
     const result = await pool.query(
-      `SELECT id, resource, record_id, original_name, mime_type, size_bytes, file_url, note, uploaded_by, created_at
+      `SELECT id, resource, record_id, original_name, mime_type, size_bytes, file_url, note, uploaded_by, user_id, taken_at, created_at
        FROM attachments
-       ${where.length ? "WHERE " + where.join(" AND ") : ""}
+       WHERE deleted_at IS NULL ${where.length ? "AND " + where.join(" AND ") : ""}
        ORDER BY created_at DESC
        LIMIT 500`,
       params
@@ -69,8 +70,8 @@ router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "u
     const fileUrl = `/uploads/${req.file.filename}`;
     const result = await pool.query(
       `INSERT INTO attachments
-       (resource, record_id, original_name, stored_name, mime_type, size_bytes, file_url, note, uploaded_by, user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       (resource, record_id, original_name, stored_name, mime_type, size_bytes, file_url, note, uploaded_by, user_id, taken_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
       [
         resource,
@@ -83,6 +84,7 @@ router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "u
         note,
         req.user.fullName || req.user.username,
         req.user.id || null,
+        /^image\//.test(req.file.mimetype) ? takenAt(req.file.path, req.body.taken_at) : null,
       ]
     );
 
@@ -99,6 +101,38 @@ router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "u
   } catch (err) {
     console.error("Upload error:", err);
     res.status(500).json({ error: err.message || "Upload failed." });
+  }
+});
+
+// Delete a photo or file uploaded by mistake: whoever uploaded it, or office staff,
+// managers, admins and owners. It's hidden everywhere, but the file is kept (so it can be
+// brought back) and the deletion is logged on the job it belonged to.
+const DELETE_ROLES = ["office", "manager", "admin", "owner"];
+router.delete("/:id", requireAuth, requirePermission("uploads", "list"), async (req, res) => {
+  try {
+    const row = (await pool.query("SELECT * FROM attachments WHERE id = $1 AND deleted_at IS NULL", [req.params.id])).rows[0];
+    if (!row) return res.status(404).json({ error: "That photo was already deleted or doesn't exist." });
+    const role = String(req.user.role || "").toLowerCase();
+    if (row.user_id !== req.user.id && !DELETE_ROLES.includes(role)) {
+      return res.status(403).json({ error: "Only the person who uploaded this, or the office, can delete it." });
+    }
+    const after = (await pool.query(
+      "UPDATE attachments SET deleted_at = now(), deleted_by = $1, deleted_by_id = $2 WHERE id = $3 RETURNING *",
+      [req.user.fullName || req.user.username, req.user.id || null, row.id])).rows[0];
+    const kind = /^image\//.test(row.mime_type || "") ? "photo" : "file";
+    await logActivity({
+      req,
+      resource: row.resource,
+      recordId: row.record_id,
+      action: "delete",
+      before: row,
+      after,
+      summary: `Deleted ${kind} "${row.note || row.original_name}" (uploaded by ${row.uploaded_by || "unknown"} ${new Date(row.created_at).toLocaleString("en-US", { timeZone: process.env.BUSINESS_TIMEZONE || "America/Los_Angeles" })})`,
+    });
+    res.json({ deleted: true, id: row.id });
+  } catch (err) {
+    console.error("Delete upload error:", err);
+    res.status(500).json({ error: "Couldn't delete that file." });
   }
 });
 

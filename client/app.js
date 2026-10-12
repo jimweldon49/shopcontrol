@@ -122,6 +122,7 @@ async function uploadFile(resource, recordId, file, note) {
   const form = new FormData();
   form.append("file", file);
   form.append("note", note || "");
+  if (file.lastModified) form.append("taken_at", String(file.lastModified));
   const res = await fetch(`${API_BASE}/uploads/${resource}/${recordId}`, {
     method: "POST",
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -1106,14 +1107,23 @@ function isPartsRowWithRo(r, dailyRows) {
   return isRealRo(r.partsRoNumber) || isRealRo(dailyRecordForPartsRow(r, dailyRows || [])?.roNumber);
 }
 
-function summarizePartGroup(rows) {
+// A received part only needs mirror matching once its car is on site on the Production
+// Board: parts for cars still on the road, or for opportunities, aren't flagged yet. A part
+// that can't be matched to a job isn't flagged either.
+function partNeedsMirror(r, dailyRows) {
+  if (r.partStatus !== "Received" || r.partMirrorMatched === "Yes") return false;
+  const job = dailyRecordForPartsRow(r, dailyRows || store.get("daily"));
+  return !!job && ShopModel.isOnsite(job);
+}
+
+function summarizePartGroup(rows, dailyRows) {
   return {
     total: rows.length,
     open: rows.filter(r => r.partStatus !== "Complete").length,
-    problems: rows.filter(r => partProblemReason(r)).length,
+    problems: rows.filter(r => partProblemReason(r, dailyRows)).length,
     needOrder: rows.filter(r => r.partStatus === "Need to Order").length,
     waiting: rows.filter(r => ["Ordered","Backordered"].includes(r.partStatus)).length,
-    mirror: rows.filter(r => r.partStatus === "Received" && r.partMirrorMatched !== "Yes").length,
+    mirror: rows.filter(r => partNeedsMirror(r, dailyRows)).length,
     returns: rows.filter(r => ["Wrong Part","Return Needed","Returned","Credit Pending"].includes(r.partStatus) || r.partReturnNeeded === "Yes" || r.partCreditNeeded === "Yes").length,
   };
 }
@@ -1125,11 +1135,11 @@ function isPartLate(r) {
 
 // Why this one part counts as a problem, or null. Judged per part, so a vehicle
 // with one late part out of 20 counts as one problem, not twenty.
-function partProblemReason(r) {
+function partProblemReason(r, dailyRows) {
   if (r.partStatus === "Complete") return null;
   if (isPartLate(r)) return "Not arrived by ETA";
   if (["Need to Order","Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus)) return r.partStatus;
-  if (r.partStatus === "Received" && r.partMirrorMatched !== "Yes") return "Not mirror matched";
+  if (partNeedsMirror(r, dailyRows)) return "Not mirror matched";
   return null;
 }
 
@@ -1138,7 +1148,7 @@ function partsGroupHasProblem(groupRows) {
 }
 
 function partsGroupMatchesView(groupRows, view, dailyRows) {
-  const s = summarizePartGroup(groupRows);
+  const s = summarizePartGroup(groupRows, dailyRows);
   if (view === "all") return s.open > 0;
   if (view === "needOrder") return s.needOrder > 0;
   if (view === "ordered") return s.waiting > 0;
@@ -1200,6 +1210,7 @@ let currentPartsGroupKey = null;
 let selectedPartIds = new Set();
 
 let partsModalProblemsOnly = false;
+let partsModalSearch = "";
 
 function currentPartsGroupRows() {
   if (!currentPartsGroupKey) return [];
@@ -1210,7 +1221,7 @@ function currentPartsGroupRows() {
 // problem view, so a vehicle with one bad part doesn't look like it has twenty.
 function visiblePartsGroupRows() {
   const rows = currentPartsGroupRows();
-  return partsModalProblemsOnly ? rows.filter(r => partProblemReason(r)) : rows;
+  return (partsModalProblemsOnly ? rows.filter(r => partProblemReason(r)) : rows).filter(r => ShopModel.partMatches(r, partsModalSearch));
 }
 
 function setPartsModalProblemsOnly(on) {
@@ -1272,6 +1283,8 @@ function openPartsGroup(encodedKey, keepFilter) {
   currentPartsGroupKey = key;
   selectedPartIds = new Set();
   if (!keepFilter) {
+    partsModalSearch = "";
+    if ($("partsModalSearch")) $("partsModalSearch").value = "";
     const view = $("partsView")?.value;
     partsModalProblemsOnly = (view === "problems" || view === "late") && rows.some(r => partProblemReason(r));
   }
@@ -1724,15 +1737,37 @@ function renderUploads() {
   const rows = store.get("uploads");
   table.querySelector("tbody").innerHTML = rows.map(u => {
     const url = `${API_BASE.replace(/\/api$/, "")}${u.fileUrl || ""}`;
+    const mine = u.userId && u.userId === currentUser?.id;
+    const canDel = mine || ["office", "manager", "admin", "owner"].includes(String(currentUser?.role || "").toLowerCase());
     return `<tr>
       <td>${formatDateTime(u.createdAt)}</td>
-      <td>${u.resource || ""}</td>
-      <td>${u.recordId || ""}</td>
-      <td><a href="${url}" target="_blank">${u.originalName || "Open file"}</a></td>
-      <td>${u.note || ""}</td>
-      <td>${u.uploadedBy || ""}</td>
+      <td>${u.takenAt ? formatDateTime(u.takenAt) : ""}</td>
+      <td>${escapeHtml(u.resource || "")}</td>
+      <td>${escapeHtml(u.recordId || "")}</td>
+      <td><a href="${url}" target="_blank">${escapeHtml(u.originalName || "Open file")}</a></td>
+      <td>${escapeHtml(u.note || "")}</td>
+      <td>${escapeHtml(u.uploadedBy || "")}</td>
+      <td>${canDel ? `<button class="danger" onclick="deleteUpload('${u.id}')">Delete</button>` : ""}</td>
     </tr>`;
   }).join("");
+}
+
+// Deletes a photo or file uploaded by mistake. The server keeps the file and logs who deleted it.
+function deleteUpload(id) {
+  const u = store.get("uploads").find(x => x.id === id);
+  if (!u) return;
+  const url = `${API_BASE.replace(/\/api$/, "")}${u.fileUrl || ""}`;
+  const isImage = /^image\//.test(u.mimeType || "");
+  const dialog = openDialog(`Delete this ${isImage ? "photo" : "file"}?`, `
+    ${isImage ? `<p><img src="${url}" alt="" style="max-width:100%;max-height:260px;border-radius:8px"></p>` : ""}
+    <p><b>${escapeHtml(u.originalName || "")}</b>${u.note ? ` · ${escapeHtml(u.note)}` : ""}<br>Added by ${escapeHtml(u.uploadedBy || "")} · ${formatDateTime(u.createdAt)}</p>
+    <p class="board-tip">It's removed everywhere it shows. The Activity Log records who deleted it and when.</p>`,
+    async () => {
+      await apiRequest(`/uploads/${id}`, { method: "DELETE" });
+      showStatus(`${isImage ? "Photo" : "File"} deleted.`);
+      await loadUploads();
+    });
+  dialog.querySelector("[type=submit]").textContent = "Delete";
 }
 
 async function handleUpload(e) {

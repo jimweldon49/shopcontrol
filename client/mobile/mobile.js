@@ -400,7 +400,15 @@ async function loadPartsSummary() {
 
 function openParts() {
   $("partsTitle").textContent = `Parts · RO ${activeJob.ro_number || ""}`;
-  const list = jobParts || [];
+  $("jobPartsSearch").value = "";
+  renderJobParts();
+  showScreen("parts");
+}
+
+function renderJobParts() {
+  const q = $("jobPartsSearch").value;
+  const list = (jobParts || []).filter((p) => ShopModel.partMatches(p, q));
+  $("jobPartsSearchWrap").hidden = !(jobParts && jobParts.length > 1);
   const ro = roOf(activeJob);
   const carts = partLocations.filter((l) => l.kind === "cart" && (l.ros || []).map(String).includes(ro));
   const cartBanner = carts.length
@@ -419,8 +427,7 @@ function openParts() {
         return `<div class="row-card"><b>${esc(p.part_description || "Part")}</b>
           <small>${esc([p.part_vendor, p.part_eta ? "ETA " + String(p.part_eta).slice(0, 10) : ""].filter(Boolean).join(" · "))}</small>${whereLine}
           <span class="pill ${prob ? "bad" : ok ? "ok" : ""}">${esc(prob || p.part_status || "")}</span></div>`;
-      }).join("") : cartBanner + `<div class="empty">No parts on file for this RO.</div>`;
-  showScreen("parts");
+      }).join("") : cartBanner + `<div class="empty">${q.trim() && jobParts.length ? "No parts match that search." : "No parts on file for this RO."}</div>`;
 }
 
 // ------------------------------------------------------------------ Checklist
@@ -665,6 +672,8 @@ async function uploadAttachment(file, note) {
   const form = new FormData();
   form.append("file", file);
   if (note) form.append("note", note);
+  // When the phone made the file (the camera time for a new photo); the server prefers the photo's own date.
+  if (file.lastModified) form.append("taken_at", String(file.lastModified));
   const res = await fetch(`${API_BASE}/uploads/daily/${activeJob.id}`, {
     method: "POST",
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -685,15 +694,52 @@ function openPhotos() {
   loadPhotos();
 }
 
+let photoFiles = [];
+const fmtWhen = (v) => new Date(v).toLocaleString(I18n.locale(), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+// "Taken Oct 12, 1:04 PM" when we know when the photo was taken, otherwise when it was added.
+const photoWhen = (f) => (f.taken_at ? `Taken ${fmtWhen(f.taken_at)}` : `Added ${fmtWhen(f.created_at)}`);
+// Whoever uploaded it, or office staff, managers, admins and owners (server/src/routes/uploads.js).
+const canDeletePhoto = (f) => !!currentUser && (f.user_id === currentUser.id || ["office", "manager", "admin", "owner"].includes(String(currentUser.role || "").toLowerCase()));
+
+function confirmDeletePhoto(id) {
+  const f = photoFiles.find((x) => x.id === id);
+  if (!f) return;
+  const back = document.createElement("div");
+  back.className = "sheet-backdrop";
+  back.innerHTML = `<div class="sheet"><div class="grab"></div><h3>Delete this photo?</h3>
+    ${(f.mime_type || "").startsWith("image/") ? `<img src="${esc(f.file_url)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px">` : ""}
+    <div class="row-card" style="margin-top:10px"><small>${esc(photoWhen(f))} · added by <span translate="no">${esc(f.uploaded_by || "")}</span></small>${f.note ? `<br><small translate="no">${esc(f.note)}</small>` : ""}</div>
+    <p class="hint">It's taken off this car. The office can see in the activity log who deleted it.</p>
+    <button class="btn btn-deny" data-confirm>Delete photo</button><button class="btn btn-ghost" data-close>Cancel</button></div>`;
+  back.onclick = async (e) => {
+    if (e.target === back || e.target.closest("[data-close]")) return back.remove();
+    const btn = e.target.closest("[data-confirm]");
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    try {
+      await apiRequest(`/uploads/${id}`, { method: "DELETE" });
+      back.remove();
+      toast("Photo deleted");
+      loadPhotos();
+    } catch (err) { btn.disabled = false; toast(err.message); }
+  };
+  document.body.append(back);
+}
+
 async function loadPhotos() {
   const grid = $("photoGrid");
   grid.innerHTML = '<div class="skeleton" style="grid-column:1/-1"></div>';
   try {
     const files = await apiRequest(`/uploads?resource=daily&recordId=${encodeURIComponent(activeJob.id)}`);
     $("tilePhotosSub").textContent = files.length ? `${files.length} attached` : "Snap & attach";
-    grid.innerHTML = files.length ? files.map((f) => (f.mime_type || "").startsWith("image/")
-      ? `<a href="${esc(f.file_url)}" target="_blank" rel="noopener"><img src="${esc(f.file_url)}" alt="${esc(f.note || f.original_name || "Photo")}" loading="lazy"></a>`
-      : `<a href="${esc(f.file_url)}" target="_blank" rel="noopener">${esc((f.original_name || "FILE").split(".").pop().toUpperCase())}</a>`).join("")
+    photoFiles = files;
+    grid.innerHTML = files.length ? files.map((f) => `<div class="photo-tile">
+        ${(f.mime_type || "").startsWith("image/")
+          ? `<a href="${esc(f.file_url)}" target="_blank" rel="noopener"><img src="${esc(f.file_url)}" alt="${esc(f.note || f.original_name || "Photo")}" loading="lazy"></a>`
+          : `<a href="${esc(f.file_url)}" target="_blank" rel="noopener">${esc((f.original_name || "FILE").split(".").pop().toUpperCase())}</a>`}
+        <small>${esc(photoWhen(f))}</small>
+        ${canDeletePhoto(f) ? `<button class="photo-del" data-del-photo="${esc(f.id)}" aria-label="Delete">✕</button>` : ""}
+      </div>`).join("")
       : '<div class="empty" style="grid-column:1/-1">Nothing attached yet.</div>';
   } catch (err) {
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${esc(err.message)}</div>`;
@@ -880,6 +926,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("reworkSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { reworkChoice = b.dataset.v; syncReworkSeg(); } });
   $("clearSigBtn").onclick = clearSignature;
+  $("jobPartsSearch").addEventListener("input", renderJobParts);
+  $("photoGrid").addEventListener("click", (e) => { const b = e.target.closest("[data-del-photo]"); if (b) { e.preventDefault(); confirmDeletePhoto(b.dataset.delPhoto); } });
   $("stallInput").onchange = (e) => pickStallPhoto(e.target.files && e.target.files[0]);
   $("submitBtn").onclick = submitQc;
   $("doneJobBtn").onclick = () => { renderJob(); showScreen("job"); };

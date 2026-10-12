@@ -102,5 +102,8 @@
     const type=vehicleTypes.some(t=>t.id===j.vehicleType)?j.vehicleType:g.type,color=vehicleColors.some(c=>c.id===j.vehicleColor)?j.vehicleColor:(g.color||'silver');
     return type?{type,color,src:`img/vehicles/${type}-${color}.jpg`,guessed:!j.vehicleType||!j.vehicleColor}:null;
   }
-  return {production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
+  // Parts search: words in the description, vendor or notes, and part numbers typed with or
+  // without the dashes and spaces ("521190R938" finds "#52119-0R938").
+  const partMatches=(p,q)=>{const text=[p.partDescription??p.part_description,p.partVendor??p.part_vendor,p.partNotes??p.part_notes].join(' ').toLowerCase(),want=String(q||'').trim().toLowerCase();if(!want)return true;const squash=s=>s.replace(/[^a-z0-9]/g,'');return text.includes(want)||(squash(want).length>=3&&squash(text).includes(squash(want)));};
+  return {partMatches,production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
 });

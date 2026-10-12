@@ -122,8 +122,8 @@ router.get("/:id", async (req, res) => {
 
     const recordIds = [req.params.id, ...parts.map((p) => p.id), ...qc.map((q) => q.id)];
     const attachments = (await pool.query(
-      `SELECT id, resource, record_id, original_name, mime_type, file_url, note, uploaded_by, created_at
-       FROM attachments WHERE record_id = ANY($1::uuid[]) ORDER BY created_at`, [recordIds])).rows;
+      `SELECT id, resource, record_id, original_name, mime_type, file_url, note, uploaded_by, user_id, taken_at, created_at
+       FROM attachments WHERE record_id = ANY($1::uuid[]) AND deleted_at IS NULL ORDER BY created_at`, [recordIds])).rows;
     const appointments = (await pool.query(
       "SELECT title, appointment_type, appointment_date, appointment_time, notes, created_by FROM appointments WHERE job_id = $1 ORDER BY appointment_date, appointment_time",
       [req.params.id])).rows;
