@@ -641,7 +641,10 @@ async function refreshAlerts() {
     badge.textContent = alerts.length > 9 ? "9+" : String(alerts.length);
     for (const a of alerts) {
       if (!alertsSeen.has(a.id) && "Notification" in window && Notification.permission === "granted") {
-        try { new Notification(a.title, { body: a.message, tag: a.id }); } catch (_) {}
+        try {
+          const n = new Notification(a.title, { body: a.message, tag: a.id });
+          n.onclick = () => { window.focus(); n.close(); openAlert(a); };
+        } catch (_) {}
       }
       alertsSeen.add(a.id);
     }
@@ -654,10 +657,17 @@ function openAlerts() {
   const back = document.createElement("div");
   back.className = "sheet-backdrop";
   back.innerHTML = `<div class="sheet"><div class="grab"></div><h3>Notifications</h3>
-    ${alerts.length ? alerts.map((a) => `<div class="row-card"><b>${esc(a.title)}</b><small>${esc(a.message)}</small><button class="btn btn-ghost" style="margin-top:10px;padding:11px" data-read="${esc(a.id)}">Mark read</button></div>`).join("") : '<div class="empty">You\'re all caught up.</div>'}
+    ${alerts.length ? alerts.map((a) => `<div class="row-card"><b>${esc(a.title)}</b><small>${esc(a.message)}</small>
+      <div class="decide-row">${a.link ? `<button class="btn btn-primary" style="padding:11px" data-open-alert="${esc(a.id)}">${esc(linkLabel(a.link))}</button>` : ""}
+      <button class="btn btn-ghost" style="padding:11px" data-read="${esc(a.id)}">Mark read</button></div></div>`).join("") : '<div class="empty">You\'re all caught up.</div>'}
     ${"Notification" in window && Notification.permission !== "granted" ? '<button class="btn btn-primary" data-enable>Turn on phone alerts</button>' : ""}</div>`;
   back.onclick = async (e) => {
     if (e.target === back) return back.remove();
+    const go = e.target.closest("[data-open-alert]");
+    if (go) {
+      back.remove();
+      return openAlert(alerts.find((a) => a.id === go.dataset.openAlert));
+    }
     const read = e.target.closest("[data-read]");
     if (read) {
       try { await apiRequest(`/workspace/notifications/${read.dataset.read}/read`, { method: "PUT" }); } catch (err) { toast(err.message); }
@@ -669,6 +679,36 @@ function openAlerts() {
   };
   document.body.append(back);
 }
+
+// Opening a notification marks it read and goes to what it's about (see link in
+// server/migrations/028_notification_links.sql).
+async function openAlert(a) {
+  if (!a) return;
+  apiRequest(`/workspace/notifications/${a.id}/read`, { method: "PUT" }).then(refreshAlerts, () => {});
+  if (a.link) await openLink(a.link);
+}
+
+function linkLabel(link) {
+  if (link.type === "core") return "Open parts";
+  return link.view === "mine" ? "View my request" : "Open request";
+}
+
+async function openLink(link) {
+  if (!link) return;
+  if (link.type === "core") {
+    const ro = String(link.ro || "").trim();
+    const find = () => jobs.find((j) => roOf(j) === ro);
+    if (!find()) { try { await loadData(); } catch (_) {} }
+    const job = find();
+    if (!ro || !job) return toast(ro ? `RO ${ro} isn't an open job anymore.` : "This core alert has no RO.");
+    openJob(job.id);
+    await loadPartsSummary();
+    return openParts();
+  }
+  if (window.openStaffScreen) window.openStaffScreen(link.view === "mine" ? "requests" : "approve", link.id);
+}
+window.openLink = openLink;
+window.linkLabel = linkLabel;
 
 // ------------------------------------------------------------------ Keyboard
 // Safari scrolls the field being typed in above the iPhone keyboard; Chrome on iPhone

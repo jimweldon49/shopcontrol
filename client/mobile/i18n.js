@@ -33,6 +33,8 @@ const I18n = (() => {
     "Choose a password different from the temporary one.": "Elige una contraseña diferente a la temporal.",
     // Home
     "You haven't checked any items yourself.": "No has marcado ningún punto tú mismo.", "Already signed:": "Ya firmaron:",
+        "Open parts": "Abrir partes", "Open request": "Abrir solicitud", "View my request": "Ver mi solicitud",
+    "This core alert has no RO.": "Esta alerta de core no tiene RO.",
         "Shop QC": "QC del taller", "Mailbox": "Buzón", "Notifications": "Notificaciones", "Hey there": "Hola",
     "Staff Hub": "Centro del personal", "Time off · mailbox · company info": "Días libres · buzón · información",
     "Search RO, customer or vehicle": "Buscar RO, cliente o vehículo", "In the shop": "En el taller",
@@ -172,6 +174,7 @@ const I18n = (() => {
     [/^In the shop · (\d+)$/, (m) => `En el taller · ${m[1]}`],
     [/^Done · signed by (.+)$/, (m) => `Listo · firmado por ${m[1]}`],
     [/^Checked by (.+)$/, (m) => `Marcado por ${m[1]}`],
+    [/^RO (.+) isn't an open job anymore\.$/, (m) => `El RO ${m[1]} ya no es un trabajo abierto.`],
     [/^You're signing for the (\d+) items? you checked\.$/, (m) => `Firmas por ${count(m[1], "punto", "puntos")} que marcaste.`],
     [/^(\d+) items?$/, (m) => count(m[1], "punto", "puntos")],
     [/^(\d+) of (\d+) checked · keep going$/, (m) => `${m[1]} de ${m[2]} marcados · sigue así`],

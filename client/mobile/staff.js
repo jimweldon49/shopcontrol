@@ -62,14 +62,15 @@
     return sets.flat();
   }
 
-  function open(name) {
+  // `focus` is a request id to scroll to and highlight (opened from a notification).
+  function open(name, focus) {
     setAccent(DEFAULT_ACCENT);
     if (name === "staff") { refreshCounts(); showScreen("staff"); }
     if (name === "timeoff") openTimeOff();
     if (name === "punch") openPunch();
     if (name === "payfix") openPayfix();
-    if (name === "requests") openRequests();
-    if (name === "approve") openApprove();
+    if (name === "requests") openRequests(focus);
+    if (name === "approve") openApprove(focus);
     if (name === "mail") openMail();
     if (name === "info") openInfo();
   }
@@ -292,7 +293,14 @@
     finally { btn.disabled = false; btn.textContent = "Submit payroll correction"; }
   }
 
-  async function openRequests() {
+  function focusCard(list, id) {
+    const card = id && list.querySelector(`[data-req-id="${CSS.escape(id)}"]`);
+    if (!card) return;
+    card.classList.add("flash");
+    card.scrollIntoView({ block: "center" });
+  }
+
+  async function openRequests(focus) {
     showScreen("requests");
     const list = $("requestsList");
     list.innerHTML = '<div class="skeleton"></div>';
@@ -302,13 +310,14 @@
       const pending = rows.filter((r) => r.status === "Pending").length;
       $("hubRequestsSub").textContent = pending ? `${pending} waiting for approval` : "Status of your requests";
       list.innerHTML = rows.length ? rows.map((r) => `
-        <div class="row-card">
+        <div class="row-card" data-req-id="${esc(r.id)}">
           <b>${esc(reqTitle(r))}</b>
           <small>${esc(reqDetail(r))}</small><br>
           <span class="pill ${r.status === "Approved" ? "ok" : r.status === "Denied" ? "bad" : ""}">${esc(r.status === "Pending" ? "Waiting for approval" : r.status)}</span>
           ${r.decided_by ? `<small style="display:block;margin-top:6px">${esc(r.status)} by ${esc(r.decided_by)}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}</small>` : ""}
           ${r.status === "Pending" ? `<button class="btn btn-ghost" style="margin-top:10px;padding:11px" data-cancel="${esc(r.id)}" data-kind="${r.kind}">Cancel request</button>` : ""}
         </div>`).join("") : `<div class="empty">No requests yet.</div><button class="btn btn-primary" style="margin-top:12px" data-staff-go="timeoff">Request time off</button>`;
+      focusCard(list, focus);
     } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
   }
 
@@ -320,7 +329,9 @@
   // ---------------------------------------------------------------- Approve time off and missed punches (admins)
   let approveRows = [];
 
-  async function openApprove() {
+  // Approvers get Approve / Deny buttons; other office staff opening a request from a
+  // notification see the same list without them.
+  async function openApprove(focus) {
     showScreen("approve");
     const list = $("approveList");
     list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
@@ -330,7 +341,7 @@
       const decided = approveRows.filter((r) => r.status === "Approved" || r.status === "Denied")
         .sort((a, b) => String(b.decided_at || b.updated_at).localeCompare(String(a.decided_at || a.updated_at))).slice(0, 15);
       const card = (r, buttons) => `
-        <div class="row-card">
+        <div class="row-card" data-req-id="${esc(r.id)}">
           <b translate="no">${esc(r.full_name)}</b>
           <small>${esc(reqTitle(r))} · ${esc(reqDetail(r))}</small>
           ${r.kind === "punch" ? `<small style="display:block;margin-top:4px">${esc(I18n.t("Payroll week"))} ${esc(payWeek(r.punch_date))} · ${esc(I18n.t("Initials"))} <span translate="no">${esc(r.initials)}</span></small>` : ""}
@@ -342,12 +353,18 @@
           ${buttons ? `<div class="decide-row">
             <button class="btn btn-approve" data-decide="Approved" data-req="${esc(r.id)}" data-kind="${r.kind}">Approve</button>
             <button class="btn btn-deny" data-decide="Denied" data-req="${esc(r.id)}" data-kind="${r.kind}">Deny</button></div>`
-          : `<span class="pill ${r.status === "Approved" ? "ok" : "bad"}">${esc(r.status)}</span>
-             <small style="display:block;margin-top:6px">${esc(r.status)} by ${esc(r.decided_by || "")}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}</small>`}
+          : `<span class="pill ${r.status === "Approved" ? "ok" : r.status === "Denied" ? "bad" : ""}">${esc(r.status === "Pending" ? "Waiting for approval" : r.status)}</span>
+             ${r.decided_by ? `<small style="display:block;margin-top:6px">${esc(r.status)} by ${esc(r.decided_by)}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}</small>` : ""}`}
         </div>`;
       list.innerHTML = `<div class="eyebrow">Waiting for approval</div>
-        ${pending.length ? pending.map((r) => card(r, true)).join("") : '<div class="empty">No requests are waiting.</div>'}
+        ${pending.length ? pending.map((r) => card(r, isApprover())).join("") : '<div class="empty">No requests are waiting.</div>'}
         ${decided.length ? `<div class="eyebrow" style="margin-top:18px">Recently decided</div>${decided.map((r) => card(r, false)).join("")}` : ""}`;
+      // A request that's no longer in the lists above (older, or cancelled) is added so it can be shown.
+      if (focus && !list.querySelector(`[data-req-id="${CSS.escape(focus)}"]`)) {
+        const r = approveRows.find((x) => x.id === focus);
+        if (r) list.insertAdjacentHTML("afterbegin", card(r, false));
+      }
+      focusCard(list, focus);
       refreshCounts();
     } catch (err) { list.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
   }
@@ -403,6 +420,8 @@
     $("msgSubject").textContent = openMsg.subject;
     $("msgBody").textContent = openMsg.body;
     $("msgReplyBtn").hidden = !openMsg.sender_id;
+    $("msgLinkBtn").hidden = !openMsg.link;
+    if (openMsg.link) $("msgLinkBtn").textContent = window.linkLabel(openMsg.link);
     showScreen("message");
     if (!openMsg.read_at) {
       try { const r = await apiRequest(`/staff/messages/${id}/read`, { method: "PUT" }); openMsg.read_at = r.read_at; refreshCounts(); } catch (_) {}
@@ -515,9 +534,11 @@
     $("mpDate").addEventListener("change", showWeek);
     $("mailComposeBtn").onclick = () => openCompose();
     $("msgReplyBtn").onclick = () => openCompose(openMsg);
+    $("msgLinkBtn").onclick = () => openMsg && window.openLink(openMsg.link);
     $("composeSend").onclick = sendMessage;
 
     window.refreshStaffCounts = refreshCounts;
+    window.openStaffScreen = open;
     refreshCounts();
     clearInterval(pollTimer);
     pollTimer = setInterval(refreshCounts, 30000);

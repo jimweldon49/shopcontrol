@@ -13,7 +13,7 @@ async function processCoreNotifications(){
      (id::text=ANY($1::text[]) OR lower(coalesce(full_name,''))=lower($2) OR lower(username)=lower($2)
       OR (cardinality($1::text[])=0 AND role IN ('owner','admin','office','parts')))`,[config.coreRecipients||[],event.assigned_to||'__unassigned__'])).rows;
     if(!users.length){await db.query('ROLLBACK');continue;}
-    for(const user of users)await db.query(`INSERT INTO employee_notifications(event_id,user_id,title,message) VALUES($1,$2,$3,$4) ON CONFLICT(event_id,user_id) DO NOTHING`,[event.id,user.id,`Core return required · RO ${event.ro_number||'unassigned'}`,`${event.description||'Part'} has a core. Retain the old part and arrange its return.`]);
+    for(const user of users)await db.query(`INSERT INTO employee_notifications(event_id,user_id,title,message,link) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_id,user_id) DO NOTHING`,[event.id,user.id,`Core return required · RO ${event.ro_number||'unassigned'}`,`${event.description||'Part'} has a core. Retain the old part and arrange its return.`,{type:'core',ro:event.ro_number,partId:event.part_id}]);
     await db.query('UPDATE core_events SET recipients_created=true WHERE id=$1',[event.id]);await db.query('COMMIT');
    }catch(e){await db.query('ROLLBACK');throw e;}
   }

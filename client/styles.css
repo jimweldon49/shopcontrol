@@ -514,3 +514,9 @@ tr.part-problem-row td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
 .qc-signoff img { height: 60px; max-width: 220px; background: #fff; border: 1px solid var(--line); border-radius: 6px; flex-shrink: 0; }
 .qc-signed-for { color: var(--muted); font-size: 13px; }
 .qc-rework-tag { color: #be123c; font-weight: 700; }
+
+/* A request opened from a notification. */
+tr.flash td { background: color-mix(in srgb, #f97316 18%, transparent); }
+.notification .actions { margin-top: 10px; display: flex; gap: 8px; }
+.notification .actions button { float: none; }
+.notification-status { margin: 8px 0 0; }

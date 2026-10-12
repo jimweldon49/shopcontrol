@@ -46,9 +46,10 @@ async function emailUsers(users, subject, title, lines) {
   catch (e) { console.error("Staff hub email failed:", e.message); }
 }
 
-async function notifyUsers(db, users, title, message) {
+// `link` says what the notification is about so tapping it opens it (migrations/028).
+async function notifyUsers(db, users, title, message, link = null) {
   for (const u of users) {
-    await db.query("INSERT INTO employee_notifications(user_id, title, message) VALUES($1,$2,$3)", [u.id, title, message]);
+    await db.query("INSERT INTO employee_notifications(user_id, title, message, link) VALUES($1,$2,$3,$4)", [u.id, title, message, link]);
   }
 }
 
@@ -97,7 +98,7 @@ router.post("/time-off", async (req, res) => {
       `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, req.user.id])).rows;
     const title = `Time-off request · ${row.full_name}`;
     const summary = `${typeLabel(row)} · ${describeDates(row)}`;
-    await notifyUsers(db, office, title, `${summary}. Open Time Off in Shop Control to review.`);
+    await notifyUsers(db, office, title, `${summary}. Open Time Off in Shop Control to review.`, { type: "timeoff", id: row.id, view: "review" });
     await db.query("COMMIT");
     await logActivity({ req, resource: "timeOff", recordId: row.id, action: "create", after: row, summary: `Requested time off: ${summary}` });
     emailUsers(office, title, `Time-off request from ${row.full_name}`, [
@@ -137,8 +138,8 @@ router.post("/time-off/:id/decision", async (req, res) => {
     const body = `Your time-off request (${typeLabel(row)}, ${describeDates(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
     if (requester) {
       await db.query(
-        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body) VALUES($1,$2,$3,'Time Off',$4,$5)`,
-        [req.user.id, who(req), requester.id, subject, body]);
+        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body, link) VALUES($1,$2,$3,'Time Off',$4,$5,$6)`,
+        [req.user.id, who(req), requester.id, subject, body, { type: "timeoff", id: row.id, view: "mine" }]);
     }
     // The office hears about every decision too; the requester gets their own email below, so skip them here.
     const office = (await db.query(
@@ -228,7 +229,7 @@ router.post("/missed-punch", async (req, res) => {
     const office = (await db.query(
       `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, req.user.id])).rows;
     const title = `Missed punch · ${row.full_name}`;
-    await notifyUsers(db, office, title, `${describePunch(row)}. Open Time Off in Shop Control to review.`);
+    await notifyUsers(db, office, title, `${describePunch(row)}. Open Time Off in Shop Control to review.`, { type: "punch", id: row.id, view: "review" });
     await db.query("COMMIT");
     await logActivity({ req, resource: "missedPunch", recordId: row.id, action: "create", after: row, summary: `Missed punch slip: ${describePunch(row)}` });
     emailUsers(office, title, `Missed punch slip from ${row.full_name}`, [
@@ -267,8 +268,8 @@ router.post("/missed-punch/:id/decision", async (req, res) => {
     const body = `Your missed punch slip (${describePunch(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
     if (requester) {
       await db.query(
-        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body) VALUES($1,$2,$3,'Missed Punch',$4,$5)`,
-        [req.user.id, who(req), requester.id, subject, body]);
+        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body, link) VALUES($1,$2,$3,'Missed Punch',$4,$5,$6)`,
+        [req.user.id, who(req), requester.id, subject, body, { type: "punch", id: row.id, view: "mine" }]);
     }
     const office = (await db.query(
       `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, row.user_id])).rows;
@@ -360,7 +361,7 @@ router.post("/payroll-corrections", async (req, res) => {
     const office = (await db.query(
       `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, req.user.id])).rows;
     const title = `Payroll correction · ${row.full_name}`;
-    await notifyUsers(db, office, title, `${hoursLabel(row.total_hours)} on ${correctionDates(row)}. Open Time Off in Shop Control to review.`);
+    await notifyUsers(db, office, title, `${hoursLabel(row.total_hours)} on ${correctionDates(row)}. Open Time Off in Shop Control to review.`, { type: "payfix", id: row.id, view: "review" });
     await db.query("COMMIT");
     await logActivity({ req, resource: "payrollCorrection", recordId: row.id, action: "create", after: row, summary: `Payroll correction: ${hoursLabel(row.total_hours)} on ${correctionDates(row)}` });
     emailUsers(office, title, `Payroll correction from ${row.full_name}`, [
@@ -399,8 +400,8 @@ router.post("/payroll-corrections/:id/decision", async (req, res) => {
     const body = `Your payroll correction (${hoursLabel(row.total_hours)} on ${correctionDates(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
     if (requester) {
       await db.query(
-        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body) VALUES($1,$2,$3,'Payroll Correction',$4,$5)`,
-        [req.user.id, who(req), requester.id, subject, body]);
+        `INSERT INTO staff_messages(sender_id, sender_name, recipient_id, audience, subject, body, link) VALUES($1,$2,$3,'Payroll Correction',$4,$5,$6)`,
+        [req.user.id, who(req), requester.id, subject, body, { type: "payfix", id: row.id, view: "mine" }]);
     }
     const office = (await db.query(
       `SELECT id, email FROM users WHERE active=true AND role = ANY($1) AND id <> $2`, [OFFICE_ROLES, row.user_id])).rows;

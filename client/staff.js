@@ -54,6 +54,8 @@ const StaffHub = (() => {
     renderBadges();
     renderTimeOff();
     renderMessages();
+    // Notifications show each request's status and Approve / Deny buttons (unified.js).
+    if (typeof renderNotifications === "function") renderNotifications();
   }
 
   function renderBadges() {
@@ -85,7 +87,7 @@ const StaffHub = (() => {
       </div>
       <div class="toolbar">${["Pending", "Approved", "Denied", "All"].map((f) => `<button type="button" class="${state.filter === f ? "" : "quiet"}" onclick="StaffHub.setFilter('${f}')">${f}</button>`).join("")}</div>
       <div class="table-wrap"><table><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Notes</th><th>Requested</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-      ${rows.map((r) => `<tr>
+      ${rows.map((r) => `<tr data-req-id="${e(r.id)}">
         <td><b>${e(r.full_name)}</b></td><td>${e(typeLabel(r))}</td><td>${e(dates(r))}</td><td>${e(r.notes || "")}</td>
         <td>${e(formatDateTime(r.created_at))}</td>
         <td>${statusPill(r.status)}${r.decided_by ? `<small>${e(r.decided_by)} · ${e(formatDateTime(r.decided_at))}</small>` : ""}${r.decision_note ? `<small>${e(r.decision_note)}</small>` : ""}</td>
@@ -95,7 +97,7 @@ const StaffHub = (() => {
       <div class="section-head heading-row" style="margin-top:24px"><div><h2>Missed punches</h2>
         <p>Slips for days someone forgot to clock in or out. Approved punches are paid on the following payroll (payroll runs Thursday to Wednesday).</p></div></div>
       <div class="table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Times</th><th>Payroll week</th><th>Initials</th><th>Notes</th><th>Sent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-      ${punches.map((r) => `<tr>
+      ${punches.map((r) => `<tr data-req-id="${e(r.id)}">
         <td><b>${e(r.full_name)}</b></td><td>${e(fmtDate(r.punch_date))}</td><td>${e(punchTimes(r))}</td><td>${e(payWeek(r.punch_date))}</td>
         <td>${e(r.initials)}</td><td>${e(r.notes || "")}</td><td>${e(formatDateTime(r.created_at))}</td>
         <td>${statusPill(r.status)}${r.decided_by ? `<small>${e(r.decided_by)} · ${e(formatDateTime(r.decided_at))}</small>` : ""}${r.decision_note ? `<small>${e(r.decision_note)}</small>` : ""}</td>
@@ -105,7 +107,7 @@ const StaffHub = (() => {
       <div class="section-head heading-row" style="margin-top:24px"><div><h2>Payroll corrections</h2>
         <p>Payroll correction forms from the employee app. Approving one takes the place of the supervisor's signature; corrections should be done within three working days.</p></div></div>
       <div class="table-wrap"><table><thead><tr><th>Employee</th><th>Contact</th><th>Days in question</th><th>Hours</th><th>Why</th><th>Pay by</th><th>Signed</th><th>Sent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-      ${corrections.map((r) => `<tr>
+      ${corrections.map((r) => `<tr data-req-id="${e(r.id)}">
         <td><b>${e(r.full_name)}</b>${r.employee_number ? `<small>#${e(r.employee_number)}</small>` : ""}</td>
         <td>${e(r.phone)}</td><td>${correctionDays(r).map(e).join("<br>")}${r.programs ? `<small>Program(s): ${e(r.programs)}</small>` : ""}</td>
         <td><b>${e(Number(r.total_hours))}</b></td><td>${e(r.explanation)}</td>
@@ -127,7 +129,8 @@ const StaffHub = (() => {
     return `${e(typeLabel(r))}<br>${e(dates(r))}`;
   }
 
-  function decide(id, decision, kind = "timeoff") {
+  // `done` runs after the decision is saved (used when deciding from a notification).
+  function decide(id, decision, kind = "timeoff", done) {
     const k = KINDS[kind];
     const r = state[k.list].find((x) => x.id === id);
     if (!r) return;
@@ -139,6 +142,7 @@ const StaffHub = (() => {
         await post(`/${k.path}/${id}/decision`, { decision, note: form.get("note") });
         showStatus(`${k.label} ${decision.toLowerCase()} for ${r.full_name}.`);
         await load();
+        if (done) await done();
       });
     dialog.querySelector("[type=submit]").textContent = decision === "Approved" ? "Approve" : "Deny";
   }
@@ -165,6 +169,7 @@ const StaffHub = (() => {
             <b>${e(x.sender_name)}</b><span>${e(x.subject)}</span><small>${e(formatDateTime(x.created_at))}</small></button>`).join("") || '<p class="empty">No messages.</p>'}
         </div>
         <div class="card">${m ? `<div class="mail-view"><small>${e(m.audience ? `To: ${m.audience}` : "To: you")} · ${e(formatDateTime(m.created_at))}</small><h3>${e(m.subject)}</h3><p class="mail-from">From ${e(m.sender_name)}</p><div class="mail-body">${e(m.body)}</div>
+            ${m.link && isOffice() ? `<button onclick="openLinkTarget(StaffHub.messageLink('${m.id}'))">${e(linkTitle(m.link))}</button>` : ""}
             ${m.sender_id ? `<button onclick="StaffHub.compose('${m.id}')">Reply</button>` : ""}</div>` : '<p class="empty">Select a message to read it.</p>'}</div>
       </div>
       <div class="card"><div class="heading-row"><h3>Company info</h3>${isApprover() ? `<button onclick="StaffHub.editInfo()">＋ Add section</button>` : ""}</div>
@@ -223,6 +228,20 @@ const StaffHub = (() => {
 
   function setFilter(f) { state.filter = f; renderTimeOff(); }
 
+  // Opened from a notification or message: show the request's own status list and highlight it.
+  async function show(kind, id) {
+    const k = KINDS[kind];
+    if (!k) return;
+    let r = id && state[k.list].find((x) => x.id === id);
+    if (id && !r) { await load(); r = state[k.list].find((x) => x.id === id); }
+    state.filter = r && ["Pending", "Approved", "Denied"].includes(r.status) ? r.status : "All";
+    renderTimeOff();
+    const row = id && document.querySelector(`#timeOff tr[data-req-id="${CSS.escape(id)}"]`);
+    const target = row || document.getElementById("timeOff");
+    if (row) row.classList.add("flash");
+    target.scrollIntoView({ block: row ? "center" : "start" });
+  }
+
   function start() {
     stop();
     req("/recipients").then((r) => (state.recipients = r)).catch(() => {});
@@ -231,5 +250,8 @@ const StaffHub = (() => {
   }
   function stop() { clearInterval(state.timer); state.timer = null; Object.assign(state, { timeOff: [], punches: [], corrections: [], inbox: [], info: [], openMessage: null }); }
 
-  return { start, stop, load, setFilter, decide, openMail, compose, editInfo, deleteInfo, TIME_OFF_TYPES };
+  const messageLink = (id) => (state.inbox.find((x) => x.id === id) || {}).link;
+  const request = (kind, id) => (KINDS[kind] && id ? state[KINDS[kind].list].find((x) => x.id === id) : null) || null;
+
+  return { start, stop, load, setFilter, show, messageLink, request, canDecide: isApprover, statusPill, decide, openMail, compose, editInfo, deleteInfo, TIME_OFF_TYPES };
 })();

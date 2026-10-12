@@ -231,3 +231,14 @@ test('only admins decide payroll corrections; the employee and office hear about
   assert.equal(emails[1].subject, 'Payroll correction DENIED · Travis Tech');
   assert.ok(emails[1].bodyLines.includes('Decision note: Hours match the clock'));
 });
+
+test('request notifications and decision messages link to the request they are about', async () => {
+  await call('POST /time-off', tech, { request_type: 'Vacation', start_date: '2026-10-05', end_date: '2026-10-07' });
+  const notes = calls.filter(c => c.sql.startsWith('INSERT INTO employee_notifications'));
+  assert.ok(notes.length >= 2);
+  for (const n of notes) assert.deepEqual(n.args[3], { type: 'timeoff', id: 't1', view: 'review' });
+  await call('POST /time-off/:id/decision', admin, { decision: 'Denied' }, { id: 't1' });
+  assert.deepEqual(messages[0].args[5], { type: 'timeoff', id: 't1', view: 'mine' });
+  await call('POST /missed-punch', tech, { punch_date: '2026-10-01', time_in: '07:00', lunch_out: '12:00', lunch_in: '12:30', time_out: '16:00', initials: 'tt' });
+  assert.deepEqual(calls.filter(c => c.sql.startsWith('INSERT INTO employee_notifications')).at(-1).args[3], { type: 'punch', id: 'p1', view: 'review' });
+});

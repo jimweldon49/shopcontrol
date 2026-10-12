@@ -146,6 +146,7 @@
   .row-card { padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 8px; }
   .row-card b { display: block; font-size: 14.5px; }
   .row-card small { color: var(--muted); }
+  .row-card.flash { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
   .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; margin-top: 6px; background: var(--surface-2); color: var(--muted); }
   .pill.bad { background: rgba(244,63,94,.14); color: #fda4af; }
   .pill.ok { background: rgba(34,197,94,.14); color: #86efac; }
@@ -624,6 +625,7 @@
   </header>
   <div class="main">
     <div class="row-card"><small id="msgMeta"></small><h2 id="msgSubject" translate="no" style="margin:6px 0 10px;font-size:20px"></h2><div class="msg-body" id="msgBody" translate="no"></div></div>
+    <button class="btn btn-primary" id="msgLinkBtn" style="margin-bottom:10px" hidden></button>
     <button class="btn btn-primary" id="msgReplyBtn">Reply</button>
   </div>
 </section>
