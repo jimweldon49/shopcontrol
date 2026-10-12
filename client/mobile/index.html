@@ -192,6 +192,15 @@
   .sig { background: #f8fafc; border-radius: 16px; overflow: hidden; touch-action: none; }
   .sig canvas { display: block; width: 100%; height: 200px; touch-action: none; }
   .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .home-seg { margin: 4px 0 14px; }
+  .next-car { position: relative; }
+  .next-car.hot { border-color: #f43f5e; box-shadow: inset 4px 0 0 #f43f5e; }
+  .next-num { font-weight: 800; font-size: 18px; color: var(--muted); min-width: 20px; align-self: center; }
+  .hot-tag { color: #f43f5e; font-weight: 800; }
+  .stage.any-tag { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+  .stage.carried-tag { color: #eab308; }
+  .stall-btn { display: block; text-align: center; cursor: pointer; }
+  .stall-preview { display: block; width: 100%; max-height: 170px; object-fit: cover; border-radius: 14px; margin-top: 10px; }
   .seg button { padding: 13px; border-radius: 12px; background: var(--surface); border: 1.5px solid var(--line); font-weight: 700; }
   .seg button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 
@@ -363,6 +372,7 @@
     <div class="hello"><h2 id="helloName">Hey there</h2><p id="helloSub"></p></div>
     <button class="hub-cta" id="staffHubBtn"><div><b>Staff Hub</b><small>Time off · missed punch · payroll · mailbox · info</small></div><span class="badge-inline" id="hubCount" hidden></span><span class="arrow">›</span></button>
     <button class="hub-cta parts-cta" id="partsDeskBtn" hidden><div><b>Parts desk</b><small>Order · receive · mirror match · carts · returns</small></div><span class="arrow">›</span></button>
+    <div class="seg home-seg" id="homeSeg" hidden><button data-v="next" id="homeSegNext">Next up</button><button data-v="shop">In the shop</button></div>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input class="input" id="searchInput" type="search" placeholder="Search RO, customer or vehicle" autocomplete="off" />
@@ -432,6 +442,9 @@
       <label class="field"><span>Assign to</span><input class="input" id="reworkAssignedTo" placeholder="Name" /></label>
       <label class="field"><span>Due</span><input class="input" type="date" id="reworkDue" /></label>
     </div>
+    <div class="eyebrow">Photo of the car in the stall</div>
+    <label class="btn btn-ghost stall-btn"><input type="file" id="stallInput" accept="image/*" capture="environment" hidden><span id="stallBtnText">Take photo of the car in the stall</span></label>
+    <img id="stallPreview" class="stall-preview" alt="Stall photo" hidden>
     <div class="eyebrow">Your signature</div>
     <div class="sig"><canvas id="sigPad"></canvas></div>
     <button class="btn btn-ghost" id="clearSigBtn" style="margin-top:10px">Clear signature</button>

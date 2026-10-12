@@ -22,6 +22,8 @@ let activeJob = null;
 let activeDept = null;
 let activeRecord = null;
 let checklist = { items: {}, notes: "" };
+let myList = [];          // this tech's cars from the Tech Board (server/src/routes/techBoard.js)
+let homeView = null;      // "next" (Next up) or "shop" (In the shop)
 
 // ------------------------------------------------------------------ API
 async function apiRequest(path, options = {}) {
@@ -82,8 +84,13 @@ function ringHtml(progress, extraClass = "") {
 
 // Main department first, then what it always comes with (Body -> Reassy), then any
 // extra checklists set on this person's account.
+// Their QC department plus the one their role means (matches techDepartments in
+// server/src/routes/techBoard.js), so a painter with no QC department still gets Paint.
+const ROLE_DEPARTMENT = { body: "Body", paint: "Paint", qc: "Final QC" };
 function myDepartments() {
-  return QcChecklists.departmentsFor(currentUser && currentUser.department, currentUser && currentUser.extraDepartments);
+  const u = currentUser || {};
+  const fromRole = ROLE_DEPARTMENT[String(u.role || "").toLowerCase()];
+  return [...new Set([...QcChecklists.departmentsFor(u.department, u.extraDepartments), ...QcChecklists.departmentsFor(fromRole, [])])];
 }
 
 function deptColor(id) { return (QcChecklists.byId[id] || {}).color || DEFAULT_ACCENT; }
@@ -212,11 +219,49 @@ function enterHome() {
   showScreen("home");
   if (window.refreshStaffCounts) window.refreshStaffCounts();
   $("carList").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
-  loadData().then(renderCars).catch((err) => { $("carList").innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
+  Promise.all([loadData(), loadMyList()]).then(renderCars).catch((err) => { $("carList").innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
+}
+
+// Next up: the cars the office put on this tech's list, in order. Refreshed while home is open.
+async function loadMyList() {
+  try { myList = await apiRequest("/tech-board/mine"); } catch (_) { myList = []; }
+}
+setInterval(() => {
+  if (authToken && $("screen-home").classList.contains("active")) loadMyList().then(renderCars);
+}, 60000);
+
+function renderNextUp() {
+  $("listTitle").textContent = `Next up · ${myList.length}`;
+  if (!myList.length) {
+    $("carList").innerHTML = '<div class="empty">Nothing is on your list right now.</div>';
+    return;
+  }
+  $("carList").innerHTML = myList.map((item, i) => {
+    const j = jobs.find((x) => x.id === item.jobId) || { id: item.jobId, ro_number: item.roNumber, vehicle: item.vehicle, customer_name: item.customerName, vehicle_type: item.vehicleType, vehicle_color: item.vehicleColor };
+    const pic = vehiclePic(j);
+    return `<button class="car next-car ${item.hot ? "hot" : ""}" data-job="${esc(item.jobId)}" data-dept="${esc(item.department)}" style="--accent:${deptColor(item.department)}">
+      <span class="next-num">${i + 1}</span>${pic ? `<img class="car-pic" src="${esc(pic)}" alt="" loading="lazy">` : ""}
+      <div class="body">
+        <div class="ro">RO ${esc(item.roNumber || "—")}${item.hot ? ' <span class="hot-tag">🔥 Hot</span>' : ""}</div>
+        <div class="name">${esc(vehicleName(item.vehicle))}</div>
+        <div class="sub">${esc([item.customerName, vehicleDetail(item.vehicle)].filter(Boolean).join(" · "))}</div>
+        <span class="stage">${esc(item.department)}</span>${item.anyTech ? ` <span class="stage any-tag">${esc(item.department === "Paint" ? "Any Painter" : "Any Tech")}</span>` : ""}${item.carriedOver ? ' <span class="stage carried-tag">Carried over</span>' : ""}
+      </div>${ringHtml(item.progress)}</button>`;
+  }).join("");
+}
+
+function syncHomeSeg() {
+  const seg = $("homeSeg");
+  seg.hidden = !myList.length && homeView !== "next";
+  seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === homeView));
+  $("homeSegNext").textContent = `Next up · ${myList.length}`;
 }
 
 function renderCars() {
   const q = $("searchInput").value.trim().toLowerCase();
+  if (!homeView) homeView = myList.length ? "next" : "shop";
+  syncHomeSeg();
+  if (!q && homeView === "next") return renderNextUp();
   const dept = currentUser && currentUser.department;
   let list = q
     ? jobs.filter((j) => [j.ro_number, j.customer_name, j.vehicle].join(" ").toLowerCase().includes(q))
@@ -492,6 +537,7 @@ function openFinish() {
   $("reworkNotes").value = "";
   $("reworkAssignedTo").value = "";
   $("reworkDue").value = "";
+  clearStallPhoto();
   showAlert("finishError", "");
   showScreen("finish");
   setTimeout(initSignaturePad, 60);
@@ -522,14 +568,45 @@ function initSignaturePad() {
   canvas.onpointerup = canvas.onpointerleave = canvas.onpointercancel = () => { sigDrawing = false; };
 }
 
+// The pad is resized when the screen changes size (rotating, the keyboard, coming back
+// from the camera); a signature already drawn is kept, scaled to the new width.
+function resizeSignaturePad() {
+  const canvas = $("sigPad");
+  if (canvas.parentElement.clientWidth * (window.devicePixelRatio || 1) === canvas.width) return;
+  const had = sigHasStrokes, old = had ? canvas.toDataURL("image/png") : null;
+  initSignaturePad();
+  if (!had) return;
+  const img = new Image();
+  img.onload = () => { sigCtx.drawImage(img, 0, 0, canvas.parentElement.clientWidth, 200); sigHasStrokes = true; };
+  img.src = old;
+}
+
 function clearSignature() {
   const canvas = $("sigPad");
   sigCtx.clearRect(0, 0, canvas.width, canvas.height);
   sigHasStrokes = false;
 }
 
+// A photo of the car in the stall is required to sign off. It's uploaded with the car's
+// photos and kept with the sign-off (qcSignatures.js). Uploaded once, even if the save is retried.
+let stallFile = null, stallUrl = null;
+function clearStallPhoto() {
+  stallFile = null; stallUrl = null;
+  $("stallInput").value = "";
+  $("stallPreview").hidden = true;
+  $("stallBtnText").textContent = "Take photo of the car in the stall";
+}
+function pickStallPhoto(file) {
+  if (!file) return;
+  stallFile = file; stallUrl = null;
+  $("stallPreview").src = URL.createObjectURL(file);
+  $("stallPreview").hidden = false;
+  $("stallBtnText").textContent = "Retake photo";
+}
+
 async function submitQc() {
   showAlert("finishError", "");
+  if (!stallFile) return showAlert("finishError", "Take a photo of the car in the stall to finish.");
   if (!sigHasStrokes) return showAlert("finishError", "Sign in the box to finish.");
   if (reworkChoice === "Yes" && !$("reworkNotes").value.trim()) return showAlert("finishError", "Say what needs rework.");
   const btn = $("submitBtn");
@@ -538,8 +615,14 @@ async function submitQc() {
   const p = QcChecklists.progress(activeDept.id, checklist);
   clearTimeout(saveTimer);
   try {
+    if (!stallUrl) {
+      btn.textContent = "Uploading photo…";
+      stallUrl = (await uploadAttachment(stallFile, `QC stall photo · ${activeDept.id}`)).file_url;
+      btn.textContent = "Submitting…";
+    }
     await saveChain.catch(() => {});
     const saved = await saveRecord({
+      qc_stall_photo: stallUrl,
       qc_signature_data: $("sigPad").toDataURL("image/png"),
       qc_signed_at: new Date().toISOString(),
       qc_final_status: reworkChoice === "Yes" ? "Needs Rework" : p.complete ? "Passed" : "Open",
@@ -550,6 +633,7 @@ async function submitQc() {
     });
     $("doneTitle").textContent = reworkChoice === "Yes" ? "Sent for rework" : p.complete ? `${activeDept.id} QC done!` : "QC saved";
     $("doneSub").textContent = `RO ${saved.qc_ro_number || ""} · ${p.done}/${p.total} checked · signed by ${saved.qc_performed_by || ""}`;
+    loadMyList();
     showScreen("done");
     if (p.complete && reworkChoice === "No") celebrate();
   } catch (err) {
@@ -771,6 +855,13 @@ document.addEventListener("DOMContentLoaded", () => {
   $("searchInput").addEventListener("input", renderCars);
 
   $("carList").addEventListener("click", (e) => { const b = e.target.closest("[data-job]"); if (b) openJob(b.dataset.job); });
+  $("homeSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-v]");
+    if (!b) return;
+    homeView = b.dataset.v;
+    $("searchInput").value = "";
+    renderCars();
+  });
   $("jobQc").addEventListener("click", (e) => { const b = e.target.closest("[data-dept]"); if (b) openChecklist(b.dataset.dept); });
   $("deptGrid").addEventListener("click", (e) => { const b = e.target.closest("[data-dept]"); if (b) openChecklist(b.dataset.dept); });
   $("reworkBox").addEventListener("click", (e) => { const b = e.target.closest("[data-rework]"); if (b) markReworkDone(b.dataset.rework); });
@@ -789,6 +880,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("reworkSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { reworkChoice = b.dataset.v; syncReworkSeg(); } });
   $("clearSigBtn").onclick = clearSignature;
+  $("stallInput").onchange = (e) => pickStallPhoto(e.target.files && e.target.files[0]);
   $("submitBtn").onclick = submitQc;
   $("doneJobBtn").onclick = () => { renderJob(); showScreen("job"); };
   $("doneHomeBtn").onclick = enterHome;
@@ -806,7 +898,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (to === "qc") { setAccent(activeDept.color); return showScreen("qc"); }
   }));
 
-  window.addEventListener("resize", () => { if ($("screen-finish").classList.contains("active")) initSignaturePad(); });
+  window.addEventListener("resize", () => { if ($("screen-finish").classList.contains("active")) resizeSignaturePad(); });
 
   if (authToken && currentUser) {
     // Refresh the account so a department changed in Employees applies right away.

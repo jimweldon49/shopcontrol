@@ -860,6 +860,7 @@ function qcSignoffsHtml(deptId, r) {
       ${qcSigOk(s.signature) ? `<img alt="Signature of ${e(s.by || "")}" src="${s.signature}">` : ""}
       <div><b>${e(s.by || "Unknown")}</b>${s.at ? ` · signed ${e(formatDateTime(s.at))}` : ""}${s.rework ? ` · <span class="qc-rework-tag">sent for rework</span>` : ""}
       <div class="qc-signed-for">${items.length ? `Signed for: ${items.map(e).join(", ")}` : "Signed without checking items themselves."}</div></div>
+      ${/^\/uploads\/[A-Za-z0-9._-]+$/.test(s.photo || "") ? `<a class="qc-stall" href="${location.origin}${s.photo}" target="_blank" rel="noopener" title="Photo in the stall"><img alt="Car in the stall when ${e(s.by || "")} signed" src="${location.origin}${s.photo}"></a>` : ""}
     </div>`;
   }).join("")}</div>`;
 }
@@ -926,6 +927,7 @@ function openQcReport(ro) {
   .qc-signoff:first-child { border-top: 0; }
   .qc-signoff img { height: 60px; max-width: 200px; border-bottom: 1px solid #1f2933; flex-shrink: 0; }
   .qc-signed-for { color: #5b6776; font-size: 13px; } .qc-rework-tag { color: #be123c; font-weight: 700; }
+  .qc-stall { margin-left: auto; } .qc-stall img { height: 90px; width: 120px; object-fit: cover; border-radius: 6px; border: 0; }
   .actions { text-align: right; margin-bottom: 10px; } .actions button { font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 0; background: #f97316; color: #111; cursor: pointer; }
   footer { margin-top: 20px; color: #8a94a3; font-size: 12px; text-align: center; }
   @media print { body { background: #fff; } .page { padding: 0; } .actions { display: none; } }
@@ -2187,6 +2189,7 @@ function showApp() {
   loadAll(true);
   loadStaffRoster();
   if (!kiosk && typeof StaffHub !== "undefined") StaffHub.start();
+  if (!kiosk && typeof TechBoard !== "undefined") TechBoard.start();
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync

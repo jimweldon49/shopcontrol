@@ -95,6 +95,7 @@ function withQcSignature(resourceKey, body, before, user, cols, values) {
     signedAt: body.qc_signed_at,
     status: body.qc_final_status ?? (before && before.qc_final_status),
     rework: body.qc_rework_needed ?? (before && before.qc_rework_needed),
+    photo: body.qc_stall_photo,
   });
   cols.push("qc_signatures");
   values.push(JSON.stringify(list));

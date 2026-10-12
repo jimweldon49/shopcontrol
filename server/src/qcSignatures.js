@@ -1,6 +1,7 @@
 // Every sign-off on a department QC checklist, kept in qc_records.qc_signatures so a
 // second person signing doesn't replace the first. Each entry records who signed, when,
-// their signature and the items they checked themselves (what they signed for). The
+// their signature, the items they checked themselves (what they signed for) and the
+// photo of the car in the stall taken when they signed (an /uploads/ URL). The
 // list is built here on the server from the signed-in user; clients can't write it.
 // qc_signature_data / qc_signed_at / qc_performed_by still hold the latest sign-off.
 const qcChecklists = require("../../client/qcChecklists");
@@ -13,9 +14,11 @@ function itemsCheckedBy(departmentId, checklist, name) {
   return dept.items.filter((i) => items[i.id] && items[i.id].done && items[i.id].by === name).map((i) => i.id);
 }
 
+const PHOTO_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
+
 // The signature list after `user` signs. One entry per person: signing again replaces
 // their earlier entry, since the newer one covers everything they've checked so far.
-function addSignature(existing, { user, departmentId, checklist, signature, signedAt, status, rework }) {
+function addSignature(existing, { user, departmentId, checklist, signature, signedAt, status, rework, photo }) {
   const name = user.fullName || user.username || "";
   const entry = {
     by: name,
@@ -25,6 +28,7 @@ function addSignature(existing, { user, departmentId, checklist, signature, sign
     items: itemsCheckedBy(departmentId, checklist, name),
     status: status || null,
     rework: rework === "Yes",
+    photo: typeof photo === "string" && PHOTO_URL.test(photo) ? photo : null,
   };
   const list = Array.isArray(existing) ? existing : [];
   const others = list.filter((s) => (entry.userId && s.userId ? s.userId !== entry.userId : s.by !== name));

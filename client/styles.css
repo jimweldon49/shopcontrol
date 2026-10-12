@@ -520,3 +520,5 @@ tr.flash td { background: color-mix(in srgb, #f97316 18%, transparent); }
 .notification .actions { margin-top: 10px; display: flex; gap: 8px; }
 .notification .actions button { float: none; }
 .notification-status { margin: 8px 0 0; }
+.qc-stall { margin-left: auto; }
+.qc-stall img { height: 80px; width: 110px; object-fit: cover; border-radius: 6px; background: none; }

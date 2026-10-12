@@ -53,6 +53,7 @@ app.use('/api/inventoryLocations', require('./routes/inventory'));
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/jobHistory', require('./routes/jobHistory'));
 app.use('/api/shopBoard', require('./routes/shopBoard'));
+app.use('/api/tech-board', require('./routes/techBoard'));
 app.use('/api/portal', require('./routes/portal').publicRouter);
 app.use('/api/customer-portal', require('./routes/portal').staffRouter);
 mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc, /api/booth, /api/facility
