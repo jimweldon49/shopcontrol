@@ -98,9 +98,10 @@ about 2:30 and 4:00 AM Pacific):
   last result: `~/backups/auto/last-nightly.json` and `last-weekly.json`.
 - Each run also trims the backups made before deploys in `~/backups` to the newest 5 app
   and 5 database backups. The September 2026 `precutover` backups are never trimmed.
-- If `/mnt/shopcontrol-backups` (a folder on the shop file server) is mounted, both folders
-  are mirrored there with `rsync --delete`. If it isn't, the backup stays on the VM only and
-  the log says so.
+- Both folders are mirrored with `rsync --delete` to `/mnt/shopcontrol-backups`, which is
+  `\\freenas11\Share\Data\ShopControl-Backups` (FreeNAS, 192.168.10.85) mounted from
+  `/etc/fstab` with the same `svc-shopcontrol` credentials as the CCC share. If it isn't
+  mounted, the backup stays on the VM only and the log says so.
 - If a backup fails, active admins and owners with an email address are emailed
   (`server/src/backupAlert.js`).
 

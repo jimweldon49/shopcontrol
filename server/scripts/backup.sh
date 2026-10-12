@@ -3,7 +3,7 @@
 #   backup.sh nightly   the database                          keeps the newest 14
 #   backup.sh weekly    the database + app files and photos   keeps the newest 8
 # Backups go to ~/backups/auto/ and are copied to the shop file server when it's
-# connected at /mnt/shopcontrol-backups. Every run also trims the backups made before
+# connected at /mnt/shopcontrol-backups (\\freenas11\Share\Data\ShopControl-Backups). Every run also trims the backups made before
 # deploys to the newest 5. If anything fails, admins and owners get an email.
 set -uo pipefail
 shopt -s nullglob
@@ -59,7 +59,8 @@ keep_newest 5 $(ls -d "$ROOT"/shopcontrol-db-pre* 2>/dev/null | grep -v precutov
 
 COPIED=false
 if mountpoint -q "$COPY"; then
-  rsync -a --delete "$AUTO/nightly" "$AUTO/weekly" "$COPY/" 2>>"$LOG" || fail "copying to the shop file server ($COPY) failed"
+  # Files and times only: the share (SMB) doesn't keep Linux owners and permissions.
+  rsync -rt --modify-window=2 --delete "$AUTO/nightly" "$AUTO/weekly" "$COPY/" 2>>"$LOG" || fail "copying to the shop file server ($COPY) failed"
   COPIED=true
   log "copied to the shop file server"
 else
