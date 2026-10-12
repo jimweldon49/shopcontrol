@@ -80,3 +80,34 @@ Before touching production, test the build on the VM against an isolated copy:
 
 Stop the service, restore the pre-deploy app tarball and database dump from
 `~/backups/`, and restart the service.
+
+## Automatic backups
+
+`server/scripts/backup.sh` runs from the `james` crontab on the VM (times are UTC,
+about 2:30 and 4:00 AM Pacific):
+
+```
+30 10 * * * /opt/concept-shop-control/server/scripts/backup.sh nightly
+0 11 * * 0  /opt/concept-shop-control/server/scripts/backup.sh weekly
+```
+
+- **Nightly:** the database (`pg_dump -Fc`), checked with `pg_restore -l`. Keeps the newest 14.
+- **Weekly (Sunday):** the database plus the whole app folder except `node_modules`
+  (code, `server/.env`, and every uploaded photo and file in `server/uploads`). Keeps the newest 8.
+- Saved under `~/backups/auto/{nightly,weekly}/` (mode 600). Log: `~/backups/auto/backup.log`;
+  last result: `~/backups/auto/last-nightly.json` and `last-weekly.json`.
+- Each run also trims the backups made before deploys in `~/backups` to the newest 5 app
+  and 5 database backups. The September 2026 `precutover` backups are never trimmed.
+- If `/mnt/shopcontrol-backups` (a folder on the shop file server) is mounted, both folders
+  are mirrored there with `rsync --delete`. If it isn't, the backup stays on the VM only and
+  the log says so.
+- If a backup fails, active admins and owners with an email address are emailed
+  (`server/src/backupAlert.js`).
+
+**Restore the database** (stop the app first, `sudo systemctl stop shop-control-api.service`):
+```bash
+pg_restore --clean --if-exists -d "$DATABASE_URL" ~/backups/auto/nightly/shopcontrol-db-nightly-<time>.dump
+```
+**Restore photos/app files** from a weekly backup: `tar xzf shopcontrol-files-weekly-<time>.tar.gz -C /tmp/restore`,
+then copy back what's needed (for example `concept-shop-control/server/uploads/`).
+
