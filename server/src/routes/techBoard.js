@@ -103,7 +103,8 @@ async function loadBoard(db = pool) {
     out.push({
       jobId: j.job_id, roNumber: ro, customerName: j.customer_name, vehicle: j.vehicle, vehicleType: j.vehicle_type, vehicleColor: j.vehicle_color,
       stage: j.current_stage, targetDeliveryDate: j.target_delivery_date ? dayOf(j.target_delivery_date) : null,
-      hot: j.hot, position: j.position, addedOn: dayOf(j.added_on), carriedOver: dayOf(j.added_on) < today, done, departments,
+      hot: j.hot, position: j.position, addedOn: dayOf(j.added_on), carriedOver: dayOf(j.added_on) < today,
+      daysOver: Math.round((new Date(today + "T12:00:00Z") - new Date(dayOf(j.added_on) + "T12:00:00Z")) / 864e5), done, departments,
     });
   }
   return { today, jobs: out };
@@ -233,3 +234,6 @@ module.exports = router;
 module.exports.listFor = listFor;
 module.exports.departmentStatus = departmentStatus;
 module.exports.techDepartments = techDepartments;
+module.exports.loadBoard = loadBoard;
+module.exports.techsByDepartment = techsByDepartment;
+module.exports.shopDate = shopDate;

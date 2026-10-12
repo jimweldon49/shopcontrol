@@ -180,6 +180,7 @@ const I18n = (() => {
     [/^Done · signed by (.+)$/, (m) => `Listo · firmado por ${m[1]}`],
     [/^Checked by (.+)$/, (m) => `Marcado por ${m[1]}`],
     [/^Next up · (\d+)$/, (m) => `Lo siguiente · ${m[1]}`],
+    [/^Rolled over · (\d+) days?$/, (m) => `Pendiente · ${m[1]} día${m[1] === "1" ? "" : "s"}`],
     [/^RO (.+) isn't an open job anymore\.$/, (m) => `El RO ${m[1]} ya no es un trabajo abierto.`],
     [/^You're signing for the (\d+) items? you checked\.$/, (m) => `Firmas por ${count(m[1], "punto", "puntos")} que marcaste.`],
     [/^(\d+) items?$/, (m) => count(m[1], "punto", "puntos")],

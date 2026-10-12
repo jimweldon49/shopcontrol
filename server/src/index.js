@@ -65,6 +65,7 @@ startMissedCallScheduler();
 startPartsAgingAlerts();
 require('./coreNotifications').startCoreNotifications();
 require('./customerUpdateReminders').startCustomerUpdateReminders();
+require('./techBoardAlerts').startTechBoardAlerts();
 // The web app and employee app share this server and login origin.
 // The two app pages go out with their scripts version-stamped (see appVersion.js).
 // The customer status page: /update (look up by RO + last name) and /update/<link>.

@@ -245,7 +245,7 @@ function renderNextUp() {
         <div class="ro">RO ${esc(item.roNumber || "—")}${item.hot ? ' <span class="hot-tag">🔥 Hot</span>' : ""}</div>
         <div class="name">${esc(vehicleName(item.vehicle))}</div>
         <div class="sub">${esc([item.customerName, vehicleDetail(item.vehicle)].filter(Boolean).join(" · "))}</div>
-        <span class="stage">${esc(item.department)}</span>${item.anyTech ? ` <span class="stage any-tag">${esc(item.department === "Paint" ? "Any Painter" : "Any Tech")}</span>` : ""}${item.carriedOver ? ' <span class="stage carried-tag">Carried over</span>' : ""}
+        <span class="stage">${esc(item.department)}</span>${item.anyTech ? ` <span class="stage any-tag">${esc(item.department === "Paint" ? "Any Painter" : "Any Tech")}</span>` : ""}${item.carriedOver ? ` <span class="stage carried-tag">Rolled over · ${item.daysOver} day${item.daysOver === 1 ? "" : "s"}</span>` : ""}
       </div>${ringHtml(item.progress)}</button>`;
   }).join("");
 }

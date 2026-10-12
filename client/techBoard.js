@@ -33,7 +33,7 @@ const TechBoard = (() => {
   function todayRow(j, i) {
     return `<div class="tb-row ${j.done ? "done" : ""} ${j.hot ? "hot" : ""}" draggable="${state.canEdit}" data-board-job="${e(j.jobId)}">
       <span class="tb-pos">${i + 1}</span>
-      <div class="tb-car"><b>RO ${e(j.roNumber)}</b> · ${e(vehicleName(j.vehicle))}<small>${e(j.customerName || "")} · ${e(j.stage || "")}${j.carriedOver ? ` · <span class="tb-carried">since ${e(j.addedOn)}</span>` : ""}${j.done ? " · <b>All done</b>" : ""}</small>
+      <div class="tb-car"><b>RO ${e(j.roNumber)}</b> · ${e(vehicleName(j.vehicle))}<small>${e(j.customerName || "")} · ${e(j.stage || "")}${j.carriedOver ? ` · <span class="tb-carried">Rolled over · ${j.daysOver} day${j.daysOver === 1 ? "" : "s"} (since ${e(j.addedOn)})</span>` : ""}${j.done ? " · <b>All done</b>" : ""}</small>
         <div class="tb-chips">${j.departments.map(deptChip).join("")}</div></div>
       ${state.canEdit ? `<div class="actions">
         <button type="button" class="${j.hot ? "danger" : "quiet"}" onclick="TechBoard.toggleHot('${e(j.jobId)}')">${j.hot ? "🔥 Hot" : "Make hot"}</button>
@@ -51,7 +51,7 @@ const TechBoard = (() => {
         ${cars.map((j) => {
           const x = j.departments.find((y) => y.department === d.id);
           const who = [...(x.anyTech ? [anyLabel(d.id)] : []), ...x.users.map((u) => u.name)].join(", ");
-          return `<div class="tb-card ${x.done ? "done" : ""} ${j.hot ? "hot" : ""}"><div class="tb-card-top"><b>RO ${e(j.roNumber)}</b>${j.hot ? '<span class="tb-hot">🔥 Hot</span>' : ""}</div>
+          return `<div class="tb-card ${x.done ? "done" : ""} ${j.hot ? "hot" : ""}"><div class="tb-card-top"><b>RO ${e(j.roNumber)}</b>${j.hot ? '<span class="tb-hot">🔥 Hot</span>' : ""}</div>${j.carriedOver ? `<small class="tb-carried">Rolled over · ${j.daysOver} day${j.daysOver === 1 ? "" : "s"}</small>` : ""}
             <div>${e(vehicleName(j.vehicle))}</div><small>${e(who)}</small>
             <div class="tb-bar"><i style="width:${Math.round((x.progress.done / (x.progress.total || 1)) * 100)}%"></i></div>
             <small>${x.done ? `QC signed by ${e(x.signedBy.join(", "))} ✓` : `${x.progress.done}/${x.progress.total} checked`}</small></div>`;
@@ -80,7 +80,7 @@ const TechBoard = (() => {
     if (!p) return;
     const open = state.jobs.filter((j) => !j.done).length;
     p.innerHTML = `<div class="section-head heading-row"><div><div class="eyebrow">TECHS</div><h2>Tech Board</h2>
-        <p>${state.canEdit ? "Drag a car from the board below onto <b>TODAY</b> and choose who works on it. Each tech's phone lists their cars in this order: hot cars first, then cars carried over from earlier days. A car stays on a department's list until that department's QC is fully checked and signed." : "Today's work for each department."}</p></div>
+        <p>${state.canEdit ? "Drag a car from the board below onto <b>TODAY</b> and choose who works on it. Each tech's phone lists their cars in this order: hot cars first, then cars rolled over from earlier days. Anything not finished rolls over to the next day by itself and stays on the list until that department's QC is fully checked and signed. At 5:00 PM on weekdays, unfinished hot cars are emailed to their techs and the office." : "Today's work for each department."}</p></div>
         <div class="actions"><button type="button" class="quiet" onclick="TechBoard.load()">Refresh</button><button type="button" onclick="TechBoard.tv()">Show on TV</button></div></div>
       ${state.error ? `<p class="workspace-error">${e(state.error)}</p>` : ""}
       <div class="tb-today" id="tbToday"><div class="heading-row"><h3>TODAY · ${e(state.today)}</h3><small>${open} car${open === 1 ? "" : "s"} in progress${state.canEdit ? " · drag rows to change the order" : ""}</small></div>
