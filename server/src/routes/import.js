@@ -255,7 +255,10 @@ function buildDailyFromPackage(parsed) {
   const estimator = firstValue(ad2, ["RF_ESTIMTR", "EST_CT_LN", "EST_CT_FN"]);
   const locationText = `${firstValue(ad2, ["LOC_NM", "RF_CO_NM"])} ${firstValue(ad2, ["LOC_CITY", "RF_CITY"])}`;
   const location = /modesto/i.test(locationText) ? "Modesto" : "Ceres";
-  const suppNo = firstValue(env, ["SUPP_NO"]);
+  const roNumber = buildRoNumber(env, ad1, ad2);
+  // Only a real 5-digit RO can need a supplement; an opportunity (CCC file id, VIN,
+  // claim number) isn't flagged even when CCC sends a SUPP_NO. See migrations/032.
+  const suppNo = /^\d{5}$/.test(String(roNumber).trim()) ? firstValue(env, ["SUPP_NO"]) : "";
   const transType = firstValue(env, ["TRANS_TYPE"]);
   const grossTotal = ttl ? firstValue(ttl, ["G_TTL_AMT"]) : "";
   const roAmount = grossTotal !== "" && grossTotal !== undefined && Number.isFinite(Number(grossTotal))
@@ -263,7 +266,7 @@ function buildDailyFromPackage(parsed) {
     : null;
 
   return {
-    ro_number: buildRoNumber(env, ad1, ad2),
+    ro_number: roNumber,
     ccc_estfile_id: buildEstFileId(env),
     customer_name: buildCustomerName(ad1, ad2),
     vehicle: buildVehicle(veh),

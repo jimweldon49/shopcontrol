@@ -174,6 +174,36 @@ test('a commercial owner with only a company name is used as the customer, not t
   assert.ok(!insert.args.includes('Vinny Gutierrez'));
 });
 
+function insertedJob() {
+  const insert = calls.find(c => c.sql.startsWith('INSERT INTO daily_go_list'));
+  const cols = insert.sql.match(/\(([^)]*)\)/)[1].split(', ');
+  return Object.fromEntries(cols.map((c, i) => [c, insert.args[i]]));
+}
+
+test('an opportunity (no 5-digit RO) with a SUPP_NO is not flagged as needing a supplement', async () => {
+  rows.length = 0; calls.length = 0;
+  await importEmsFiles([
+    envFile({ RO_ID: '', ESTFILE_ID: '5ae15d5b', SUPP_NO: 'S01', TRANS_TYPE: 'S' }),
+    ad1File({ CLM_NO: '' }),
+    ad2File({ DATE_OUT: '' }),
+  ], user);
+  const job = insertedJob();
+  assert.equal(job.supplement_needed, 'No');
+  assert.equal(job.hold_up_reason, 'None');
+});
+
+test('a real RO with a SUPP_NO is still flagged as needing a supplement', async () => {
+  rows.length = 0; calls.length = 0;
+  await importEmsFiles([
+    envFile({ RO_ID: '18040', ESTFILE_ID: 'supp1', SUPP_NO: 'S01', TRANS_TYPE: 'S' }),
+    ad1File(),
+    ad2File({ DATE_OUT: '' }),
+  ], user);
+  const job = insertedJob();
+  assert.equal(job.supplement_needed, 'Yes');
+  assert.equal(job.hold_up_reason, 'Supplement');
+});
+
 test('a closed RO (vehicle already out in CCC) with no job in Shop Control is not re-created and adds no parts', async () => {
   rows.length = 0; calls.length = 0; partsInserted = 0;
   const result = await importEmsFiles([

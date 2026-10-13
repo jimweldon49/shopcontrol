@@ -422,11 +422,11 @@ function renderDaily() {
     if (view === "insurance" && !["Insurance","Supplement"].includes(r.holdUpReason)) return false;
     if (view === "paint" && !["Prep","Paint"].includes(r.currentStage)) return false;
     if (view === "estimates" && !(r.estimateNeeded === "Yes" && r.estimateCompleted !== "Yes")) return false;
-    if (view === "supplements" && !(r.supplementNeeded === "Yes" && r.supplementCompleted !== "Yes")) return false;
+    if (view === "supplements" && !(isOpenSupplementJob(r) && r.supplementNeeded === "Yes" && r.supplementCompleted !== "Yes")) return false;
     if (view === "management" && r.needsManagementHelp !== "Yes") return false;
     if (view === "customerUpdate" && !needsCustomerUpdate(r)) return false;
     if (view === "stale" && !isStaleVehicle(r)) return false;
-    if (view === "supplementNotApproved" && !(r.supplementNeeded === "Yes" && r.supplementApproved !== "Yes")) return false;
+    if (view === "supplementNotApproved" && !(isOpenSupplementJob(r) && r.supplementNeeded === "Yes" && r.supplementApproved !== "Yes")) return false;
     if (view === "deliveredToday" && !(r.currentStage === "Delivered" && (dateFromIsoLocal(r.deliveredAt) === today() || (!r.deliveredAt && r.actualDeliveredDate === today())))) return false;
     if (view === "delivered" && !["Delivered","Total Loss"].includes(r.currentStage)) return false;
     const hay = [r.roNumber,r.customerName,r.vehicle,r.todaysGoal,r.assignedTo].join(" ").toLowerCase();
@@ -1916,6 +1916,12 @@ async function resetBoothCountdown() {
   }
 }
 
+// Supplement boxes only count real 5-digit ROs still in the shop: not opportunities,
+// merged duplicates, or delivered / total-loss cars.
+function isOpenSupplementJob(r) {
+  return ShopModel.jobKind(r.roNumber) === "active" && !r.mergedInto && !["Delivered","Total Loss"].includes(r.currentStage);
+}
+
 function renderDashboard() {
   const d = store.get("daily");
   const t = store.get("tasks");
@@ -1926,7 +1932,7 @@ function renderDashboard() {
   $("metricDelivery").textContent = d.filter(r=>r.priority==="Delivery Today").length;
   $("metricDeliveredToday").textContent = d.filter(r=>r.currentStage==="Delivered" && (dateFromIsoLocal(r.deliveredAt)===today() || (!r.deliveredAt && r.actualDeliveredDate===today()))).length;
   $("metricEstimatesNeeded").textContent = d.filter(r=>r.estimateNeeded==="Yes" && r.estimateCompleted!=="Yes").length;
-  $("metricSupplementsNeeded").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementCompleted!=="Yes").length;
+  $("metricSupplementsNeeded").textContent = d.filter(r=>isOpenSupplementJob(r) && r.supplementNeeded==="Yes" && r.supplementCompleted!=="Yes").length;
   const p = store.get("parts");
   $("metricManagement").textContent = d.filter(r=>r.needsManagementHelp==="Yes").length;
   const problemVehicles = new Set(p.filter(r=>isPartsRowWithRo(r, d) && partProblemReason(r) && isPartsRowVehicleOnsite(r, d)).map(partGroupKey));
@@ -1944,7 +1950,7 @@ function renderDashboard() {
   $("metricCustomerUpdates").textContent = d.filter(needsCustomerUpdate).length;
   $("metricStaleCars").textContent = d.filter(isStaleVehicle).length;
   $("metricMissedCallsOverdue").textContent = store.get("missedCalls").filter(isOverdueMissedCall).length;
-  $("metricSuppNotApproved").textContent = d.filter(r=>r.supplementNeeded==="Yes" && r.supplementApproved!=="Yes").length;
+  $("metricSuppNotApproved").textContent = d.filter(r=>isOpenSupplementJob(r) && r.supplementNeeded==="Yes" && r.supplementApproved!=="Yes").length;
   $("metricPartsNeedMirror").textContent = p.filter(r=>r.partStatus==="Received" && r.partMirrorMatched!=="Yes").length;
   const ar = store.get("ar");
   const openAr = ar.filter(r=>r.arStatus!=="Paid");
