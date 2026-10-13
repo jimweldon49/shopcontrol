@@ -1916,10 +1916,11 @@ async function resetBoothCountdown() {
   }
 }
 
-// Supplement boxes only count real 5-digit ROs still in the shop: not opportunities,
-// merged duplicates, or delivered / total-loss cars.
+// Supplement boxes only count real 5-digit ROs whose car is on site on the Production
+// Board or checked in (the shop treats Check-In as on site): not opportunities, cars
+// still on the road, merged duplicates, or delivered / total-loss cars.
 function isOpenSupplementJob(r) {
-  return ShopModel.jobKind(r.roNumber) === "active" && !r.mergedInto && !["Delivered","Total Loss"].includes(r.currentStage);
+  return ShopModel.isOnsite(r) || (ShopModel.jobKind(r.roNumber) === "active" && !r.mergedInto && r.currentStage === "Check-In");
 }
 
 function renderDashboard() {
