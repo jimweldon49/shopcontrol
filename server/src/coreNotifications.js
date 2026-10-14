@@ -46,7 +46,7 @@ async function checkOverdueCores(){
  const subject=`URGENT: core${n===1?'':'s'} not returned in ${OVERDUE_DAYS} days · ${cores.map(c=>`RO ${c.parts_ro_number||'unassigned'}`).join(', ')}`;
  const bodyLines=[`${n===1?'This core has':'These cores have'} not been returned ${OVERDUE_DAYS} days after the part was marked Has a core. This needs to be addressed immediately.`,'',
   ...cores.flatMap(c=>[`RO ${c.parts_ro_number||'unassigned'} · ${c.part_description||'Part'}`,`   ${[c.parts_vehicle,c.parts_customer_name].filter(Boolean).join(' · ')}${c.part_assigned_to?` · Assigned to ${c.part_assigned_to}`:''} · Core since ${new Date(c.core_flagged_at).toLocaleDateString('en-US',{timeZone:process.env.BUSINESS_TIMEZONE||'America/Los_Angeles'})}`,'']),
-  'Return the core, then tick Core returned on the part in ShopControl → Parts.'];
+  'Return the core, then click Core returned on the part in ShopControl → Parts.'];
  let sent=0;
  for(const u of users){try{if((await sendTaskEmail({to:u.email,subject,title:subject,bodyLines})).sent)sent++;}catch(e){console.error('Overdue core email failed:',e.message);}}
  console.log(`Cores: ${n} not returned in ${OVERDUE_DAYS} days, emailed ${sent} of ${users.length} staff.`);
