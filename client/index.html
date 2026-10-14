@@ -481,6 +481,8 @@
           <option value="received">Received</option>
           <option value="mirror">Need Mirror Match</option>
           <option value="returns">Returns / Credits</option>
+          <option value="cores">Cores to Return</option>
+          <option value="coresOverdue">Cores Not Returned 3+ Days</option>
           <option value="problems">Parts Problems</option>
           <option value="late">Not Arrived On Time</option>
           <option value="noRo">No RO Yet (estimates)</option>
@@ -892,6 +894,7 @@
         <div class="metric danger-metric clickable" data-open-tab="parts" data-set-view="partsView:late"><span id="metricPartsLate">0</span><label>Parts Not Arrived On Time</label></div>
         <div class="metric clickable" data-open-tab="parts" data-set-view="partsView:noRo"><span id="metricPartsNoRo">0</span><label>Parts — No RO Yet</label></div>
         <div class="metric danger-metric clickable" data-open-tab="parts" data-set-view="partsView:returns"><span id="metricPartsReturns">0</span><label>Parts Need Returned</label></div>
+        <div class="metric warning clickable" id="metricCoresTile" data-open-tab="parts" data-set-view="partsView:cores"><span id="metricCoresDue">0</span><label>Parts With Cores to Return<small id="metricCoresOverdue"></small></label></div>
         <div class="metric clickable" data-open-tab="missedCalls" data-set-view="missedCallView:open"><span id="metricMissedCallsOpen">0</span><label>Open Callback Requests</label></div>
         <div class="metric clickable" data-open-tab="tasks" data-set-view="taskView:all"><span id="metricOpenTasks">0</span><label>Open Tasks</label></div>
         <div class="metric important clickable" data-open-tab="qc" data-set-view="qcView:open"><span id="metricQcOpen">0</span><label>QC Open</label></div>

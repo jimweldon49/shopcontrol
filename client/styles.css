@@ -47,6 +47,7 @@ td button { padding: 6px 8px; font-size: 12px; }
 .metric { background:white; border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center; }
 .metric span { display:block; font-size:34px; font-weight:800; }
 .metric label { color: var(--muted); font-size:13px; display:block; }
+.metric label small { display:block; margin-top:4px; font-weight:700; color:#b0413a; }
 .standard { font-size: 20px; font-weight: 800; }
 @media (max-width: 900px) {
   .app-header { flex-direction: column; align-items:flex-start; }

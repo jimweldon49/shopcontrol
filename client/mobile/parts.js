@@ -34,6 +34,8 @@
   const money = (n) => ShopModel.money(n);
   const opts = (list, cur) => list.map((v) => `<option ${v === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
   const day = (d) => String(d || "").slice(0, 10);
+  // Core not returned 3 days after the part was marked Has a core (same rule as the desktop).
+  const coreOverdue = (p) => p.has_core && !p.core_returned && !!p.core_flagged_at && Date.now() - new Date(p.core_flagged_at).getTime() >= 3 * 864e5;
   const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
   // ---------------------------------------------------------------- Rules (same as the office Parts tab)
@@ -202,7 +204,7 @@
           <span class="pill ${BAD_STATUSES.includes(p.part_status) || prob === p.part_status ? "bad" : ["Received", "Mirror Matched", "Complete"].includes(p.part_status) ? "ok" : ""}">${esc(p.part_status || "")}</span>
           ${prob && prob !== p.part_status ? `<span class="pill bad">${esc(prob)}</span>` : ""}
           ${p.part_mirror_matched === "Yes" ? '<span class="pill ok">Mirror matched</span>' : ""}
-          ${p.has_core ? `<span class="pill ${p.core_returned ? "ok" : "warn"}">${p.core_returned ? "Core returned" : "Core return due"}</span>` : ""}
+          ${p.has_core ? `<span class="pill ${p.core_returned ? "ok" : "warn"}">${p.core_returned ? "Core returned" : coreOverdue(p) ? "Core overdue 3+ days" : "Core return due"}</span>` : ""}
         </button></div>`;
     }).join("") || '<div class="empty">No problem parts. Turn off "Problem parts only" to see them all.</div>';
     syncSelection();

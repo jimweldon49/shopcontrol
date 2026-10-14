@@ -1129,6 +1129,14 @@ function summarizePartGroup(rows, dailyRows) {
 }
 
 // Expected ETA has passed and the part still hasn't shown up.
+// A part marked Has a core whose core hasn't been returned. Overdue 3 days after it was
+// marked (parts.core_flagged_at; the server emails all staff then, see coreNotifications.js).
+const CORE_OVERDUE_DAYS = 3;
+function isCoreDue(r) { return r.hasCore === true && r.coreReturned !== true; }
+function isCoreOverdue(r) {
+  return isCoreDue(r) && !!r.coreFlaggedAt && Date.now() - new Date(r.coreFlaggedAt).getTime() >= CORE_OVERDUE_DAYS * 864e5;
+}
+
 function isPartLate(r) {
   return !!r.partEta && r.partEta < today() && !["Received","Mirror Matched","Complete","Returned"].includes(r.partStatus);
 }
@@ -1156,6 +1164,8 @@ function partsGroupMatchesView(groupRows, view, dailyRows) {
   if (view === "received") return groupRows.some(r => r.partStatus === "Received");
   if (view === "mirror") return s.mirror > 0;
   if (view === "returns") return s.returns > 0;
+  if (view === "cores") return groupRows.some(isCoreDue);
+  if (view === "coresOverdue") return groupRows.some(isCoreOverdue);
   if (view === "problems") return isPartsRowWithRo(groupRows[0], dailyRows) && partsGroupHasProblem(groupRows) && groupRows.some(r => isPartsRowVehicleOnsite(r, dailyRows || []));
   if (view === "noRo") return !isPartsRowWithRo(groupRows[0], dailyRows) && s.open > 0;
   if (view === "late") return isPartsRowWithRo(groupRows[0], dailyRows) && groupRows.some(isPartLate);
@@ -1258,7 +1268,7 @@ function renderPartsDetailRows(rows) {
     const problem = partProblemReason(r);
     return `<tr class="${problem ? "part-problem-row" : ""}">
       <td><input type="checkbox" ${selectedPartIds.has(r.id) ? "checked" : ""} onchange="onPartCheckboxChange('${r.id}', this.checked)"></td>
-      <td>${escapeHtml(r.partDescription || "")}${problem ? `<br><span class="problem-badge">${escapeHtml(problem)}</span>` : ""}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":"Core return due"}</span>`:""}</td>
+      <td>${escapeHtml(r.partDescription || "")}${problem ? `<br><span class="problem-badge">${escapeHtml(problem)}</span>` : ""}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":isCoreOverdue(r)?`Core overdue ${CORE_OVERDUE_DAYS}+ days`:"Core return due"}</span>`:""}</td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
       <td>${escapeHtml(partLocationName(r)) || "Not placed"}</td>
@@ -1940,6 +1950,12 @@ function renderDashboard() {
   $("metricPartsProblems").textContent = problemVehicles.size;
   $("metricPartsLate").textContent = p.filter(r=>isPartsRowWithRo(r, d) && isPartLate(r)).length;
   $("metricPartsNoRo").textContent = p.filter(r=>r.partStatus!=="Complete" && !isPartsRowWithRo(r, d)).length;
+  $("metricCoresDue").textContent = p.filter(isCoreDue).length;
+  // One box for cores; it turns red and says how many are overdue once any pass 3 days.
+  const coresOverdue = p.filter(isCoreOverdue).length;
+  $("metricCoresOverdue").textContent = coresOverdue ? `${coresOverdue} overdue ${CORE_OVERDUE_DAYS}+ days` : "";
+  $("metricCoresTile").classList.toggle("danger-metric", coresOverdue > 0);
+  $("metricCoresTile").classList.toggle("warning", coresOverdue === 0);
   $("metricPartsReturns").textContent = p.filter(r=>r.partReturnNeeded === "Yes" || ["Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) || r.partCreditNeeded === "Yes").length;
   $("metricOpenTasks").textContent = t.filter(r=>r.taskStatus!=="Completed").length;
   const q = store.get("qc");
