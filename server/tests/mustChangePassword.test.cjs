@@ -6,6 +6,7 @@ const pool = {
   query: async (sql, args = []) => {
     if (sql.startsWith('SELECT id,username,full_name,role,can_delete,active,department,must_change_password')) return { rows: [user] };
     if (sql.startsWith('SELECT password_hash, username FROM users')) return { rows: [{ password_hash: 'hash:' + user.password, username: user.username }] };
+    if (sql.startsWith('UPDATE users SET display_prefs')) { updates.push({ sql, args }); user.display_prefs = args[0]; return { rows: [] }; }
     if (sql.startsWith('UPDATE users SET password_hash')) { updates.push({ sql, args }); user.must_change_password = false; user.password = args[0].replace('hash:', ''); return { rows: [] }; }
     return { rows: [] };
   },
@@ -19,7 +20,7 @@ Module._load = function (name, parent, ...rest) {
   if (name === 'bcryptjs') return bcrypt;
   if (name.endsWith('/activityLogger')) return { logActivity: async () => {} };
   if (name.endsWith('/mailer')) return { sendPasswordResetEmail: async () => ({}) };
-  if (name === 'express') return { Router: () => { const r = { routes: {}, get(p, ...h) { r.routes['GET ' + p] = h; }, post(p, ...h) { r.routes['POST ' + p] = h; } }; return r; } };
+  if (name === 'express') return { Router: () => { const r = { routes: {}, get(p, ...h) { r.routes['GET ' + p] = h; }, post(p, ...h) { r.routes['POST ' + p] = h; }, put(p, ...h) { r.routes['PUT ' + p] = h; } }; return r; } };
   return load.call(this, name, parent, ...rest);
 };
 const { requireAuth } = require('../src/middleware/auth');
@@ -71,4 +72,22 @@ test('changing the password needs the temporary password and a different new one
   assert.equal(ok.code, 200);
   assert.match(updates[0].sql, /must_change_password = false/);
   assert.equal((await through('/api/daily')).passed, true);
+});
+
+test('a user saves their own display settings; unknown values fall back to the defaults', async () => {
+  user.must_change_password = false;
+  const [auth, handler] = authRouter.routes['PUT /display'];
+  const req = { headers: { authorization: 'Bearer x' }, originalUrl: '/api/auth/display', body: { theme: 'route66', text: 'giant', accent: 'teal', extra: 'x' } };
+  const r = res(); let ok = false;
+  await auth(req, r, () => { ok = true; });
+  assert.equal(ok, true);
+  await handler(req, r);
+  assert.deepEqual(r.body.displayPrefs, { theme: 'route66', text: 'normal', accent: 'teal' });
+  assert.deepEqual(updates[0].args, [{ theme: 'route66', text: 'normal', accent: 'teal' }, 'u1']);
+  // And it comes back with the account on the next request.
+  const me = await through('/api/daily');
+  assert.equal(me.passed, true);
+  const req2 = { headers: { authorization: 'Bearer x' }, originalUrl: '/api/daily' };
+  await requireAuth(req2, res(), () => {});
+  assert.deepEqual(req2.user.displayPrefs, { theme: 'route66', text: 'normal', accent: 'teal' });
 });

@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { cleanDisplayPrefs } = require("../../../client/shared");
 const { sendPasswordResetEmail } = require("../mailer");
 const { logActivity } = require("../activityLogger");
 
@@ -162,7 +163,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, username, password_hash, full_name, role, can_delete, active, department, must_change_password, extra_departments FROM users WHERE username = $1",
+      "SELECT id, username, password_hash, full_name, role, can_delete, active, department, must_change_password, extra_departments, display_prefs FROM users WHERE username = $1",
       [name]
     );
     const user = result.rows[0];
@@ -195,7 +196,7 @@ router.post("/login", async (req, res) => {
 
     // Department isn't put in the token (it's re-read on every request); the app
     // just needs it up front to open the right QC checklist.
-    res.json({ token, user: { ...claims, department: user.department || null, extraDepartments: user.extra_departments || [], mustChangePassword: !!user.must_change_password } });
+    res.json({ token, user: { ...claims, department: user.department || null, extraDepartments: user.extra_departments || [], mustChangePassword: !!user.must_change_password, displayPrefs: cleanDisplayPrefs(user.display_prefs) } });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed. Please try again." });
@@ -204,6 +205,18 @@ router.post("/login", async (req, res) => {
 
 router.get("/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+// The signed-in user's own look (Display button). Unknown values fall back to the defaults.
+router.put("/display", requireAuth, async (req, res) => {
+  try {
+    const prefs = cleanDisplayPrefs(req.body);
+    await pool.query("UPDATE users SET display_prefs = $1 WHERE id = $2", [prefs, req.user.id]);
+    res.json({ displayPrefs: prefs });
+  } catch (err) {
+    console.error("Display settings error:", err);
+    res.status(500).json({ error: "Could not save your display settings." });
+  }
 });
 
 // Signed-in user sets their own password (required at first sign-in after an admin

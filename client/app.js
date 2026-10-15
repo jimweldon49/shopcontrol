@@ -2240,6 +2240,9 @@ function startKioskAutoReload() {
 function showApp() {
   $("loginScreen").style.display = "none";
   $("appRoot").classList.add("visible");
+  Display.sync(currentUser);
+  // Pick up a look changed on another computer since this browser saved the login.
+  apiRequest("/auth/me").then((d) => { if (d?.user && currentUser) { currentUser.displayPrefs = d.user.displayPrefs; Display.sync(currentUser); } }).catch(() => {});
   $("sessionInfo").textContent = currentUser ? `Logged in as ${currentUser.fullName} (${currentUser.role || "employee"})` : "";
   $("employeesTabBtn").style.display = ["admin","owner"].includes(String(currentUser?.role || "").toLowerCase()) ? "" : "none";
   const kiosk = isKioskMode();
@@ -2278,6 +2281,7 @@ function logout(message) {
   if (typeof StaffHub !== "undefined") StaffHub.stop();
   localStorage.removeItem("authToken");
   localStorage.removeItem("authUser");
+  Display.reset();
   $("employeesTabBtn").style.display = "none";
   showLogin();
   if (message) {
@@ -2341,6 +2345,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("changePasswordForm").addEventListener("submit", handleChangePasswordSubmit);
   $("cancelChangePasswordBtn").onclick = () => logout();
   $("logoutBtn").onclick = () => logout();
+  $("displayBtn").onclick = () => Display.open();
   $("refreshBtn").onclick = () => loadAll(false);
 
   $("dailyForm").addEventListener("submit", async e => { e.preventDefault(); try { await upsert("daily", dailyObj()); resetDaily(); } catch(_) {} });

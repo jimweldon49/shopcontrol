@@ -105,5 +105,13 @@
   // Parts search: words in the description, vendor or notes, and part numbers typed with or
   // without the dashes and spaces ("521190R938" finds "#52119-0R938").
   const partMatches=(p,q)=>{const text=[p.partDescription??p.part_description,p.partVendor??p.part_vendor,p.partNotes??p.part_notes].join(' ').toLowerCase(),want=String(q||'').trim().toLowerCase();if(!want)return true;const squash=s=>s.replace(/[^a-z0-9]/g,'');return text.includes(want)||(squash(want).length>=3&&squash(text).includes(squash(want)));};
-  return {partMatches,production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
+  // Each user's own look (Display button; client/display.js, client/themes.css). The first
+  // of each list is the default. Saved per user in users.display_prefs.
+  const displayOptions={
+    theme:[{id:'garage',name:'Garage (dark)'},{id:'light',name:'Light'},{id:'contrast',name:'High contrast'},{id:'pink',name:'Pink'},{id:'route66',name:'Route 66 neon'}],
+    text:[{id:'normal',name:'Normal'},{id:'large',name:'Large'},{id:'xlarge',name:'Extra large'}],
+    accent:[{id:'',name:'Theme color'},{id:'orange',name:'Orange'},{id:'blue',name:'Blue'},{id:'green',name:'Green'},{id:'teal',name:'Teal'},{id:'purple',name:'Purple'},{id:'red',name:'Red'},{id:'pink',name:'Pink'}],
+  };
+  function cleanDisplayPrefs(p){p=p&&typeof p==='object'?p:{};const pick=(k)=>displayOptions[k].some(o=>o.id===p[k])?p[k]:displayOptions[k][0].id;return {theme:pick('theme'),text:pick('text'),accent:pick('accent')};}
+  return {displayOptions,cleanDisplayPrefs,partMatches,production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
 });
