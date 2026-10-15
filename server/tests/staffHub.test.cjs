@@ -32,6 +32,7 @@ function query(sql, args = []) {
   }
   if (sql.startsWith('SELECT id, email FROM users WHERE active=true AND role = ANY')) return { rows: users.filter(u => args[0].includes(u.role) && u.id !== args[1]) };
   if (sql.startsWith('INSERT INTO employee_notifications')) return { rows: [] };
+  if (sql.includes('INSERT INTO appointments')) { appointments.push(args); return { rows: [{ id: `apt-${appointments.length}` }] }; }
   if (sql.startsWith('UPDATE time_off_requests SET status=$1')) {
     const r = requests.find(x => x.id === args[3] && x.status === 'Pending'); if (!r) return { rows: [] };
     Object.assign(r, { status: args[0], decision_note: args[1], decided_by: args[2] }); return { rows: [r] };
@@ -45,6 +46,7 @@ function query(sql, args = []) {
   if (sql.startsWith('SELECT id FROM users WHERE active=true')) return { rows: users };
   return { rows: [] };
 }
+const appointments = [];
 const pool = { query: async (s, a) => query(s, a), connect: async () => ({ query: async (s, a) => query(s, a), release() {} }) };
 
 const load = Module._load;
@@ -107,6 +109,10 @@ test('only admins can approve; the employee gets a message and an email, and the
   const ok = await call('POST /time-off/:id/decision', admin, { decision: 'Approved', note: 'Feel better' }, { id: 't1' });
   assert.equal(ok.code, 200);
   assert.equal(requests[0].status, 'Approved');
+  // Approved time off goes on the calendar, one all-day entry per weekday out.
+  assert.ok(appointments.length >= 1);
+  assert.match(appointments[0][0], / – Sick$/);
+  assert.deepEqual(appointments[0].slice(2, 4), ['00:00', 1440]);
   assert.equal(messages.length, 1);
   assert.equal(messages[0].args[2], 'u-tech');
   assert.match(messages[0].args[3], /^Time off APPROVED: Sick/);

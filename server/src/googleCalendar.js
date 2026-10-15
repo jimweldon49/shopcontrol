@@ -71,12 +71,15 @@ function localParts(iso) {
 
 function toEvent(a) {
   const date = day(a.appointment_date);
+  // 00:00 for 24 hours (time off, all-day events from Google) goes back as all-day.
+  const allDay = hhmm(a.appointment_time) === "00:00" && Number(a.duration) >= 1440;
   return {
     summary: a.title,
     location: a.location || undefined,
     description: `${a.notes || ""}${FOOTER}`.trim(),
-    start: { dateTime: `${date}T${hhmm(a.appointment_time)}:00`, timeZone: TZ() },
-    end: { dateTime: addMinutes(date, a.appointment_time, a.duration || 30), timeZone: TZ() },
+    // The unused field is cleared (null) so an update can switch between all-day and timed.
+    start: allDay ? { date, dateTime: null } : { date: null, dateTime: `${date}T${hhmm(a.appointment_time)}:00`, timeZone: TZ() },
+    end: allDay ? { date: addMinutes(date, "00:00", 1440).slice(0, 10), dateTime: null } : { date: null, dateTime: addMinutes(date, a.appointment_time, a.duration || 30), timeZone: TZ() },
     extendedProperties: { private: { shopcontrolId: a.id, shopcontrolType: a.appointment_type } },
   };
 }

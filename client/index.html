@@ -430,6 +430,10 @@
         <p>Parts need to be ordered, received, mirror matched, returned, credited, and followed up on with urgency.</p>
       </div>
 
+      <div id="partsToday"></div>
+
+      <details class="editor-drawer" id="partsFormDrawer">
+      <summary>＋ Add a part or edit one</summary>
       <form id="partsForm" class="card form-grid">
         <input type="hidden" id="partsId" />
         <label>RO Number <input id="partsRoNumber" required /></label>
@@ -477,6 +481,7 @@
           <button type="button" id="resetPartsBtn">New / Clear</button>
         </div>
       </form>
+      </details>
 
       <div class="toolbar">
         <input id="partsSearch" placeholder="Search RO, customer, vehicle, part..." />
@@ -498,31 +503,23 @@
         <button id="exportPartsBtn">Export Parts CSV</button>
       </div>
 
-      <div class="table-wrap">
-        <table id="partsTable">
-          <thead>
-            <tr>
-              <th>RO</th><th>Customer</th><th>Vehicle</th><th>Total Parts</th><th>Problems</th><th>Open</th><th>Need Order</th><th>Waiting</th><th>Mirror Match</th><th>Returns/Credits</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div id="partsCards" class="parts-ro-grid"></div>
     </section>
 
     <section id="cartsShelves" class="tab-panel">
       <div class="section-head">
         <h2>Carts &amp; Shelves</h2>
-        <p>Select a cart, then drag a part card by its handle onto a shelf to move it. One vehicle per cart.</p>
+        <p>Put received parts away several at a time, see what's on every cart, and open a cart to sort its shelves. One vehicle per cart.</p>
       </div>
-      <div id="cartsGrid" class="grid"></div>
+      <div id="putawayTray"></div>
+      <div id="cartsGrid" class="inv-grid"></div>
       <div id="cartShelvesDetail"></div>
     </section>
 
     <section id="floorPlan" class="tab-panel">
       <div class="section-head">
         <h2>Shop Floor Plan</h2>
-        <p>Illustrative layout grouped by zone. Edit a location's zone in Manage Locations to move it here.</p>
+        <p>Every cart and storage spot by zone, with the RO and part count on each. Click one to see its shelves. Edit a location's zone in Manage Locations to move it.</p>
       </div>
       <div id="floorPlanZones"></div>
     </section>
@@ -1098,6 +1095,7 @@
         <button type="button" onclick="markSelectedOrdered()">Order Selected</button>
         <button type="button" onclick="selectMirrorMatchedParts()">Select Already Mirror Matched</button>
         <button type="button" onclick="markSelectedMirrorMatched()">Mirror Match Selected</button>
+        <button type="button" onclick="PartsUi.putAway(store.get('parts').filter(p=>selectedPartIds.has(p.id)))">Put Away Selected</button>
         <label class="check-label"><input type="checkbox" id="partsProblemsOnly" onchange="setPartsModalProblemsOnly(this.checked)"> Show problem parts only</label>
       </div>
       <div class="table-wrap">
@@ -1114,6 +1112,7 @@
   <div class="status-banner" id="statusBanner"></div>
 
 <script src="unified.js"></script>
+<script src="partsUi.js"></script>
 <script src="app.js"></script>
 <script src="staff.js"></script>
 <script src="techBoard.js"></script>

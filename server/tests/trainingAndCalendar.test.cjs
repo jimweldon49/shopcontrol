@@ -57,8 +57,11 @@ process.env.BUSINESS_TIMEZONE = 'America/Los_Angeles';
 
 test('appointments become Google events in shop time, and Google events come back the same', () => {
   const ev = gcal.toEvent({ id: 'a1', title: 'Jairo – I-CAR: Welding', appointment_type: 'Training', appointment_date: '2026-10-16', appointment_time: '07:30:00', duration: 480, location: 'I-CAR Modesto', notes: 'Bring gloves' });
-  assert.deepEqual(ev.start, { dateTime: '2026-10-16T07:30:00', timeZone: 'America/Los_Angeles' });
-  assert.deepEqual(ev.end, { dateTime: '2026-10-16T15:30:00', timeZone: 'America/Los_Angeles' });
+  assert.deepEqual(ev.start, { date: null, dateTime: '2026-10-16T07:30:00', timeZone: 'America/Los_Angeles' });
+  assert.deepEqual(ev.end, { date: null, dateTime: '2026-10-16T15:30:00', timeZone: 'America/Los_Angeles' });
+  // A full day (approved time off) goes to Google as an all-day event.
+  const off = gcal.toEvent({ id: 'a2', title: 'Luis Soto – Vacation', appointment_type: 'Time off', appointment_date: '2026-10-30', appointment_time: '00:00:00', duration: 1440, location: 'Out' });
+  assert.deepEqual([off.start, off.end], [{ date: '2026-10-30', dateTime: null }, { date: '2026-10-31', dateTime: null }]);
   assert.equal(ev.extendedProperties.private.shopcontrolType, 'Training');
   const back = gcal.fromEvent({ ...ev, start: { dateTime: '2026-10-16T07:30:00-07:00' }, end: { dateTime: '2026-10-16T15:30:00-07:00' } });
   assert.deepEqual(back, { title: 'Jairo – I-CAR: Welding', appointment_type: 'Training', appointment_date: '2026-10-16', appointment_time: '07:30', duration: 480, location: 'I-CAR Modesto', notes: 'Bring gloves' });
@@ -107,4 +110,13 @@ test('a sync sends ShopControl changes and deletes, then brings in Google change
   assert.ok(calls.some((c) => c.sql.includes("created_by = 'Google Calendar' AND appointment_date > $1")));
   // The sent appointment compares its exact timestamp text, not a rounded JS date.
   assert.ok(calls.some((c) => c.sql.includes('updated_at::text IS DISTINCT FROM $3')));
+});
+
+test('approved time off is calendared on each weekday out, or on the weekend days if that is all it covers', () => {
+  const { timeOffDays } = Module._load('../src/routes/staff', module);
+  const r = (start, end) => ({ start_date: start, end_date: end });
+  assert.deepEqual(timeOffDays(r('2026-10-16', '2026-10-20'), '2026-10-16'), ['2026-10-16', '2026-10-19', '2026-10-20']); // Fri–Tue
+  assert.deepEqual(timeOffDays(r('2026-10-17', '2026-10-18'), '2026-10-17'), ['2026-10-17', '2026-10-18']); // a weekend only
+  assert.deepEqual(timeOffDays(r('2026-10-12', '2026-10-16'), '2026-10-15'), ['2026-10-15', '2026-10-16']); // already started: from today
+  assert.equal(timeOffDays(r('2026-01-01', '2026-12-31'), '2026-01-01').length, 42); // capped at 60 calendar days
 });

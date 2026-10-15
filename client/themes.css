@@ -210,3 +210,14 @@
 .accent-dot[data-dot="green"]  { background: #22c55e; } .accent-dot[data-dot="teal"] { background: #14b8a6; }
 .accent-dot[data-dot="purple"] { background: #a855f7; } .accent-dot[data-dot="red"]  { background: #ef4444; }
 .accent-dot[data-dot="pink"]   { background: #ec4899; }
+
+/* Parts status colors: deeper shades so they read on white. */
+:root:is([data-theme="light"], [data-theme="pink"]) {
+  --st-late: #dc2626; --st-backorder: #c2410c; --st-issue: #7e22ce; --st-order: #a16207;
+  --st-ordered: #0369a1; --st-received: #0f766e; --st-matched: #15803d; --st-done: #64748b;
+}
+:root:is([data-theme="light"], [data-theme="pink"]) .pc-today { color: #fff; }
+:root:is([data-theme="light"], [data-theme="pink"]) :is(.parts-ro-card, .inv-tile):hover { box-shadow: 0 10px 24px rgba(15,23,42,.14); }
+/* Route 66: the cart numbers glow like the rest of the signs. */
+:root[data-theme="route66"] .inv-num, :root[data-theme="route66"] .ro-num { font-family: var(--menu-font); font-weight: 400; color: var(--neon-cyan); text-shadow: var(--glow-cyan); }
+:root[data-theme="route66"] .inv-ro { color: var(--neon-pink); text-shadow: 0 0 8px rgba(255,62,200,.5); }

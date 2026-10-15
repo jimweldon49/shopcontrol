@@ -121,6 +121,36 @@ router.post("/time-off/:id/cancel", async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// Approved time off goes on the calendar (and from there to Google Calendar): one "Time off"
+// entry per day out, weekdays only unless the request is only weekend days. Full days are
+// all-day entries (00:00 for 24 hours); partial days use the request's hours. The request's
+// notes aren't copied (they can be private). Keep in step with migrations/039's backfill.
+const TIME_OFF_MAX_DAYS = 60;
+function timeOffDays(r, from) {
+  const all = [];
+  const start = String(r.start_date).slice(0, 10) > from ? String(r.start_date).slice(0, 10) : from;
+  for (let d = new Date(`${start}T12:00:00Z`), end = new Date(`${String(r.end_date).slice(0, 10)}T12:00:00Z`); d <= end && all.length < TIME_OFF_MAX_DAYS; d.setUTCDate(d.getUTCDate() + 1)) {
+    all.push({ date: d.toISOString().slice(0, 10), weekday: ![0, 6].includes(d.getUTCDay()) });
+  }
+  const weekdays = all.filter((d) => d.weekday);
+  return (weekdays.length ? weekdays : all).map((d) => d.date);
+}
+async function calendarTimeOff(db, r, by) {
+  const mins = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
+  const partial = r.partial_day && r.start_time && r.end_time;
+  const time = partial ? String(r.start_time).slice(0, 5) : "00:00";
+  const duration = partial ? Math.max(5, mins(r.end_time) - mins(r.start_time)) : 1440;
+  const ids = [];
+  for (const date of timeOffDays(r, String(r.start_date).slice(0, 10))) {
+    ids.push((await db.query(
+      `INSERT INTO appointments(title, appointment_type, appointment_date, appointment_time, duration, location, created_by, updated_by)
+       VALUES($1, 'Time off', $2, $3, $4, 'Out', $5, $5) RETURNING id`,
+      [`${r.full_name} – ${typeLabel(r)}`, date, time, duration, by])).rows[0].id);
+  }
+  await db.query("UPDATE time_off_requests SET appointment_ids = $1 WHERE id = $2", [ids, r.id]);
+  return ids.length;
+}
+
 router.post("/time-off/:id/decision", async (req, res) => {
   const db = await pool.connect();
   try {
@@ -133,6 +163,7 @@ router.post("/time-off/:id/decision", async (req, res) => {
       `UPDATE time_off_requests SET status=$1, decision_note=$2, decided_by=$3, decided_at=now(), updated_at=now()
        WHERE id=$4 AND status='Pending' RETURNING *`, [decision, note, who(req), req.params.id])).rows[0];
     if (!row) throw httpError(409, "This request was already decided or cancelled. Refresh and check.");
+    if (decision === "Approved") await calendarTimeOff(db, row, who(req));
     const requester = (await db.query("SELECT id, email, full_name FROM users WHERE id=$1", [row.user_id])).rows[0];
     const subject = `Time off ${decision.toUpperCase()}: ${typeLabel(row)}`;
     const body = `Your time-off request (${typeLabel(row)}, ${describeDates(row)}) was ${decision.toLowerCase()} by ${who(req)}.${note ? `\n\nNote: ${note}` : ""}`;
@@ -551,4 +582,5 @@ router.delete("/company-info/:id", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.timeOffDays = timeOffDays;
 module.exports.TIME_OFF_TYPES = TIME_OFF_TYPES;

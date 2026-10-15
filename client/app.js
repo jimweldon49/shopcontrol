@@ -1165,8 +1165,9 @@ function partsGroupMatchesView(groupRows, view, dailyRows) {
 }
 
 function renderParts() {
-  const table = $("partsTable");
-  if (!table) return;
+  const cards = $("partsCards");
+  if (!cards) return;
+  PartsUi.renderToday();
   renderPartLocationOptions();
 
   const allRows = store.get("parts");
@@ -1188,23 +1189,12 @@ function renderParts() {
   });
 
   groups = groups.filter(g => partsGroupMatchesView(g.rows, view, dailyRows) && g.hay.includes(search));
-  groups.sort((a,b) => (b.summary.open - a.summary.open) || String(a.first.partsRoNumber || "").localeCompare(String(b.first.partsRoNumber || "")));
+  // Cars still here with late parts first, then the most open parts; delivered cars last.
+  const gone = g => PartsUi.carGone(g.first) ? 1 : 0;
+  const late = g => gone(g) ? 0 : g.rows.filter(isPartLate).length;
+  groups.sort((a,b) => (gone(a) - gone(b)) || (late(b) - late(a)) || (b.summary.open - a.summary.open) || String(a.first.partsRoNumber || "").localeCompare(String(b.first.partsRoNumber || "")));
 
-  table.querySelector("tbody").innerHTML = groups.map(g => `
-    <tr>
-      <td>${g.first.partsRoNumber || ""}</td>
-      <td>${g.first.partsCustomerName || ""}</td>
-      <td>${g.first.partsVehicle || ""}</td>
-      <td>${g.summary.total}</td>
-      <td class="${g.summary.problems ? "status-bad" : ""}">${g.summary.problems}</td>
-      <td>${g.summary.open}</td>
-      <td>${g.summary.needOrder}</td>
-      <td>${g.summary.waiting}</td>
-      <td class="${g.summary.mirror ? "status-bad" : ""}">${g.summary.mirror}</td>
-      <td class="${g.summary.returns ? "status-bad" : ""}">${g.summary.returns}</td>
-      <td><div class="actions"><button onclick="openPartsGroup('${encodeURIComponent(g.key)}')">Open Parts</button></div></td>
-    </tr>
-  `).join("");
+  cards.innerHTML = groups.map(PartsUi.roCard).join("") || '<p class="empty">No parts match.</p>';
 }
 
 let currentPartsGroupKey = null;
@@ -1257,15 +1247,15 @@ function renderPartsDetailRows(rows) {
     const returnCredit = (r.partReturnNeeded === "Yes" ? "Return " : "") + (r.partCreditNeeded === "Yes" ? "Credit" : "");
     const etaLate = isPartLate(r);
     const problem = partProblemReason(r);
-    return `<tr class="${problem ? "part-problem-row" : ""}">
+    return `<tr class="${problem ? "part-problem-row" : ""} ${PartsUi.rowClass(r)}">
       <td><input type="checkbox" ${selectedPartIds.has(r.id) ? "checked" : ""} onchange="onPartCheckboxChange('${r.id}', this.checked)"></td>
       <td>${escapeHtml(r.partDescription || "")}${problem ? `<br><span class="problem-badge">${escapeHtml(problem)}</span>` : ""}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":isCoreOverdue(r)?`Core overdue ${CORE_OVERDUE_DAYS}+ days`:"Core return due"}</span>`:""}</td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
-      <td>${escapeHtml(partLocationName(r)) || "Not placed"}</td>
+      <td>${PartsUi.locChip(r) || '<span class="muted">—</span>'}</td>
       <td>${formatCurrency(partValue(r))}</td>
-      <td class="${["Backordered","Wrong Part","Return Needed","Credit Pending"].includes(r.partStatus) ? "status-bad" : ""}">${r.partStatus || ""}</td>
-      <td class="${etaLate ? "status-bad" : ""}">${r.partEta || ""}</td>
+      <td>${PartsUi.statusPill(r)}</td>
+      <td>${PartsUi.etaChip(r)}${r.partEta && !etaLate && ["Ordered","Backordered"].includes(r.partStatus) ? `<small>${escapeHtml(r.partEta)}</small>` : ""}</td>
       <td>${r.partMirrorMatched || ""}</td>
       <td>${returnCredit || "No"}</td>
       <td>${r.partAssignedTo || ""}</td>
@@ -1399,6 +1389,7 @@ function editParts(id){
   $("hasCore").checked=r.hasCore===true;
   $("coreReturned").checked=r.coreReturned===true;
   renderPartLocationOptions(r.partLocation || "", r.partShelf || "");
+  if ($("partsFormDrawer")) $("partsFormDrawer").open = true;
   closePartsModal();
   document.querySelector('[data-tab="parts"]').click();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1409,58 +1400,46 @@ function editParts(id){
 // Parts Inventory: carts, shelves, floor plan, returns/aging
 // ============================================================
 let selectedCartId = null;
-function inventoryTileHtml(l) {
-  const partsHere = store.get("parts").filter(p => isPartOnsite(p) && p.partLocation === l.id);
-  const occupied = l.kind === "cart" && l.ros && l.ros.length;
-  return `<button type="button" class="production-card ${selectedCartId===l.id?'selected':''}" onclick="selectInventoryLocation('${l.id}')">
-    <h3>${escapeHtml(l.name)}</h3>
-    <p>${occupied ? "RO " + escapeHtml(l.ros.join(" / ")) : (l.kind === "cart" ? "Available" : "Other storage")}</p>
-    <p>${partsHere.length} part(s) · ${escapeHtml(l.zone)}</p>
-  </button>`;
-}
-function partCardHtml(p) {
-  return `<button type="button" class="production-card" draggable="true" data-part="${p.id}" ondragstart="event.dataTransfer.setData('text/plain', this.dataset.part)" onclick="editParts('${p.id}')">
-    <h3>${escapeHtml(p.partDescription || "")}</h3>
-    <p>RO ${escapeHtml(p.partsRoNumber || "")}${Number(p.partQty||1) > 1 ? " · Qty " + p.partQty : ""}</p>
-  </button>`;
-}
+function inventoryTileHtml(l) { return PartsUi.tile(l, selectedCartId); }
+function partCardHtml(p) { return PartsUi.partCard(p); }
 function selectInventoryLocation(id) { selectedCartId = id; renderCartsShelves(); renderFloorPlan(); }
 function renderShelvesForSelected() {
   const loc = store.get("inventoryLocations").find(l => l.id === selectedCartId);
   if (!loc) return '<p class="board-tip">Select a cart or location to see what\'s stored there.</p>';
   const partsHere = store.get("parts").filter(p => isPartOnsite(p) && p.partLocation === loc.id);
   if (loc.kind !== "cart") {
-    return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:center"><h3>${escapeHtml(loc.name)}</h3><button type="button" onclick="editLocationRow('${loc.id}')">Edit location</button></div>${partsHere.map(partCardHtml).join("") || '<p class="empty">No parts here.</p>'}</div>`;
+    return `<div class="card shelf-detail"><div class="shelf-detail-head"><div><span class="eyebrow">${escapeHtml(loc.zone || "Storage")}</span><h3>${escapeHtml(loc.name)}</h3><small>${partsHere.length} part(s)</small></div><button type="button" class="quiet" onclick="editLocationRow('${loc.id}')">Edit location</button></div>
+      <section class="production-column shelf-col" data-destination=""><div class="shelf-parts">${partsHere.map(partCardHtml).join("") || '<p class="column-empty">Drop parts here</p>'}</div></section></div>`;
   }
   const shelves = [...(loc.hasTop ? ["Top"] : []), ...Array.from({ length: loc.shelfCount || 0 }, (_, i) => String((loc.shelfCount||0) - i))];
   // Parts placed on the cart during mirror match but not yet given a shelf.
   const unsorted = partsHere.filter(p => !p.partShelf || !shelves.includes(p.partShelf));
-  return `<div class="card"><div class="row" style="display:flex;justify-content:space-between;align-items:center"><h3>${escapeHtml(loc.name)}</h3><button type="button" onclick="editLocationRow('${loc.id}')">Edit cart</button></div>
-    <p class="board-tip">Drag a part card onto a shelf to move it. One vehicle per cart.</p>
-    <div class="production-columns">${unsorted.length ? `<section class="production-column unsorted-column"><header><h3>Needs a shelf <span>${unsorted.length}</span></h3></header><div>${unsorted.map(partCardHtml).join("")}</div></section>` : ""}${shelves.map(s => {
+  const ros = PartsUi.cartRos(loc);
+  return `<div class="card shelf-detail"><div class="shelf-detail-head"><div><span class="eyebrow">CART</span><h3><span class="shelf-cart-num">${escapeHtml(PartsUi.cartNum(loc.name))}</span>${ros.length ? ` · RO ${escapeHtml(ros.join(" / "))}` : " · Empty"}</h3><small>${partsHere.length} part(s) · ${escapeHtml(loc.zone || "")}</small></div><button type="button" class="quiet" onclick="editLocationRow('${loc.id}')">Edit cart</button></div>
+    <p class="board-tip">Tick parts and drag one of them onto a shelf to move them all together, or drag a single part. Click a part to edit it.</p>
+    <div class="shelf-stack">${unsorted.length ? `<section class="production-column shelf-col unsorted-column" data-destination=""><header><h3>Needs a shelf <span>${unsorted.length}</span></h3></header><div class="shelf-parts">${unsorted.map(partCardHtml).join("")}</div></section>` : ""}${shelves.map(s => {
       const shelfParts = partsHere.filter(p => (p.partShelf || "") === s);
-      return `<section class="production-column" data-destination="${s}"><header><h3>${s === "Top" ? "Top · rarely used" : "Shelf " + s}</h3></header><div>${shelfParts.map(partCardHtml).join("") || '<p class="column-empty">Drop a part here</p>'}</div></section>`;
+      return `<section class="production-column shelf-col" data-destination="${s}"><header><h3>${s === "Top" ? "Top · rarely used" : "Shelf " + s}<span>${shelfParts.length}</span></h3></header><div class="shelf-parts">${shelfParts.map(partCardHtml).join("") || '<p class="column-empty">Drop parts here</p>'}</div></section>`;
     }).join("")}</div></div>`;
 }
+// Dropping moves the dragged part, or every ticked part when a ticked one is dragged
+// (PartsUi.dragStart/dropOnShelf). "" is the cart without a shelf.
 function wireInventoryDragAndDrop() {
   document.querySelectorAll(".production-column[data-destination]").forEach(col => {
     col.ondragover = e => { e.preventDefault(); col.classList.add("drag-over"); };
     col.ondragleave = () => col.classList.remove("drag-over");
-    col.ondrop = async e => {
+    col.ondrop = e => {
       e.preventDefault(); col.classList.remove("drag-over");
-      const partId = e.dataTransfer.getData("text/plain");
-      const part = store.get("parts").find(p => p.id === partId);
-      if (!part || !selectedCartId) return;
-      try {
-        await upsert("parts", { id: partId, partLocation: selectedCartId, partShelf: col.dataset.destination, expectedUpdatedAt: part.updatedAt });
-      } catch (_) {}
+      PartsUi.dropOnShelf(e.dataTransfer.getData("text/plain"), selectedCartId, col.dataset.destination || null);
     };
   });
 }
 function renderCartsShelves() {
   const grid = $("cartsGrid");
   if (!grid) return;
-  grid.innerHTML = store.get("inventoryLocations").map(inventoryTileHtml).join("") || '<p class="empty">No carts or locations yet. Add one in Manage Locations.</p>';
+  if ($("putawayTray")) $("putawayTray").innerHTML = PartsUi.trayHtml();
+  const locs = store.get("inventoryLocations").slice().sort((a, b) => (a.kind === "cart" ? 0 : 1) - (b.kind === "cart" ? 0 : 1) || PartsUi.natural(a, b));
+  grid.innerHTML = locs.map(inventoryTileHtml).join("") || '<p class="empty">No carts or locations yet. Add one in Manage Locations.</p>';
   $("cartShelvesDetail").innerHTML = renderShelvesForSelected();
   wireInventoryDragAndDrop();
 }
@@ -1468,8 +1447,15 @@ function renderFloorPlan() {
   const container = $("floorPlanZones");
   if (!container) return;
   const locations = store.get("inventoryLocations");
-  const zones = [...new Set(locations.map(l => l.zone))];
-  container.innerHTML = (zones.length ? zones.map(z => `<div class="zone"><h3>${escapeHtml(z)}</h3><div class="grid">${locations.filter(l => l.zone === z).map(inventoryTileHtml).join("")}</div></div>`).join("") : '<p class="empty">No locations yet. Add one in Manage Locations.</p>') + renderShelvesForSelected();
+  // Zones with carts first, then the rest in name order.
+  const zones = [...new Set(locations.map(l => l.zone))].sort((a, b) => (locations.some(l => l.zone === b && l.kind === "cart") - locations.some(l => l.zone === a && l.kind === "cart")) || String(a || "").localeCompare(String(b || "")));
+  const zoneHtml = z => {
+    const here = locations.filter(l => l.zone === z).sort(PartsUi.natural);
+    const parts = store.get("parts").filter(p => isPartOnsite(p) && here.some(l => l.id === p.partLocation)).length;
+    const inUse = here.filter(l => l.kind === "cart" && PartsUi.cartRos(l).length).length, carts = here.filter(l => l.kind === "cart").length;
+    return `<div class="floor-zone"><header><h3>${escapeHtml(z || "No zone")}</h3><span>${carts ? `${inUse} of ${carts} carts in use · ` : ""}${parts} part(s)</span></header><div class="inv-grid">${here.map(inventoryTileHtml).join("")}</div></div>`;
+  };
+  container.innerHTML = (zones.length ? `<div class="floor-plan">${zones.map(zoneHtml).join("")}</div>` : '<p class="empty">No locations yet. Add one in Manage Locations.</p>') + renderShelvesForSelected();
   wireInventoryDragAndDrop();
 }
 function renderReturnsAlerts() {
