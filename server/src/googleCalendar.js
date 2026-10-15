@@ -16,6 +16,7 @@ const SCOPE = "https://www.googleapis.com/auth/calendar";
 const TZ = () => process.env.BUSINESS_TIMEZONE || "America/Los_Angeles";
 const PUSH_BACK_DAYS = 60; // older appointments aren't sent to Google
 const PULL_BACK_DAYS = 30; // first sync brings in events from 30 days ago on
+const PULL_AHEAD_DAYS = 365; // ...up to a year ahead (repeating events would otherwise go on for decades)
 const FOOTER = "\n\n— From ShopControl";
 
 const config = () => ({ calendarId: process.env.GOOGLE_CALENDAR_ID || "", keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_FILE || "" });
@@ -111,22 +112,42 @@ async function push() {
   // Too old to bother sending: just mark them clean.
   await pool.query(`UPDATE appointments SET google_dirty = false, google_synced_at = now()
                     WHERE google_dirty AND google_event_id IS NULL AND appointment_date < CURRENT_DATE - $1::int`, [PUSH_BACK_DAYS]);
-  const dirty = (await pool.query("SELECT * FROM appointments WHERE google_dirty ORDER BY updated_at LIMIT 100")).rows;
+  // updated_at as text: a JS Date drops the microseconds, so it would never compare equal.
+  const dirty = (await pool.query("SELECT *, updated_at::text AS updated_at_exact FROM appointments WHERE google_dirty ORDER BY updated_at LIMIT 100")).rows;
   for (const a of dirty) {
     let r = a.google_event_id ? await google("PATCH", `/events/${encodeURIComponent(a.google_event_id)}`, { body: toEvent(a) }) : null;
     if (!r || r.status === 404 || r.status === 410) r = await google("POST", "/events", { body: toEvent(a) });
     if (r.status !== 200) throw failed(r, `Sending "${a.title}"`);
     // Keep the event id either way; stay dirty if someone changed it while it was being sent.
     await pool.query(
-      "UPDATE appointments SET google_event_id = $1, google_synced_at = now(), google_dirty = (updated_at IS DISTINCT FROM $3) WHERE id = $2",
-      [r.body.id, a.id, a.updated_at]);
+      "UPDATE appointments SET google_event_id = $1, google_synced_at = now(), google_dirty = (updated_at::text IS DISTINCT FROM $3) WHERE id = $2",
+      [r.body.id, a.id, a.updated_at_exact]);
     pushed++;
   }
   return pushed;
 }
 
 // ------------------------------------------------------------------ Pull
+// Removes ShopControl's copy only (the event stays in Google): the delete trigger skips
+// remembering it while shopcontrol.google_pull is on.
+async function removeLocalCopy(sql, args) {
+  const db = await pool.connect();
+  try {
+    await db.query("BEGIN");
+    await db.query("SET LOCAL shopcontrol.google_pull = 'on'");
+    const r = await db.query(sql, args);
+    await db.query("COMMIT");
+    return r.rowCount;
+  } catch (e) { await db.query("ROLLBACK").catch(() => {}); throw e; } finally { db.release(); }
+}
+
+const horizon = () => new Date(Date.now() + PULL_AHEAD_DAYS * 864e5).toISOString().slice(0, 10);
+
 async function applyEvent(ev) {
+  if (ev.status !== "cancelled" && ev.start && fromEvent(ev).appointment_date > horizon()) {
+    // Beyond a year out: not brought in (and dropped here if it moved out that far).
+    return removeLocalCopy("DELETE FROM appointments WHERE google_event_id = $1 AND created_by = 'Google Calendar' AND NOT google_dirty", [ev.id]);
+  }
   if (ev.status === "cancelled") {
     const db = await pool.connect();
     try {
@@ -169,6 +190,8 @@ async function pull() {
     pageToken = r.body.nextPageToken || null;
     nextSyncToken = r.body.nextSyncToken || nextSyncToken;
   } while (pageToken);
+  // Repeating events roll forward: drop copies that are now past the one-year window.
+  await removeLocalCopy("DELETE FROM appointments WHERE created_by = 'Google Calendar' AND appointment_date > $1 AND NOT google_dirty", [horizon()]);
   await pool.query(
     `INSERT INTO google_calendar_sync(id, calendar_id, sync_token, last_pull_at) VALUES(1, $1, $2, now())
      ON CONFLICT (id) DO UPDATE SET calendar_id = EXCLUDED.calendar_id, sync_token = EXCLUDED.sync_token, last_pull_at = now()`,

@@ -79,15 +79,16 @@ test('a sync sends ShopControl changes and deletes, then brings in Google change
       { id: 'g-new', status: 'confirmed', summary: 'Jairo – I-CAR', start: { dateTime: '2026-10-16T07:30:00-07:00' }, end: { dateTime: '2026-10-16T08:00:00-07:00' } },
       { id: 'g-dentist', status: 'confirmed', summary: 'Dentist', start: { date: '2026-10-20' }, end: { date: '2026-10-21' } },
       { id: 'g-gone', status: 'cancelled' },
+      { id: 'g-bday-2040', status: 'confirmed', summary: 'Birthday', start: { date: '2040-02-01' }, end: { date: '2040-02-02' } },
     ], nextSyncToken: 'sync-1' });
   });
   queryImpl = async (sql) => {
     if (sql.startsWith('SELECT event_id FROM google_calendar_deletes')) return { rows: [{ event_id: 'g-old' }] };
-    if (sql.startsWith('SELECT * FROM appointments WHERE google_dirty')) return { rows: [{ id: 'a1', title: 'Jairo – I-CAR', appointment_type: 'Training', appointment_date: '2026-10-16', appointment_time: '07:30', duration: 30, location: 'Shop', updated_at: 't1', google_event_id: null }] };
+    if (sql.includes('FROM appointments WHERE google_dirty')) return { rows: [{ id: 'a1', title: 'Jairo – I-CAR', appointment_type: 'Training', appointment_date: '2026-10-16', appointment_time: '07:30', duration: 30, location: 'Shop', updated_at: 't1', google_event_id: null }] };
     if (sql.startsWith('SELECT * FROM google_calendar_sync')) return { rows: [] };
     if (sql.startsWith('UPDATE appointments SET title=')) return { rowCount: 0, rows: [] };
     if (sql.startsWith('SELECT 1 FROM appointments WHERE google_event_id')) return { rows: [] };
-    if (sql.startsWith('DELETE FROM appointments WHERE google_event_id')) return { rowCount: 1, rows: [] };
+    if (sql.startsWith('DELETE FROM appointments WHERE google_event_id = $1 AND NOT')) return { rowCount: 1, rows: [] };
     return { rows: [], rowCount: 0 };
   };
   const result = await gcal.syncGoogleCalendar();
@@ -101,4 +102,9 @@ test('a sync sends ShopControl changes and deletes, then brings in Google change
   assert.ok(calls.some((c) => c.sql.startsWith('UPDATE appointments SET google_event_id') && c.args[0] === 'g-new'));
   assert.ok(calls.some((c) => c.sql.startsWith('SET LOCAL shopcontrol.google_pull')), 'deletes from Google don\'t bounce back');
   assert.ok(calls.some((c) => c.sql.includes('INSERT INTO google_calendar_sync') && c.args.includes('sync-1')));
+  // More than a year out: not brought in, and anything already past the window is dropped here only.
+  assert.ok(!calls.some((c) => c.sql.startsWith('INSERT INTO appointments') && c.args.includes('Birthday')));
+  assert.ok(calls.some((c) => c.sql.includes("created_by = 'Google Calendar' AND appointment_date > $1")));
+  // The sent appointment compares its exact timestamp text, not a rounded JS date.
+  assert.ok(calls.some((c) => c.sql.includes('updated_at::text IS DISTINCT FROM $3')));
 });
