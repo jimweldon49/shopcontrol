@@ -27,6 +27,10 @@
   let editBack = "group";
   let cartId = null;
   let editingLoc = null;
+  let todayLane = null;
+  let todayAll = false;
+  const trayPicked = new Set();
+  const cartPicked = new Set();
 
   const role = () => String((currentUser && currentUser.role) || "").toLowerCase();
   const canUse = () => PARTS_ROLES.includes(role());
@@ -108,6 +112,143 @@
     return loc.kind === "cart" ? `Cart ${loc.name}${p.part_shelf ? " · " + shelfName(p.part_shelf) : ""}` : `${loc.name} · ${loc.zone}`;
   }
   const groupRows = () => parts.filter((p) => groupKeyOf(p) === groupKey);
+
+  // ---------------------------------------------------------------- Look (same as the office Parts tab, client/partsUi.js)
+  const DONE = ["Complete", "Returned"];
+  const dayDiff = (a, b) => Math.round((new Date(`${a}T12:00:00`) - new Date(`${b}T12:00:00`)) / 864e5);
+  const shortDate = (d) => new Date(`${day(d)}T12:00:00`).toLocaleDateString(I18n.locale(), { month: "short", day: "numeric" });
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const camelJob = (j) => ({ roNumber: j.ro_number, onsite: j.onsite, mergedInto: j.merged_into, currentStage: j.current_stage });
+  const jobOnsite = (j) => !!j && ShopModel.isOnsite(camelJob(j));
+  const carGone = (p) => { const j = jobFor(p); return !!j && ["Delivered", "Total Loss"].includes(j.current_stage); };
+  function stateOf(p) {
+    const s = p.part_status || "";
+    if (DONE.includes(s)) return { key: "done", label: s };
+    if (isLate(p)) { const d = dayDiff(today(), day(p.part_eta)); return { key: "late", label: `Late · ${plural(d, "day")}` }; }
+    if (s === "Backordered") return { key: "backorder", label: s };
+    if (["Wrong Part", "Return Needed", "Credit Pending"].includes(s)) return { key: "issue", label: s };
+    if (s === "Need to Order") return { key: "order", label: "Need to order" };
+    if (s === "Ordered") return { key: "ordered", label: "Ordered" };
+    if (s === "Received") return { key: "received", label: needsMirror(p) ? "Received · mirror match" : "Received" };
+    if (s === "Mirror Matched") return { key: "matched", label: "Mirror matched" };
+    return { key: "other", label: s || "No status" };
+  }
+  const statusPill = (p) => { const s = stateOf(p); return `<span class="pp pp-${s.key}">${esc(s.label)}</span>`; };
+  function etaChip(p) {
+    const s = p.part_status || "";
+    if (DONE.includes(s)) return "";
+    if (["Received", "Mirror Matched"].includes(s)) return p.part_received_date ? `<span class="pc pc-in">Arrived ${esc(shortDate(p.part_received_date))}</span>` : "";
+    if (!p.part_eta) return ["Ordered", "Backordered"].includes(s) ? '<span class="pc pc-warn">No ETA</span>' : "";
+    const d = dayDiff(day(p.part_eta), today());
+    if (d < 0) return `<span class="pc pc-late">${plural(-d, "day")} late</span>`;
+    if (d === 0) return '<span class="pc pc-today">Due today</span>';
+    if (d === 1) return '<span class="pc pc-soon">Tomorrow</span>';
+    return `<span class="pc">ETA ${esc(d < 7 ? new Date(`${day(p.part_eta)}T12:00:00`).toLocaleDateString(I18n.locale(), { weekday: "short" }) : shortDate(p.part_eta))}</span>`;
+  }
+  const rowClass = (p) => ({ late: "pr-late", backorder: "pr-backorder", issue: "pr-issue", done: "pr-muted" }[stateOf(p).key] || "");
+  const cartNum = (name) => String(name || "").replace(/^#\s*/, "");
+  // ROs on a cart: the ones linked to it, or the ones whose parts are on it.
+  const cartRos = (l) => ((l.ros || []).length ? l.ros.map(String) : [...new Set(parts.filter((p) => p.part_location === l.id && !DONE.includes(p.part_status)).map((p) => String(p.parts_ro_number || "").trim()).filter(Boolean))]);
+
+  // Same change to several parts of one RO (the server's bulk update is per RO).
+  async function bulkFor(ids, ro, patch) {
+    if (!ids.length) throw Error("Select parts first.");
+    await apiRequest("/workspace/parts/bulk", { method: "POST", body: JSON.stringify({ action: "update", ids, ro_number: ro, patch }) });
+    await reloadParts();
+    toast(`Updated ${plural(ids.length, "part")} ✓`);
+  }
+  async function saveOne(p, patch, msg) {
+    await apiRequest(`/parts/${p.id}`, { method: "PUT", body: JSON.stringify({ ...patch, expected_updated_at: p.updated_at }) });
+    await reloadParts();
+    toast(msg);
+  }
+
+  // Put several parts of one RO away in one step: cart (or storage) and shelf.
+  function putAwaySheet(ids, after) {
+    const list = parts.filter((p) => ids.includes(p.id));
+    const ro = String(list[0]?.parts_ro_number || "").trim();
+    if (!list.length) return toast("Select parts first.");
+    if (list.some((p) => String(p.parts_ro_number || "").trim() !== ro)) return toast("Put away one RO's parts at a time.");
+    const sorted = locations.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true }));
+    const mine = sorted.filter((l) => l.kind === "cart" && cartRos(l).includes(ro));
+    const empty = sorted.filter((l) => l.kind === "cart" && !cartRos(l).length);
+    const storage = sorted.filter((l) => l.kind !== "cart");
+    const opt = (l) => `<option value="${esc(l.id)}">${l.kind === "cart" ? "Cart " + esc(cartNum(l.name)) : esc(l.name)} · ${esc(l.zone || "")}</option>`;
+    sheet(`<h3>Put away ${plural(list.length, "part")}</h3><p class="hint" translate="no">RO ${esc(ro)}</p>
+      <label class="field"><span>Where</span><select class="input" id="pPutLoc">
+        ${mine.length ? `<optgroup label="Already holding RO ${esc(ro)}">${mine.map(opt).join("")}</optgroup>` : ""}
+        ${empty.length ? `<optgroup label="Empty carts">${empty.map(opt).join("")}</optgroup>` : ""}
+        ${storage.length ? `<optgroup label="Shelves &amp; other storage">${storage.map(opt).join("")}</optgroup>` : ""}
+      </select></label>
+      <label class="field" id="pPutShelfWrap"><span>Shelf</span><select class="input" id="pPutShelf"></select></label>
+      <button class="btn btn-primary" data-confirm>Put away</button><button class="btn btn-ghost" data-close>Cancel</button>`,
+      async () => {
+        const loc = $("pPutLoc").value;
+        if (!loc) throw Error("Pick where they go.");
+        await bulkFor(list.map((p) => p.id), ro, { part_location: loc, part_shelf: $("pPutShelf").value || null });
+        after();
+      });
+    const sync = () => {
+      const shelves = shelvesOf(locations.find((l) => l.id === $("pPutLoc").value));
+      $("pPutShelfWrap").hidden = !shelves.length;
+      $("pPutShelf").innerHTML = '<option value="">Sort later</option>' + shelves.map((x) => `<option value="${x}">${shelfName(x)}</option>`).join("");
+    };
+    $("pPutLoc").onchange = sync; sync();
+  }
+
+  // ---------------------------------------------------------------- Today's parts work
+  function activeJob(p) {
+    const j = jobFor(p);
+    return j && !j.merged_into && ShopModel.jobKind(j.ro_number) === "active" && !["Delivered", "Total Loss"].includes(j.current_stage) ? j : null;
+  }
+  function lanes() {
+    const withJob = parts.filter((p) => !DONE.includes(p.part_status)).map((p) => ({ p, j: activeJob(p) })).filter((x) => x.j);
+    const byJob = new Map();
+    for (const { p, j } of withJob.filter((x) => x.p.part_status === "Need to Order")) {
+      if (!byJob.has(j.id)) byJob.set(j.id, { j, list: [] });
+      byJob.get(j.id).list.push(p);
+    }
+    const order = [...byJob.values()].sort((a, b) => (jobOnsite(b.j) - jobOnsite(a.j)) || day(a.j.target_delivery_date || "9999").localeCompare(day(b.j.target_delivery_date || "9999")));
+    const waiting = withJob.filter((x) => ["Ordered", "Backordered"].includes(x.p.part_status));
+    const follow = waiting.filter(({ p }) => day(p.part_last_follow_up) !== today() && (isLate(p) || p.part_status === "Backordered"
+      || (!p.part_eta && p.part_ordered_date && dayDiff(today(), day(p.part_ordered_date)) >= 2))).sort((a, b) => day(a.p.part_eta || "0").localeCompare(day(b.p.part_eta || "0")));
+    const receive = waiting.filter(({ p }) => p.part_eta && !isLate(p) && dayDiff(day(p.part_eta), today()) <= 1).sort((a, b) => day(a.p.part_eta).localeCompare(day(b.p.part_eta)));
+    return { order, follow, receive };
+  }
+  function renderToday() {
+    const l = lanes();
+    if (!todayLane) todayLane = l.follow.length ? "follow" : l.receive.length ? "receive" : "order";
+    const tabs = [["order", "Order", l.order.length], ["follow", "Follow up", l.follow.length], ["receive", "Receive", l.receive.length]];
+    const car = (j) => `<b translate="no">RO ${esc(j.ro_number)}</b> <span translate="no">· ${esc(String(j.vehicle || "").split(" / ")[0])}</span>`;
+    const list = l[todayLane];
+    const shown = todayAll ? list : list.slice(0, 5);
+    let html;
+    if (todayLane === "order") html = shown.map(({ j, list: ps }) => `<div class="today-item"><div class="ti-head"><span>${car(j)}</span><span class="pp pp-order">${plural(ps.length, "part")}</span></div>
+      <div class="ti-chips">${jobOnsite(j) ? '<span class="pc pc-in">In the shop</span>' : `<span class="pc" translate="no">${esc(j.current_stage || "")}</span>`}${j.target_delivery_date ? `<span class="pc">Out ${esc(shortDate(j.target_delivery_date))}</span>` : ""}</div>
+      <div class="ti-actions"><button class="btn-sm primary" data-porder-car="${esc(j.id)}">Order all</button><button class="btn-sm" data-popen-ro="${esc(j.ro_number)}">Open</button></div></div>`).join("");
+    else html = shown.map(({ p, j }) => `<div class="today-item ${rowClass(p)}"><div class="ti-head"><span translate="no">${esc(p.part_description || "Part")}</span>${statusPill(p)}</div>
+      <div class="ti-chips">${etaChip(p)}${p.part_vendor ? `<span class="pc" translate="no">${esc(p.part_vendor)}</span>` : ""}</div><small>${car(j)}</small>
+      <div class="ti-actions">${todayLane === "follow" ? `<button class="btn-sm primary" data-pfollow="${esc(p.id)}">Called ✓</button><button class="btn-sm" data-pneweta="${esc(p.id)}">New ETA</button>` : `<button class="btn-sm primary" data-preceive="${esc(p.id)}">Received</button>`}</div></div>`).join("");
+    $("pToday").innerHTML = `<div class="today-box"><div class="eyebrow">Today's parts work</div>
+      <div class="today-tabs">${tabs.map(([k, label, n]) => `<button class="today-tab t-${k} ${k === todayLane ? "on" : ""}" data-ptoday="${k}"><b>${n}</b>${esc(label)}</button>`).join("")}</div>
+      ${html || '<div class="empty">Nothing here. 👍</div>'}${list.length > 5 ? `<button class="btn-link" data-ptoday-all>${todayAll ? "Show less" : `Show all ${list.length}`}</button>` : ""}</div>`;
+  }
+  function orderCarSheet(jobId) {
+    const car = lanes().order.find((x) => x.j.id === jobId);
+    if (!car) return;
+    sheet(`<h3>Order ${plural(car.list.length, "part")}</h3><p class="hint" translate="no">RO ${esc(car.j.ro_number)} · ${esc(String(car.j.vehicle || "").split(" / ")[0])}</p>
+      <label class="field"><span>Expected arrival (ETA)</span><input class="input" type="date" id="pCarEta" min="${today()}" value="${addDays(1)}"></label>
+      <p class="hint">Leave blank if the vendor didn't give one; it comes up for a follow-up call in 2 days.</p>
+      <button class="btn btn-primary" data-confirm>Mark ordered</button><button class="btn btn-ghost" data-close>Cancel</button>`,
+      async () => { await bulkFor(car.list.map((p) => p.id), String(car.list[0].parts_ro_number || "").trim(), { part_status: "Ordered", part_ordered_date: today(), part_eta: $("pCarEta").value || null }); renderDesk(); });
+  }
+  function newEtaSheet(id) {
+    const p = parts.find((x) => x.id === id);
+    if (!p) return;
+    sheet(`<h3 translate="no">${esc(p.part_description || "Part")}</h3><label class="field"><span>When the vendor says it'll arrive</span><input class="input" type="date" id="pNewEta" min="${today()}" value="${addDays(1)}"></label>
+      <button class="btn btn-primary" data-confirm>Save ETA</button><button class="btn btn-ghost" data-close>Cancel</button>`,
+      async () => { if (!$("pNewEta").value) throw Error("Pick a date."); await saveOne(p, { part_eta: $("pNewEta").value, part_last_follow_up: today() }, "ETA updated ✓"); renderDesk(); });
+  }
   let groupSearch = "";
   const visibleRows = () => (problemsOnly ? groupRows().filter(problemOf) : groupRows()).filter((p) => ShopModel.partMatches(p, groupSearch));
 
@@ -155,16 +296,25 @@
       hay: rows.map((r) => [r.parts_ro_number, r.parts_customer_name, r.parts_vehicle, r.part_description, r.part_vendor, r.part_status, r.part_notes, whereOf(r)].join(" ")).join(" ").toLowerCase() }))
       .filter((g) => matchesView(g.rows, view) && g.hay.includes(q))
       .sort((a, b) => (b.s.open - a.s.open) || String(a.first.parts_ro_number || "").localeCompare(String(b.first.parts_ro_number || ""), undefined, { numeric: true }));
+    renderToday();
+    // Cars still here with late parts first; delivered cars last.
+    const lateOf = (g) => (carGone(g.first) ? 0 : g.rows.filter(isLate).length);
+    groups.sort((a, b) => (carGone(a.first) - carGone(b.first)) || (lateOf(b) - lateOf(a)) || 0);
     $("pdeskCount").textContent = `${groups.length} vehicle${groups.length === 1 ? "" : "s"}`;
+    const BAR = ["late", "backorder", "issue", "order", "ordered", "received", "matched", "done"];
     $("pdeskList").innerHTML = groups.length ? groups.map((g) => {
-      const counts = [g.s.needOrder && `${g.s.needOrder} to order`, g.s.waiting && `${g.s.waiting} waiting`, g.s.mirror && `${g.s.mirror} to mirror match`, g.s.returns && `${g.s.returns} return/credit`].filter(Boolean).join(" · ");
-      return `<button class="car" data-pgroup="${esc(g.key)}"><div class="body">
-        <div class="ro" translate="no">${g.first.parts_ro_number ? "RO " + esc(g.first.parts_ro_number) : "No RO"}</div>
-        <div class="name" translate="no">${esc(g.first.parts_vehicle || "Vehicle")}</div>
-        <div class="sub" translate="no">${esc(g.first.parts_customer_name || "")}</div>
-        <div class="sub">${g.s.open} open of ${g.s.total}${counts ? " · " + counts : ""}</div>
-        ${g.s.problems ? `<span class="pill bad">${g.s.problems} problem${g.s.problems === 1 ? "" : "s"}</span>` : g.s.open ? "" : '<span class="pill ok">Complete</span>'}
-      </div><span class="arrow-muted">›</span></button>`;
+      const counts = {};
+      for (const r of g.rows) { const k = stateOf(r).key; counts[k] = (counts[k] || 0) + 1; }
+      const gone = carGone(g.first), late = gone ? 0 : counts.late || 0, j = jobFor(g.first);
+      const unplaced = g.rows.filter((r) => ["Received", "Mirror Matched"].includes(r.part_status) && !r.part_location).length;
+      const chips = [late && `<span class="pp pp-late">${late} late</span>`, counts.backorder && `<span class="pp pp-backorder">${counts.backorder} backordered</span>`,
+        counts.order && `<span class="pp pp-order">${counts.order} to order</span>`, counts.ordered && `<span class="pp pp-ordered">${counts.ordered} on order</span>`,
+        g.s.mirror && `<span class="pp pp-received">${g.s.mirror} to mirror match</span>`, unplaced && `<span class="pc pc-warn">${unplaced} not put away</span>`].filter(Boolean).join("");
+      return `<button class="pro-card ${late ? "has-late" : ""} ${gone ? "gone" : ""}" data-pgroup="${esc(g.key)}">
+        <div class="pro-top"><span class="pro-num" translate="no">${esc(g.first.parts_ro_number || "No RO")}</span>${j ? (jobOnsite(j) ? '<span class="pc pc-in">In the shop</span>' : `<span class="pc" translate="no">${esc(j.current_stage || "")}</span>`) : ""}</div>
+        <b class="pro-car" translate="no">${esc(String(g.first.parts_vehicle || "Vehicle").split(" / ")[0])}</b><small translate="no">${esc(g.first.parts_customer_name || "")} · ${plural(g.rows.length, "part")}</small>
+        <div class="pro-bar">${BAR.filter((k) => counts[k]).map((k) => `<i class="seg-${k}" style="flex:${counts[k]}"></i>`).join("")}</div>
+        <div class="pro-chips">${chips || '<span class="pp pp-matched">All set</span>'}</div></button>`;
     }).join("") : '<div class="empty">No vehicles match.</div>';
   }
 
@@ -194,18 +344,18 @@
     const list = visibleRows();
     $("pgroupList").innerHTML = list.map((p) => {
       const prob = problemOf(p), on = selected.has(p.id), where = whereOf(p);
-      const facts = [p.part_type, p.part_vendor, Number(p.part_qty || 1) > 1 ? "Qty " + Number(p.part_qty) : "", p.part_eta ? "ETA " + day(p.part_eta) : "", p.part_cost ? money(value(p)) : ""].filter(Boolean).join(" · ");
-      return `<div class="prow ${on ? "on" : ""}">
+      const facts = [p.part_type, p.part_vendor, Number(p.part_qty || 1) > 1 ? "Qty " + Number(p.part_qty) : "", p.part_cost ? money(value(p)) : ""].filter(Boolean).join(" · ");
+      return `<div class="prow ${on ? "on" : ""} ${rowClass(p)}">
         <button class="pbox" data-psel="${esc(p.id)}" aria-label="Select"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></button>
-        <button class="pbody" data-pedit="${esc(p.id)}">
+        <button class="pbody" data-pedit="${esc(p.id)}"><div class="pbody-row">${PartPhoto.thumb(p.photo_url, p.part_description || "Part", 56)}<div>
           <b translate="no">${esc(p.part_description || "Part")}</b>
           <small translate="no">${esc(facts)}</small>
-          ${p.part_status !== "Complete" ? `<div class="where ${where ? "" : "none"}" translate="no">📍 ${esc(where || "Not placed")}</div>` : ""}
-          <span class="pill ${BAD_STATUSES.includes(p.part_status) || prob === p.part_status ? "bad" : ["Received", "Mirror Matched", "Complete"].includes(p.part_status) ? "ok" : ""}">${esc(p.part_status || "")}</span>
-          ${prob && prob !== p.part_status ? `<span class="pill bad">${esc(prob)}</span>` : ""}
+          <div class="p-chips">${statusPill(p)}${etaChip(p)}</div>
+          ${p.part_status !== "Complete" ? `<div class="where ${where ? "" : "none"}" translate="no">📍 ${esc(where || (["Received", "Mirror Matched"].includes(p.part_status) ? "Not put away" : "Not placed"))}</div>` : ""}
           ${p.part_mirror_matched === "Yes" ? '<span class="pill ok">Mirror matched</span>' : ""}
           ${p.has_core ? `<span class="pill ${p.core_returned ? "ok" : "warn"}">${p.core_returned ? "Core returned" : coreOverdue(p) ? "Core overdue 3+ days" : "Core return due"}</span>` : ""}
-        </button></div>`;
+          <span class="photo-btn" role="button" data-pphoto="${esc(p.id)}">📷 ${p.photo_url ? "Retake photo" : "Add photo"}</span>
+        </div></div></button></div>`;
     }).join("") || '<div class="empty">No problem parts. Turn off "Problem parts only" to see them all.</div>';
     syncSelection();
   }
@@ -342,7 +492,38 @@
     f("part_location").value = p.part_location || "";
     syncEditShelf(p.part_shelf || "");
     $("peditDelete").hidden = !editing || !canDelete();
+    renderEditPhoto();
     showScreen("pedit");
+  }
+
+  // ---------------------------------------------------------------- Part photos
+  function renderEditPhoto() {
+    const box = $("pePhotoBox");
+    box.hidden = !editing;
+    if (!editing) return;
+    box.innerHTML = `${editing.photo_url ? PartPhoto.thumb(editing.photo_url, editing.part_description || "Part", 84) : '<span class="pe-photo-empty">📷</span>'}
+      <div><b>${editing.photo_url ? "Part photo" : "No photo yet"}</b><small class="hint" style="display:block">Techs see it in the app so they know what they're looking for.</small>
+      <span class="photo-btn" role="button" data-pphoto="${esc(editing.id)}">📷 ${editing.photo_url ? "Retake" : "Take photo"}</span>${editing.photo_url ? ' <span class="photo-btn" role="button" data-pphoto-remove>Remove</span>' : ""}</div>`;
+  }
+  async function takePhoto(id) {
+    try {
+      const url = await PartPhoto.take(id);
+      if (!url) return;
+      await reloadParts();
+      toast("Photo saved ✓");
+      if (editing && editing.id === id) { editing = parts.find((p) => p.id === id) || editing; renderEditPhoto(); }
+      if ($("screen-pgroup").classList.contains("active")) renderGroup();
+    } catch (err) { toast(err.message); }
+  }
+  async function removePhoto(id) {
+    if (!id) return;
+    try {
+      await PartPhoto.remove(id);
+      await reloadParts();
+      editing = parts.find((p) => p.id === id) || editing;
+      renderEditPhoto();
+      toast("Photo removed ✓");
+    } catch (err) { toast(err.message); }
   }
 
   function syncEditShelf(cur) {
@@ -402,24 +583,94 @@
     catch (err) { $("pcartsList").innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
   }
 
+  // Received / mirror-matched parts for cars in the shop that aren't put away yet.
+  const trayParts = () => parts.filter((p) => ["Received", "Mirror Matched"].includes(p.part_status) && !p.part_location && jobOnsite(jobFor(p)));
+  const roOf = (id) => String(parts.find((p) => p.id === id)?.parts_ro_number || "").trim();
+  function pickTray(id) {
+    if (trayPicked.has(id)) trayPicked.delete(id);
+    else { for (const x of [...trayPicked]) if (roOf(x) !== roOf(id)) trayPicked.delete(x); trayPicked.add(id); }
+    renderCarts();
+  }
+  function pickTrayRo(ro) {
+    const ids = trayParts().filter((p) => String(p.parts_ro_number || "").trim() === ro).map((p) => p.id);
+    const all = ids.every((id) => trayPicked.has(id));
+    trayPicked.clear();
+    if (!all) ids.forEach((id) => trayPicked.add(id));
+    renderCarts();
+  }
+
+  // Every part the RO still needs is in and on one of its carts (same rule as the office,
+  // client/partsUi.js allPartsHere). Returns and credits don't count.
+  function allPartsHere(ro) {
+    const carts = new Set(locations.filter((l) => l.kind === "cart" && cartRos(l).includes(ro)).map((l) => l.id));
+    const needed = parts.filter((p) => String(p.parts_ro_number || "").trim() === ro && !DONE.includes(p.part_status) && !["Return Needed", "Credit Pending"].includes(p.part_status));
+    return needed.length > 0 && needed.every((p) => ["Received", "Mirror Matched"].includes(p.part_status) && carts.has(p.part_location));
+  }
+  function cartCar(l, here, ros) {
+    if (l.kind !== "cart" || !ros.length || !here.length) return "";
+    const jobs = here.map(jobFor).filter(Boolean);
+    if (jobs.length === here.length && jobs.every((j) => ["Delivered", "Total Loss"].includes(j.current_stage))) return "gone";
+    if (!jobs.some(jobOnsite)) return "";
+    return ros.every(allPartsHere) ? "complete" : "here";
+  }
+
+  function tile(l) {
+    const here = parts.filter((p) => onsite(p) && p.part_location === l.id);
+    const ros = l.kind === "cart" ? cartRos(l) : [...new Set(here.map((p) => String(p.parts_ro_number || "").trim()).filter(Boolean))];
+    const shelves = shelvesOf(l), used = new Set(here.map((p) => p.part_shelf).filter((s) => shelves.includes(s))).size;
+    const unshelved = l.kind === "cart" ? here.filter((p) => !p.part_shelf || !shelves.includes(p.part_shelf)).length : 0;
+    const car = cartCar(l, here, ros);
+    const name = l.kind === "cart" ? cartNum(l.name) : l.name;
+    return `<button class="inv-tile ${here.length || (l.kind === "cart" && ros.length) ? "in-use" : "free"} ${l.kind === "cart" ? "" : "storage"} ${car === "complete" ? "complete" : ""}" data-pcart="${esc(l.id)}">
+      <span class="inv-kind">${l.kind === "cart" ? "Cart" : "Storage"}</span><span class="inv-num ${name.length > 5 ? "long" : ""}" translate="no">${esc(name)}</span>
+      <span class="inv-ro" translate="no">${ros.length ? "RO " + esc(ros.slice(0, 2).join(", ")) + (ros.length > 2 ? ` +${ros.length - 2}` : "") : "Empty"}</span>
+      <span class="inv-count"><b>${here.length}</b> ${here.length === 1 ? "part" : "parts"}</span>
+      ${shelves.length ? `<span class="inv-fill"><i style="width:${Math.round((used / shelves.length) * 100)}%"></i></span>` : ""}
+      ${car === "gone" ? '<span class="inv-flag bad">Car delivered · clear cart</span>' : car === "complete" ? '<span class="inv-flag good">✓\u00a0All parts here</span>' : car === "here" ? '<span class="inv-flag good">Car in shop</span>' : ""}${car !== "gone" && unshelved ? `<span class="inv-flag">${unshelved} need a shelf</span>` : ""}</button>`;
+  }
+
   function renderCarts() {
-    const zones = [...new Set(locations.map((l) => l.zone))];
-    $("pcartsList").innerHTML = zones.length ? zones.map((z) => `<div class="eyebrow" translate="no">${esc(z)}</div><div class="loc-grid">${locations.filter((l) => l.zone === z).map((l) => {
-      const here = parts.filter((p) => onsite(p) && p.part_location === l.id).length;
-      const ros = (l.ros || []).join(" / ");
-      return `<button class="loc-tile ${l.kind === "cart" && ros ? "busy" : ""}" data-pcart="${esc(l.id)}"><b translate="no">${esc(l.name)}</b>
-        <small translate="no">${ros ? "RO " + esc(ros) : l.kind === "cart" ? "Available" : "Other storage"}</small><small>${here} part${here === 1 ? "" : "s"}</small></button>`;
-    }).join("")}</div>`).join("") : '<div class="empty">No carts or locations yet. Add one under Locations.</div>';
+    const tray = trayParts();
+    for (const id of [...trayPicked]) if (!tray.some((p) => p.id === id)) trayPicked.delete(id);
+    const byRo = new Map();
+    for (const p of tray) { const ro = String(p.parts_ro_number || "").trim(); if (!byRo.has(ro)) byRo.set(ro, []); byRo.get(ro).push(p); }
+    const trayHtml = tray.length ? `<details class="tray-box" ${trayPicked.size ? "open" : ""}><summary><span class="eyebrow">Needs a home</span><b>${plural(tray.length, "part")} received, not put away</b><small>Tap an RO to pick all its parts, or tap parts one by one. Then Put away.</small></summary>
+      ${[...byRo].map(([ro, list]) => `<div class="tray-ro ${list.every((p) => trayPicked.has(p.id)) ? "on" : ""}"><button class="tray-ro-head" data-ptray-ro="${esc(ro)}"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><b translate="no">RO ${esc(ro)}</b><small translate="no">${esc(String(list[0].parts_vehicle || "").split(" / ")[0])} · ${list.length}</small></button>
+        ${list.map((p) => `<button class="tray-part ${trayPicked.has(p.id) ? "on" : ""}" data-ptray="${esc(p.id)}"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span translate="no">${esc(p.part_description || "Part")}</span></button>`).join("")}</div>`).join("")}</details>`
+      : '<div class="tray-box empty-tray">Nothing waiting to be put away.</div>';
+    const zones = [...new Set(locations.map((l) => l.zone))].sort((a, b) => (locations.some((l) => l.zone === b && l.kind === "cart") - locations.some((l) => l.zone === a && l.kind === "cart")) || String(a || "").localeCompare(String(b || "")));
+    const sortN = (a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+    $("pcartsList").innerHTML = trayHtml + (zones.length ? zones.map((z) => `<div class="eyebrow" translate="no">${esc(z)}</div><div class="inv-grid">${locations.filter((l) => l.zone === z).sort(sortN).map(tile).join("")}</div>`).join("") : '<div class="empty">No carts or locations yet. Add one under Locations.</div>');
+    $("pTrayFoot").hidden = !trayPicked.size;
+    $("pTrayPut").textContent = `Put away ${plural(trayPicked.size, "part")}`;
+  }
+
+  function pickCart(id) {
+    if (cartPicked.has(id)) cartPicked.delete(id); else cartPicked.add(id);
+    openCart(cartId);
+  }
+  // Several ticked parts to one shelf of this cart.
+  function moveManySheet() {
+    const loc = locations.find((l) => l.id === cartId), ids = [...cartPicked];
+    if (!loc || !ids.length) return;
+    const shelves = shelvesOf(loc), ro = roOf(ids[0]);
+    sheet(`<h3>Move ${plural(ids.length, "part")}</h3><div class="eyebrow">To</div>
+      <div class="choice-grid">${shelves.map((s) => `<button class="choice" data-confirm="${s}">${shelfName(s)}</button>`).join("")}</div>
+      <button class="btn btn-ghost" style="margin-top:14px" data-close>Cancel</button>`,
+      async (_, shelf) => { await bulkFor(ids, ro, { part_location: loc.id, part_shelf: shelf }); cartPicked.clear(); openCart(loc.id); });
   }
 
   function openCart(id) {
+    if (id !== cartId) cartPicked.clear();
     cartId = id;
     const loc = locations.find((l) => l.id === id);
     if (!loc) return openCarts();
     $("pcartTitle").textContent = loc.kind === "cart" ? `Cart ${loc.name}` : loc.name;
     const here = parts.filter((p) => onsite(p) && p.part_location === loc.id);
-    const card = (p) => `<button class="row-card part-card" data-pmove="${esc(p.id)}"><b translate="no">${esc(p.part_description || "Part")}</b>
-      <small translate="no">RO ${esc(p.parts_ro_number || "")}${Number(p.part_qty || 1) > 1 ? " · Qty " + Number(p.part_qty) : ""}</small></button>`;
+    for (const x of [...cartPicked]) if (!here.some((p) => p.id === x)) cartPicked.delete(x);
+    const card = (p) => `<div class="prow ${cartPicked.has(p.id) ? "on" : ""} ${rowClass(p)}"><button class="pbox" data-pcart-pick="${esc(p.id)}" aria-label="Select"><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></button>
+      <button class="pbody" data-pmove="${esc(p.id)}"><div class="pbody-row">${PartPhoto.thumb(p.photo_url, p.part_description || "Part", 48)}<div><b translate="no">${esc(p.part_description || "Part")}</b>
+      <small translate="no">RO ${esc(p.parts_ro_number || "")}${Number(p.part_qty || 1) > 1 ? " · Qty " + Number(p.part_qty) : ""}</small><div class="p-chips">${statusPill(p)}</div></div></div></button></div>`;
     const shelves = shelvesOf(loc);
     let body;
     if (loc.kind !== "cart") body = here.map(card).join("") || '<div class="empty">No parts here.</div>';
@@ -427,10 +678,13 @@
       // Parts placed on the cart during mirror match but not yet given a shelf.
       const unsorted = here.filter((p) => !p.part_shelf || !shelves.includes(p.part_shelf));
       body = (unsorted.length ? `<div class="eyebrow warn-text">Needs a shelf · ${unsorted.length}</div>${unsorted.map(card).join("")}` : "")
-        + shelves.map((s) => { const on = here.filter((p) => p.part_shelf === s); return `<div class="eyebrow">${s === "Top" ? "Top · rarely used" : shelfName(s)}</div>${on.map(card).join("") || '<div class="shelf-empty">Empty</div>'}`; }).join("");
+        + shelves.map((s) => { const on = here.filter((p) => p.part_shelf === s); return `<div class="shelf-block"><div class="shelf-label">${s === "Top" ? "Top · rarely used" : shelfName(s)}<span>${on.length}</span></div>${on.map(card).join("") || '<div class="shelf-empty">Empty</div>'}</div>`; }).join("");
     }
-    $("pcartDetail").innerHTML = `<div class="row-card"><b translate="no">${esc(loc.name)}</b><small translate="no">${esc(loc.zone)}${(loc.ros || []).length ? " · RO " + esc(loc.ros.join(" / ")) : ""}</small>
-      ${loc.kind === "cart" ? '<small style="display:block;margin-top:4px">Tap a part to move it to another shelf. One vehicle per cart.</small>' : ""}</div>${body}`;
+    const ros = loc.kind === "cart" ? cartRos(loc) : [];
+    $("pcartDetail").innerHTML = `<div class="cart-hero"><span class="inv-kind">${loc.kind === "cart" ? "Cart" : esc(loc.zone || "Storage")}</span><span class="inv-num" translate="no">${esc(loc.kind === "cart" ? cartNum(loc.name) : loc.name)}</span>
+      <b class="inv-ro" translate="no">${ros.length ? "RO " + esc(ros.join(" / ")) : loc.kind === "cart" ? "Empty" : ""}</b><small>${plural(here.length, "part")}${loc.kind === "cart" ? " · tick parts and Move to shelf, or tap one" : ""}</small></div>${body}`;
+    $("pCartFoot").hidden = !cartPicked.size || loc.kind !== "cart";
+    $("pCartMove").textContent = `Move ${plural(cartPicked.size, "part")} to a shelf`;
     showScreen("pcart");
   }
 
@@ -590,6 +844,8 @@
     $("peditDelete").onclick = deleteOne;
     $("plocSave").onclick = saveLocation;
     $("plocDelete").onclick = deleteLocation;
+    $("pTrayPut").onclick = () => putAwaySheet([...trayPicked], () => { trayPicked.clear(); renderCarts(); });
+    $("pCartMove").onclick = moveManySheet;
     $("pAddToGroup").onclick = () => {
       const f = groupRows()[0] || {};
       openEdit(null, "group", { parts_ro_number: f.parts_ro_number || "", parts_customer_name: f.parts_customer_name || "", parts_vehicle: f.parts_vehicle || "" });
@@ -600,6 +856,10 @@
       if (v) { view = v.dataset.pview; return renderDesk(); }
       const g = t.closest("[data-pgroup]");
       if (g) return openGroup(g.dataset.pgroup, "desk");
+      if (t.closest(".part-thumb")) return;
+      const ph = t.closest("[data-pphoto]");
+      if (ph) return takePhoto(ph.dataset.pphoto);
+      if (t.closest("[data-pphoto-remove]")) return removePhoto(editing && editing.id);
       const s = t.closest("[data-psel]");
       if (s) return toggleSelect(s.dataset.psel);
       const ed = t.closest("[data-pedit]");
@@ -609,7 +869,26 @@
       const pk = t.closest("[data-ppick]");
       if (pk) return pick(pk.dataset.ppick);
       const act = t.closest("[data-pact]");
-      if (act) return ({ order: orderSheet, receive: receiveSheet, mirror: mirrorSheet, edit: bulkEditSheet, delete: deleteSheet })[act.dataset.pact]();
+      if (act) return ({ order: orderSheet, receive: receiveSheet, mirror: mirrorSheet, putaway: () => putAwaySheet([...selected], () => { selected = new Set(); renderGroup(); }), edit: bulkEditSheet, delete: deleteSheet })[act.dataset.pact]();
+      const tt = t.closest("[data-ptoday]");
+      if (tt) { todayLane = tt.dataset.ptoday; todayAll = false; return renderToday(); }
+      if (t.closest("[data-ptoday-all]")) { todayAll = !todayAll; return renderToday(); }
+      const oc = t.closest("[data-porder-car]");
+      if (oc) return orderCarSheet(oc.dataset.porderCar);
+      const orr = t.closest("[data-popen-ro]");
+      if (orr) return openGroup(orr.dataset.popenRo, "desk");
+      const fu = t.closest("[data-pfollow]");
+      if (fu) { const p = parts.find((x) => x.id === fu.dataset.pfollow); return p && saveOne(p, { part_last_follow_up: today() }, "Follow-up logged ✓").then(renderDesk, (err) => toast(err.message)); }
+      const ne = t.closest("[data-pneweta]");
+      if (ne) return newEtaSheet(ne.dataset.pneweta);
+      const rc = t.closest("[data-preceive]");
+      if (rc) { const p = parts.find((x) => x.id === rc.dataset.preceive); return p && saveOne(p, { part_status: "Received", part_received_date: today() }, "Received ✓ Mirror match it, then put it away.").then(renderDesk, (err) => toast(err.message)); }
+      const tp = t.closest("[data-ptray]");
+      if (tp) return pickTray(tp.dataset.ptray);
+      const tr = t.closest("[data-ptray-ro]");
+      if (tr) return pickTrayRo(tr.dataset.ptrayRo);
+      const cp = t.closest("[data-pcart-pick]");
+      if (cp) return pickCart(cp.dataset.pcartPick);
       const go = t.closest("[data-pgo]");
       if (go) return ({ desk: openDesk, carts: openCarts, returns: openReturns, locs: openLocations, newpart: () => openEdit(null, "desk"), newloc: () => openLocation(null) })[go.dataset.pgo]();
       const c = t.closest("[data-pcart]");

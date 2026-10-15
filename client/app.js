@@ -1249,7 +1249,7 @@ function renderPartsDetailRows(rows) {
     const problem = partProblemReason(r);
     return `<tr class="${problem ? "part-problem-row" : ""} ${PartsUi.rowClass(r)}">
       <td><input type="checkbox" ${selectedPartIds.has(r.id) ? "checked" : ""} onchange="onPartCheckboxChange('${r.id}', this.checked)"></td>
-      <td>${escapeHtml(r.partDescription || "")}${problem ? `<br><span class="problem-badge">${escapeHtml(problem)}</span>` : ""}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":isCoreOverdue(r)?`Core overdue ${CORE_OVERDUE_DAYS}+ days`:"Core return due"}</span>`:""}</td>
+      <td><div class="part-cell">${PartPhoto.thumb(r.photoUrl, r.partDescription || "Part", 44)}<div>${escapeHtml(r.partDescription || "")}${problem ? `<br><span class="problem-badge">${escapeHtml(problem)}</span>` : ""}${r.hasCore?`<br><span class="core-badge">${r.coreReturned?"Core returned":isCoreOverdue(r)?`Core overdue ${CORE_OVERDUE_DAYS}+ days`:"Core return due"}</span>`:""}</div></div></td>
       <td>${r.partType || ""}</td>
       <td>${r.partVendor || ""}</td>
       <td>${PartsUi.locChip(r) || '<span class="muted">—</span>'}</td>
@@ -1259,7 +1259,7 @@ function renderPartsDetailRows(rows) {
       <td>${r.partMirrorMatched || ""}</td>
       <td>${returnCredit || "No"}</td>
       <td>${r.partAssignedTo || ""}</td>
-      <td><div class="actions"><button onclick="editParts('${r.id}')">Edit</button>${deleteBtn('parts', r.id)}</div></td>
+      <td><div class="actions"><button onclick="editParts('${r.id}')">Edit</button><button class="quiet" title="${r.photoUrl ? "Retake" : "Add a"} photo of this part" onclick="PartsUi.photo('${r.id}')">📷${r.photoUrl ? "" : " Photo"}</button>${r.photoUrl ? `<button class="quiet" title="Remove the photo" onclick="PartsUi.removePhoto('${r.id}')">✕📷</button>` : ""}${deleteBtn('parts', r.id)}</div></td>
     </tr>`;
   }).join("");
   syncSelectAllPartsCheckbox();

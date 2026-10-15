@@ -256,6 +256,25 @@ const PartsUi = (() => {
   }
 
   // ------------------------------------------------------------ Carts & floor plan
+  // Every part the RO still needs is in and sitting on one of its carts. Returns and credits
+  // don't count; a wrong part does (the right one is still needed).
+  const NOT_NEEDED = ["Return Needed", "Credit Pending"];
+  function allPartsHere(ro) {
+    const carts = new Set(store.get("inventoryLocations").filter((l) => l.kind === "cart" && cartRos(l).includes(ro)).map((l) => l.id));
+    const needed = store.get("parts").filter((p) => String(p.partsRoNumber || "").trim() === ro && !DONE.includes(p.partStatus) && !NOT_NEEDED.includes(p.partStatus));
+    return needed.length > 0 && needed.every((p) => ["Received", "Mirror Matched"].includes(p.partStatus) && carts.has(p.partLocation));
+  }
+  // The car behind a cart: "gone" (delivered), "complete" (in the shop, every part on the cart),
+  // "here" (in the shop) or "" (not here yet / unknown).
+  function cartCar(l, here, ros) {
+    if (l.kind !== "cart" || !ros.length || !here.length) return "";
+    const daily = store.get("daily");
+    const jobs = here.map((p) => dailyRecordForPartsRow(p, daily)).filter(Boolean);
+    if (jobs.length === here.length && jobs.every((j) => ["Delivered", "Total Loss"].includes(j.currentStage))) return "gone";
+    if (!jobs.some((j) => ShopModel.isOnsite(j))) return "";
+    return ros.every(allPartsHere) ? "complete" : "here";
+  }
+
   function tile(l, selectedId) {
     const here = store.get("parts").filter((p) => isPartOnsite(p) && p.partLocation === l.id);
     // Carts: their RO. Shelves and bins hold several cars, so list whose parts are there.
@@ -263,15 +282,15 @@ const PartsUi = (() => {
     const shelves = shelvesOf(l);
     const unshelved = l.kind === "cart" ? here.filter((p) => !p.partShelf || !shelves.includes(p.partShelf)).length : 0;
     const used = new Set(here.map((p) => p.partShelf).filter((s) => shelves.includes(s))).size;
-    const gone = l.kind === "cart" && ros.length && here.length && here.every((p) => { const j = dailyRecordForPartsRow(p, store.get("daily")); return j && ["Delivered", "Total Loss"].includes(j.currentStage); });
-    const kind = l.kind !== "cart" ? (here.length ? "storage in-use" : "storage free") : here.length || ros.length ? "in-use" : "free";
+    const car = cartCar(l, here, ros);
+    const kind = l.kind !== "cart" ? (here.length ? "storage in-use" : "storage free") : (here.length || ros.length ? "in-use" : "free") + (car === "complete" ? " complete" : "");
     return `<button type="button" class="inv-tile ${kind} ${selectedId === l.id ? "selected" : ""}" onclick="selectInventoryLocation('${e(l.id)}')" data-location="${e(l.id)}">
       <span class="inv-kind">${l.kind === "cart" ? "Cart" : "Storage"}</span>
       <span class="inv-num ${(l.kind === "cart" ? cartNum(l.name) : l.name).length > 6 ? "long" : ""}">${e(l.kind === "cart" ? cartNum(l.name) : l.name)}</span>
       <span class="inv-ro">${ros.length ? `RO ${e(ros.slice(0, 2).join(", "))}${ros.length > 2 ? ` +${ros.length - 2}` : ""}` : "Empty"}</span>
       <span class="inv-count"><b>${here.length}</b> ${here.length === 1 ? "part" : "parts"}</span>
       ${shelves.length ? `<span class="inv-fill" title="${used} of ${shelves.length} shelves used"><i style="width:${Math.round((used / shelves.length) * 100)}%"></i></span>` : ""}
-      ${gone ? `<span class="inv-flag bad">Car delivered · clear cart</span>` : unshelved ? `<span class="inv-flag">${unshelved} need a shelf</span>` : ""}
+      <span class="inv-flags">${car === "gone" ? `<span class="inv-flag bad">Car delivered · clear cart</span>` : car === "complete" ? `<span class="inv-flag good">✓\u00a0All parts here</span>` : car === "here" ? `<span class="inv-flag good">Car in shop</span>` : ""}${car !== "gone" && unshelved ? `<span class="inv-flag">${unshelved} need a shelf</span>` : ""}</span>
     </button>`;
   }
 
@@ -310,7 +329,7 @@ const PartsUi = (() => {
     const picked = shelfPicked.has(p.id);
     return `<div class="part-chip-card ${rowClass(p)} ${picked ? "picked" : ""}" draggable="true" data-part="${e(p.id)}" ondragstart="PartsUi.dragStart(event)">
       <input type="checkbox" ${picked ? "checked" : ""} onchange="PartsUi.pickShelf('${e(p.id)}', this.checked)" aria-label="Select ${e(p.partDescription || "part")}">
-      <button type="button" class="pcc-body" onclick="editParts('${e(p.id)}')"><b>${e(p.partDescription || "Part")}</b><small>RO ${e(p.partsRoNumber || "")}${Number(p.partQty || 1) > 1 ? ` · ×${e(p.partQty)}` : ""}</small>${statusPill(p)}</button>
+      ${PartPhoto.thumb(p.photoUrl, p.partDescription || "Part", 40)}<button type="button" class="pcc-body" onclick="editParts('${e(p.id)}')"><b>${e(p.partDescription || "Part")}</b><small>RO ${e(p.partsRoNumber || "")}${Number(p.partQty || 1) > 1 ? ` · ×${e(p.partQty)}` : ""}</small>${statusPill(p)}</button>
     </div>`;
   }
   function pickShelf(id, on) {
@@ -331,8 +350,19 @@ const PartsUi = (() => {
     try { await updateParts(parts, { partLocation: locationId, partShelf: shelf }); } catch (err) { showStatus(err.message, true); }
   }
 
+  // Take (or retake) a part's photo; it shows in every parts list and the techs' app.
+  async function photo(id) {
+    try {
+      const url = await PartPhoto.take(id);
+      if (url) { showStatus("Photo saved."); await refresh(); }
+    } catch (err) { showStatus(err.message, true); }
+  }
+  async function removePhoto(id) {
+    try { await PartPhoto.remove(id); showStatus("Photo removed."); await refresh(); } catch (err) { showStatus(err.message, true); }
+  }
+
   return {
-    carGone, statusPill, etaChip, locChip, rowClass, state, putAway, updateParts, renderToday, saveOpen, toggleLane,
+    photo, removePhoto, carGone, statusPill, etaChip, locChip, rowClass, state, putAway, updateParts, renderToday, saveOpen, toggleLane,
     followedUp, receive, newEta, orderCar, openRo, roCard, tile, natural, cartNum, cartRos, trayHtml,
     pick, pickRo, putAwayPicked, partCard, pickShelf, dragStart, dropOnShelf,
   };

@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const { pool } = require("../db");
-const { requireAuth, requirePermission } = require("../middleware/auth");
+const { requireAuth, requirePermission, hasPermission } = require("../middleware/auth");
 const { logActivity } = require("../activityLogger");
 const { takenAt } = require("../photoDate");
 
@@ -61,11 +61,25 @@ router.get("/", requireAuth, requirePermission("uploads", "list"), async (req, r
   }
 });
 
-router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "upload"), upload.single("file"), async (req, res) => {
+// Part photos: one small picture per part, taken by whoever can edit parts (the parts person
+// and the office); everyone who can see parts sees it. The apps shrink it before upload.
+const PART_PHOTO_MAX_BYTES = 800 * 1024;
+function partPhotoGuard(req, res, next) {
+  if (req.params.resource === "parts" && !hasPermission(req.user, "parts", "update")) {
+    return res.status(403).json({ error: "Only the parts department and the office can add part photos." });
+  }
+  next();
+}
+
+router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "upload"), partPhotoGuard, upload.single("file"), async (req, res) => {
   try {
     const { resource, recordId } = req.params;
     const note = req.body.note || "";
     if (!req.file) return res.status(400).json({ error: "No file uploaded." });
+    if (resource === "parts" && (!/^image\//.test(req.file.mimetype) || req.file.size > PART_PHOTO_MAX_BYTES)) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: "A part photo must be a picture under 800 KB. Take it from the app so it's made smaller." });
+    }
 
     const fileUrl = `/uploads/${req.file.filename}`;
     const result = await pool.query(
@@ -88,6 +102,16 @@ router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "u
       ]
     );
 
+    if (resource === "parts") {
+      // Replaces the part's photo; updated_at is left alone so nobody's open edit conflicts.
+      const old = (await pool.query("SELECT photo_url FROM parts WHERE id = $1", [recordId])).rows[0];
+      if (!old) { fs.unlink(req.file.path, () => {}); await pool.query("DELETE FROM attachments WHERE id = $1", [result.rows[0].id]); return res.status(404).json({ error: "That part is gone." }); }
+      await pool.query("UPDATE parts SET photo_url = $1 WHERE id = $2", [fileUrl, recordId]);
+      await pool.query(
+        "UPDATE attachments SET deleted_at = now(), deleted_by = $1, deleted_by_id = $2 WHERE resource = 'parts' AND record_id = $3 AND id <> $4 AND deleted_at IS NULL",
+        [req.user.fullName || req.user.username, req.user.id || null, recordId, result.rows[0].id]);
+    }
+
     await logActivity({
       req,
       resource,
@@ -108,6 +132,22 @@ router.post("/:resource/:recordId", requireAuth, requirePermission("uploads", "u
 // managers, admins and owners. It's hidden everywhere, but the file is kept (so it can be
 // brought back) and the deletion is logged on the job it belonged to.
 const DELETE_ROLES = ["office", "manager", "admin", "owner"];
+
+// Take a part's photo off (the file is kept, like other deleted photos).
+router.delete("/parts/:partId/photo", requireAuth, requirePermission("parts", "update"), async (req, res) => {
+  try {
+    const part = (await pool.query("UPDATE parts SET photo_url = NULL WHERE id = $1 RETURNING id, part_description", [req.params.partId])).rows[0];
+    if (!part) return res.status(404).json({ error: "That part is gone." });
+    await pool.query(
+      "UPDATE attachments SET deleted_at = now(), deleted_by = $1, deleted_by_id = $2 WHERE resource = 'parts' AND record_id = $3 AND deleted_at IS NULL",
+      [req.user.fullName || req.user.username, req.user.id || null, part.id]);
+    await logActivity({ req, resource: "parts", recordId: part.id, action: "delete", summary: `Removed the photo of "${part.part_description || "part"}"` });
+    res.json({ removed: true });
+  } catch (err) {
+    console.error("Remove part photo error:", err);
+    res.status(500).json({ error: "Couldn't remove that photo." });
+  }
+});
 router.delete("/:id", requireAuth, requirePermission("uploads", "list"), async (req, res) => {
   try {
     const row = (await pool.query("SELECT * FROM attachments WHERE id = $1 AND deleted_at IS NULL", [req.params.id])).rows[0];

@@ -424,9 +424,10 @@ function renderJobParts() {
           : where ? `<div class="where">📍 ${esc(where)}</div>`
           : p.part_status === "Received" ? `<div class="where none">📍 Here, not put away yet · ask parts</div>`
           : "";
-        return `<div class="row-card"><b>${esc(p.part_description || "Part")}</b>
+        // The part's photo (taken by parts) so techs know what they're looking for; tap to enlarge.
+        return `<div class="row-card ${p.photo_url ? "with-thumb" : ""}">${PartPhoto.thumb(p.photo_url, p.part_description || "Part", 64)}<div><b>${esc(p.part_description || "Part")}</b>
           <small>${esc([p.part_vendor, p.part_eta ? "ETA " + String(p.part_eta).slice(0, 10) : ""].filter(Boolean).join(" · "))}</small>${whereLine}
-          <span class="pill ${prob ? "bad" : ok ? "ok" : ""}">${esc(prob || p.part_status || "")}</span></div>`;
+          <span class="pill ${prob ? "bad" : ok ? "ok" : ""}">${esc(prob || p.part_status || "")}</span></div></div>`;
       }).join("") : cartBanner + `<div class="empty">${q.trim() && jobParts.length ? "No parts match that search." : "No parts on file for this RO."}</div>`;
 }
 
