@@ -54,6 +54,8 @@ app.use('/api/staff', require('./routes/staff'));
 app.use('/api/jobHistory', require('./routes/jobHistory'));
 app.use('/api/shopBoard', require('./routes/shopBoard'));
 app.use('/api/tech-board', require('./routes/techBoard'));
+app.use('/api/meeting', require('./routes/meeting'));
+app.use('/api/training', require('./routes/training'));
 app.use('/api/portal', require('./routes/portal').publicRouter);
 app.use('/api/customer-portal', require('./routes/portal').staffRouter);
 mountRecordRoutes(app); // registers /api/daily, /api/tasks, /api/parts, /api/qc, /api/booth, /api/facility
@@ -66,6 +68,8 @@ startPartsAgingAlerts();
 require('./coreNotifications').startCoreNotifications();
 require('./customerUpdateReminders').startCustomerUpdateReminders();
 require('./techBoardAlerts').startTechBoardAlerts();
+require('./trainingAlerts').startTrainingAlerts();
+require('./googleCalendar').startGoogleCalendarSync();
 // The web app and employee app share this server and login origin.
 // The two app pages go out with their scripts version-stamped (see appVersion.js).
 // The customer status page: /update (look up by RO + last name) and /update/<link>.

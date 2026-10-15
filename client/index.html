@@ -83,6 +83,7 @@
     <div class="nav-brand"><img src="img/logo.png" alt="Concept Autobody" /><small>SHOP CONTROL</small></div>
     <button class="tab active" data-tab="dashboard">Dashboard</button>
     <button class="tab" data-tab="notifications">Notifications <span id="notificationCount"></span></button>
+    <button class="tab" data-tab="meeting">Morning Meeting</button>
     <div class="nav-group" data-group="jobs">
       <button type="button" class="nav-group-toggle" aria-expanded="false">Jobs<span class="nav-group-count"></span></button>
       <div class="nav-group-items">
@@ -144,6 +145,7 @@
       <div class="nav-group-items">
         <button class="tab" data-tab="staffHub" id="staffHubTabBtn">Messages &amp; Info</button>
         <button class="tab" data-tab="timeOff" id="timeOffTabBtn" style="display:none;">Time Off</button>
+        <button class="tab" data-tab="training" id="trainingTabBtn" style="display:none;">Training</button>
         <button class="tab" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
       </div>
     </div>
@@ -168,6 +170,8 @@
   <main>
 <div id="unifiedPanels"></div>
 <section class="tab-panel" id="techBoard"></section>
+<section class="tab-panel" id="meeting"></section>
+<section class="tab-panel" id="training"></section>
     <section id="daily" class="tab-panel">
       <div class="section-head">
         <h2>Daily GO List</h2>
@@ -782,8 +786,8 @@
 
     <section id="cycle1" class="tab-panel">
       <div class="section-head">
-        <h2>Cycle Time: $0 - $2,000 (2 Day Target)</h2>
-        <p>Active jobs in this dollar range. Target delivery = intake date + 2 days.</p>
+        <h2>Cycle Time: $0 - $2,000 (2 Days DRP / 3 Days Non-DRP)</h2>
+        <p>Active jobs in this dollar range. Target delivery = intake date + 2 days for DRP jobs (DRP card flag), 3 days for all others.</p>
       </div>
       <div class="toolbar">
         <input id="cycle1Search" placeholder="Search RO, customer, vehicle..." />
@@ -803,8 +807,8 @@
 
     <section id="cycle2" class="tab-panel">
       <div class="section-head">
-        <h2>Cycle Time: $2,000 - $4,000 (4 Day Target)</h2>
-        <p>Active jobs in this dollar range. Target delivery = intake date + 4 days.</p>
+        <h2>Cycle Time: $2,000 - $4,000 (4 Days DRP / 5 Days Non-DRP)</h2>
+        <p>Active jobs in this dollar range. Target delivery = intake date + 4 days for DRP jobs (DRP card flag), 5 days for all others.</p>
       </div>
       <div class="toolbar">
         <input id="cycle2Search" placeholder="Search RO, customer, vehicle..." />
@@ -824,8 +828,8 @@
 
     <section id="cycle3" class="tab-panel">
       <div class="section-head">
-        <h2>Cycle Time: $4,000 - $10,000 (8 Day Target)</h2>
-        <p>Active jobs in this dollar range. Target delivery = intake date + 8 days.</p>
+        <h2>Cycle Time: $4,000 - $10,000 (8 Days DRP / 9 Days Non-DRP)</h2>
+        <p>Active jobs in this dollar range. Target delivery = intake date + 8 days for DRP jobs (DRP card flag), 9 days for all others.</p>
       </div>
       <div class="toolbar">
         <input id="cycle3Search" placeholder="Search RO, customer, vehicle..." />
@@ -845,8 +849,8 @@
 
     <section id="cycle4" class="tab-panel">
       <div class="section-head">
-        <h2>Cycle Time: $10,000+ (15 Day Target)</h2>
-        <p>Active jobs at or above $10,000. Target delivery = intake date + 15 days.</p>
+        <h2>Cycle Time: $10,000+ (15 Days DRP / 16 Days Non-DRP)</h2>
+        <p>Active jobs at or above $10,000. Target delivery = intake date + 15 days for DRP jobs (DRP card flag), 16 days for all others.</p>
       </div>
       <div class="toolbar">
         <input id="cycle4Search" placeholder="Search RO, customer, vehicle..." />
@@ -1113,6 +1117,8 @@
 <script src="app.js"></script>
 <script src="staff.js"></script>
 <script src="techBoard.js"></script>
+<script src="meeting.js"></script>
+<script src="training.js"></script>
 <script src="portal-admin.js"></script>
 <script src="nav.js"></script>
 <script src="completed.js"></script>

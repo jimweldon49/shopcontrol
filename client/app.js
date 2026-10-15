@@ -723,22 +723,13 @@ function addDaysStr(dateStr, days) {
   d.setDate(d.getDate() + days);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-const CYCLE_TIERS = [
-  { key: "cycle1", min: 0, max: 2000, days: 2 },
-  { key: "cycle2", min: 2000, max: 4000, days: 4 },
-  { key: "cycle3", min: 4000, max: 10000, days: 8 },
-  { key: "cycle4", min: 10000, max: Infinity, days: 15 },
-];
-function cycleTierFor(amount) {
-  const n = Number(amount);
-  if (!Number.isFinite(n)) return null;
-  return CYCLE_TIERS.find(t => n >= t.min && n < t.max) || CYCLE_TIERS[CYCLE_TIERS.length - 1];
-}
+// Tiers and days live in shared.js (ShopModel.cycleDays): non-DRP jobs get an extra day.
+const CYCLE_TIERS = ShopModel.cycleTiers;
 function cycleTargetDateFor(r) {
-  const tier = cycleTierFor(r.roAmount);
+  const days = ShopModel.cycleDays(r.roAmount, r.boardFlags);
   const intake = dateFromIsoLocal(r.createdAt);
-  if (!tier || !intake) return "";
-  return addDaysStr(intake, tier.days);
+  if (days == null || !intake) return "";
+  return addDaysStr(intake, days);
 }
 function cycleStatusFor(targetDate) {
   if (!targetDate) return { label: "", cls: "" };
@@ -2251,6 +2242,8 @@ function showApp() {
   loadStaffRoster();
   if (!kiosk && typeof StaffHub !== "undefined") StaffHub.start();
   if (!kiosk && typeof TechBoard !== "undefined") TechBoard.start();
+  if (!kiosk && typeof Meeting !== "undefined") Meeting.start();
+  if (!kiosk && typeof Training !== "undefined") Training.start();
   if (["admin","owner"].includes(String(currentUser?.role || "").toLowerCase())) loadEmployees();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => loadAll(true), 20000); // keep multiple browsers in sync

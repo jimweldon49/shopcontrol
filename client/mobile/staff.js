@@ -73,6 +73,9 @@
     if (name === "approve") openApprove(focus);
     if (name === "mail") openMail();
     if (name === "info") openInfo();
+    if (name === "topic") openTopic();
+    if (name === "meetingview") openMeetingView();
+    if (name === "mytraining") openMyTraining();
   }
 
   // ---------------------------------------------------------------- Counts
@@ -145,6 +148,78 @@
       openRequests();
     } catch (err) { showAlert("toError", err.message); }
     finally { btn.disabled = false; btn.textContent = "Submit request"; }
+  }
+
+  // ---------------------------------------------------------------- My training
+  // Your courses for the year (server/src/routes/training.js); the office keeps the list.
+  async function openMyTraining() {
+    $("mtrBody").innerHTML = `<div class="empty">${esc(I18n.t("Loading…"))}</div>`;
+    showScreen("mytraining");
+    try {
+      const t = await apiRequest("/training/mine");
+      if (!t.courses.length) { $("mtrBody").innerHTML = `<div class="empty">${esc(I18n.t("No training on your list yet."))}</div>`; return; }
+      const head = t.status === "overdue" ? "You have training past its due date." : t.status === "behind" ? "You're falling behind on training." : t.status === "done" ? "All done for this year. Nice work!" : "You're on track.";
+      const left = t.courses.filter((c) => !c.completedOn), done = t.courses.filter((c) => c.completedOn);
+      const row = (c) => {
+        const late = !c.completedOn && c.dueDate < t.today;
+        const when = c.completedOn ? `${I18n.t("Done")} ${fmtDay(c.completedOn)}` : `${I18n.t("Due")} ${fmtDay(c.dueDate)}${c.scheduledDate ? ` · ${I18n.t("Scheduled")} ${fmtDay(c.scheduledDate)}${c.scheduledTime ? " " + clock(c.scheduledTime) : ""}` : ` · ${I18n.t("Not scheduled yet")}`}`;
+        return `<div class="row-card${late ? " mtr-late" : ""}"><b translate="no">${esc(c.provider ? `${c.provider}: ` : "")}${esc(c.course)}</b><small>${esc(when)}</small></div>`;
+      };
+      $("mtrBody").innerHTML = `<div class="mv-head"><b>${esc(I18n.t(head))}</b><small>${t.done} / ${t.total} ${esc(I18n.t("done this year"))}</small></div>`
+        + (left.length ? `<div class="eyebrow">${esc(I18n.t("Still to do"))}</div>${left.map(row).join("")}` : "")
+        + (done.length ? `<div class="eyebrow">${esc(I18n.t("Done"))}</div>${done.map(row).join("")}` : "");
+    } catch (err) { $("mtrBody").innerHTML = `<div class="alert alert-error" style="display:block">${esc(err.message)}</div>`; }
+  }
+
+  // ---------------------------------------------------------------- Morning meeting notes
+  // Only what the office published for today (server/src/routes/meeting.js), no amounts.
+  async function openMeetingView() {
+    $("mvBody").innerHTML = `<div class="empty">${esc(I18n.t("Loading…"))}</div>`;
+    showScreen("meetingview");
+    try {
+      const p = await apiRequest("/meeting/published");
+      if (!p) { $("mvBody").innerHTML = `<div class="empty">${esc(I18n.t("Today's meeting notes haven't been published yet."))}</div>`; return; }
+      const day = fmtDay(p.date);
+      $("mvBody").innerHTML = `<div class="mv-head"><b>${esc(day)}</b><small>${esc(I18n.t("Published by"))} <span translate="no">${esc(p.publishedBy)}</span></small></div>`
+        + p.sections.map((s) => `<div class="${s.level === 3 ? "mv-sub" : "eyebrow"}">${esc(s.title)}</div>`
+          + (s.lines.length ? s.lines.map((l) => `<div class="mv-line" translate="no">${esc(l)}</div>`).join("") : `<div class="mv-line mv-none">${esc(I18n.t("None"))}</div>`)).join("");
+    } catch (err) { $("mvBody").innerHTML = `<div class="alert alert-error" style="display:block">${esc(err.message)}</div>`; }
+  }
+
+  // ---------------------------------------------------------------- Meeting topic
+  // Topics for the morning meeting sheet (server/src/routes/meeting.js).
+  async function openTopic() {
+    $("mtText").value = "";
+    $("mtAnon").checked = false;
+    showAlert("mtError", "");
+    showScreen("topic");
+    await showMyTopics();
+  }
+
+  async function showMyTopics() {
+    const status = (t) => (t.status === "covered" ? "Covered at the meeting" : t.status === "hidden" ? "Not used" : "Waiting for the next meeting");
+    try {
+      const mine = await apiRequest("/meeting/topics/mine");
+      $("mtMine").innerHTML = mine.length
+        ? mine.map((t) => `<div class="row-card"><b translate="no">${esc(t.text)}</b><small>${esc(I18n.t(status(t)))}${t.anonymous ? ` · ${esc(I18n.t("anonymous"))}` : ""} · ${esc(when(t.createdAt))}</small></div>`).join("")
+        : `<div class="empty">No topics yet.</div>`;
+    } catch (_) { $("mtMine").innerHTML = ""; }
+  }
+
+  async function submitTopic() {
+    showAlert("mtError", "");
+    const text = $("mtText").value.trim();
+    if (!text) return showAlert("mtError", "Write the topic first.");
+    const btn = $("mtSubmit");
+    btn.disabled = true;
+    try {
+      await apiRequest("/meeting/topics", { method: "POST", body: JSON.stringify({ text, anonymous: $("mtAnon").checked }) });
+      $("mtText").value = "";
+      $("mtAnon").checked = false;
+      toast("Topic added ✓");
+      await showMyTopics();
+    } catch (err) { showAlert("mtError", err.message); }
+    finally { btn.disabled = false; }
   }
 
   // ---------------------------------------------------------------- Missed punch
@@ -512,6 +587,7 @@
     });
     $("toStart").addEventListener("change", () => { if ($("toEnd").value < $("toStart").value) $("toEnd").value = $("toStart").value; });
     $("toSubmit").onclick = submitTimeOff;
+    $("mtSubmit").onclick = submitTopic;
     $("mpSubmit").onclick = submitPunch;
     $("pfSubmit").onclick = submitPayfix;
     $("pfAddDay").onclick = addDay;

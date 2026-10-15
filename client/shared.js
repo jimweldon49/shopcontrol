@@ -7,12 +7,13 @@
   const isOnsite=j=>jobKind(j.roNumber)==='active'&&j.onsite===true&&!j.mergedInto&&production.includes(j.currentStage);
   const openOpportunity=j=>jobKind(j.roNumber)==='opportunity'&&!j.mergedInto&&!['No Show','Delivered','Total Loss'].includes(j.currentStage);
   const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n)||0);
-  const defaults=()=>({insurance:['Allstate','State Farm','GEICO','Progressive','CSAA','Farmers','Other'],technicians:['Travis','Cesar','Jairo','Doro','Tony'],estimators:['Marc','Mickey','Bubba'],payTypes:['Insurance pay','Customer pay','Self pay','Warranty','Commercial'],locations:['Ceres','Modesto','Commercial','Off-Site','Sublet'],appointmentTypes:['Drop-off','Estimate appointment','Pickup / delivery','Tow-in','Sublet','Calibration','Customer meeting','Internal reminder'],colors:[{name:'Insurance pay',color:'#cfedf2'},{name:'Customer pay',color:'#d8f2da'},{name:'Must go',color:'#fff0a9'},{name:'Problem job',color:'#ffd5db'},{name:'Commercial',color:'#e8dcf7'},{name:'Waiting',color:'#ffe2c2'}],flags:['Parts issue','Supplement pending','Customer update needed','Final QC needed','Detail needed','ADAS / calibration','Sublet','Delivery today','Management attention','Structural repair','Customer contacted','Payment confirmed','Deductible owed','Waiting insurance payment','Storage concern','Total loss pickup','Delivered but unpaid','Paid'],coreRecipients:[],missedCallEscalation:[]});
+  const defaults=()=>({insurance:['Allstate','State Farm','GEICO','Progressive','CSAA','Farmers','Other'],technicians:['Travis','Cesar','Jairo','Doro','Tony'],estimators:['Marc','Mickey','Bubba'],payTypes:['Insurance pay','Customer pay','Self pay','Warranty','Commercial'],locations:['Ceres','Modesto','Commercial','Off-Site','Sublet'],appointmentTypes:['Drop-off','Estimate appointment','Pickup / delivery','Tow-in','Sublet','Calibration','Customer meeting','Internal reminder','Meeting','Training'],colors:[{name:'Insurance pay',color:'#cfedf2'},{name:'Customer pay',color:'#d8f2da'},{name:'Must go',color:'#fff0a9'},{name:'Problem job',color:'#ffd5db'},{name:'Commercial',color:'#e8dcf7'},{name:'Waiting',color:'#ffe2c2'}],flags:['Parts issue','Supplement pending','Customer update needed','Final QC needed','Detail needed','ADAS / calibration','Sublet','Delivery today','Management attention','Structural repair','Customer contacted','Payment confirmed','Deductible owed','Waiting insurance payment','Storage concern','Total loss pickup','Delivered but unpaid','Paid','DRP'],coreRecipients:[],missedCallEscalation:[]});
 
   // Inline Lucide icon markup (MIT licensed, https://lucide.dev) so board cards render real icons
   // without a network/CDN dependency. Each value is the inner <path>/<circle>/etc markup for a
   // 24x24 viewBox icon; svgIcon() wraps it with sizing + stroke attributes.
   const LUCIDE_ICONS={
+    ShieldCheck:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" />',
     Package:'<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /><path d="M12 22V12" /><polyline points="3.29 7 12 12 20.71 7" /><path d="m7.5 4.27 9 5.15" />',
     FileClock:'<path d="M16 22h2a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v2.85" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M8 14v2.2l1.6 1" /><circle cx="8" cy="16" r="6" />',
     Phone:'<path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />',
@@ -42,7 +43,7 @@
     'Sublet':'Wrench','Delivery today':'Truck','Management attention':'Flag','Structural repair':'Hammer',
     'Customer contacted':'PhoneCall','Payment confirmed':'BadgeCheck','Deductible owed':'CircleDollarSign',
     'Waiting insurance payment':'Clock','Storage concern':'Warehouse','Total loss pickup':'Truck',
-    'Delivered but unpaid':'CircleAlert','Paid':'Check',
+    'Delivered but unpaid':'CircleAlert','Paid':'Check','DRP':'ShieldCheck',
   };
   function svgIcon(name,size=14){const inner=LUCIDE_ICONS[name]||LUCIDE_ICONS.Flag;return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`;}
   function flagIconName(label){return FLAG_ICON_MAP[label]||'Flag';}
@@ -105,6 +106,19 @@
   // Parts search: words in the description, vendor or notes, and part numbers typed with or
   // without the dashes and spaces ("521190R938" finds "#52119-0R938").
   const partMatches=(p,q)=>{const text=[p.partDescription??p.part_description,p.partVendor??p.part_vendor,p.partNotes??p.part_notes].join(' ').toLowerCase(),want=String(q||'').trim().toLowerCase();if(!want)return true;const squash=s=>s.replace(/[^a-z0-9]/g,'');return text.includes(want)||(squash(want).length>=3&&squash(text).includes(squash(want)));};
+  // Cycle time: days from intake to delivery, by RO amount. DRP jobs (the "DRP" card flag)
+  // get the tier's days; every other job gets one extra day. Used by the cycle time tabs,
+  // the dashboard and the emails (server/src/cycleTimeAlerts.js).
+  const cycleTiers=[
+    {key:'cycle1',min:0,max:2000,days:2,label:'$0 - $2,000'},
+    {key:'cycle2',min:2000,max:4000,days:4,label:'$2,000 - $4,000'},
+    {key:'cycle3',min:4000,max:10000,days:8,label:'$4,000 - $10,000'},
+    {key:'cycle4',min:10000,max:Infinity,days:15,label:'$10,000+'},
+  ];
+  const NON_DRP_EXTRA_DAYS=1;
+  const isDrp=flags=>Array.isArray(flags)&&flags.includes('DRP');
+  function cycleTier(amount){if(amount===null||amount===undefined||amount==='')return null;const n=Number(amount);if(!Number.isFinite(n))return null;return cycleTiers.find(t=>n>=t.min&&n<t.max)||cycleTiers[cycleTiers.length-1];}
+  function cycleDays(amount,flags){const t=cycleTier(amount);return t?t.days+(isDrp(flags)?0:NON_DRP_EXTRA_DAYS):null;}
   // Each user's own look (Display button; client/display.js, client/themes.css). The first
   // of each list is the default. Saved per user in users.display_prefs.
   const displayOptions={
@@ -113,5 +127,5 @@
     accent:[{id:'',name:'Theme color'},{id:'orange',name:'Orange'},{id:'blue',name:'Blue'},{id:'green',name:'Green'},{id:'teal',name:'Teal'},{id:'purple',name:'Purple'},{id:'red',name:'Red'},{id:'pink',name:'Pink'}],
   };
   function cleanDisplayPrefs(p){p=p&&typeof p==='object'?p:{};const pick=(k)=>displayOptions[k].some(o=>o.id===p[k])?p[k]:displayOptions[k][0].id;return {theme:pick('theme'),text:pick('text'),accent:pick('accent')};}
-  return {displayOptions,cleanDisplayPrefs,partMatches,production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
+  return {cycleTiers,cycleTier,cycleDays,isDrp,NON_DRP_EXTRA_DAYS,displayOptions,cleanDisplayPrefs,partMatches,production,delivery,planning,stages,jobKind,isOnsite,openOpportunity,money,defaults,totals,boardPatch,sameOpportunity,svgIcon,flagIconName,customerUpdateDueAt,vehicleTypes,vehicleColors,guessVehicle,vehicleImage};
 });
